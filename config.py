@@ -1,0 +1,34 @@
+import pymysql
+
+# Aiven 클라우드 MySQL 연결 설정
+# (이 코드는 인터넷이 되는 다른 컴퓨터에서도 똑같이 실행할 수 있습니다)
+connection = pymysql.connect(
+    host='stockcleardb-stockceardb.h.aivencloud.com',
+    user='',
+    password='',  # Aiven 대시보드 비밀번호 입력
+    database='defaultdb',
+    port="",
+    charset='utf8mb4',
+    cursorclass=pymysql.cursors.DictCursor
+)
+
+try:
+    with connection.cursor() as cursor:
+        # 예시 데이터 삽입 쿼리
+        sql = "INSERT INTO user (username, password_hash, role) VALUES (%s, %s, %s)"
+        
+        # 넣을 실제 데이터 예시
+        sample_data = ('홍길동', '비밀번호지롱', '가나다라마바사')
+        
+        cursor.execute(sql, sample_data)
+        
+    # 데이터베이스에 반영(Commit)
+    connection.commit()
+    print("예시 데이터가 성공적으로 입력되었습니다!")
+
+except Exception as e:
+    print(f"에러가 발생했습니다: {e}")
+
+finally:
+    # 연결 닫기
+    connection.close()
