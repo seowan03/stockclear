@@ -151,14 +151,74 @@
       }
     }
 
-    function handleLogin() {
-      alert("로그인 성공! 업로드 페이지로 이동합니다.");
-      window.location.href = "upload.html";
+    async function handleLogin() {
+      const form = document.getElementById('form-login');
+      const email = form.email.value.trim();
+      const password = form.password.value;
+
+      if (!email || !password) {
+        alert("이메일과 비밀번호를 입력해주세요.");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.detail || "로그인에 실패했습니다.");
+          return;
+        }
+
+        alert(`${data.username}님, 환영합니다!`);
+        window.location.href = "mainpage.html";
+      } catch (err) {
+        alert("서버와 통신 중 오류가 발생했습니다.");
+      }
     }
 
-    function handleSignup() {
-      alert("회원가입이 완료되었습니다! 로그인해 주세요.");
-      switchTab('login');
+    async function handleSignup() {
+      const form = document.getElementById('form-signup');
+      const username = form.name.value.trim();
+      const email = form.email.value.trim();
+      const password = form.password.value;
+      const passwordConfirm = form.password_confirm.value;
+
+      if (!username || !email || !password || !passwordConfirm) {
+        alert("모든 항목을 입력해주세요.");
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        alert("비밀번호가 일치하지 않습니다.");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ username, email, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.detail || "회원가입에 실패했습니다.");
+          return;
+        }
+
+        alert("회원가입이 완료되었습니다! 로그인해 주세요.");
+        switchTab('login');
+        form.reset();
+      } catch (err) {
+        alert("서버와 통신 중 오류가 발생했습니다.");
+      }
     }
   </script>
 </body>

@@ -1,9 +1,18 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.staticfiles import StaticFiles
 import pandas as pd
 import io
 from app.analysis import analyze_inventory
+from app.database import Base, engine
+from app import models  # noqa: F401 (Base.metadata에 테이블 등록용)
 
 app = FastAPI(title="StockClear Backend", version="1.0")
+
+# static 폴더(signin.html 등)를 같은 origin에서 서빙
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 서버 시작 시 users 등 테이블이 없으면 자동 생성
+Base.metadata.create_all(bind=engine)
 
 
 # --- 엑셀 업로드 및 파싱 API ---
@@ -73,6 +82,9 @@ async def upload_and_parse_excel(file: UploadFile = File(...)):
 
 
 # router.py 연결
-from app.router import router
+from app.router import router as analysis_router
+app.include_router(analysis_router)
 
-app.include_router(router)
+# app.py 연결 (로그인/회원가입 API)
+from app.app import router as auth_router
+app.include_router(auth_router)
