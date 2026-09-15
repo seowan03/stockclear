@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockClear - 대시보드</title>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    body { background-color: #0b1120; color: #f8fafc; min-height: 100vh; padding: 24px 48px; }
+
+    /* 상단 네비게이션 바 */
+    .navbar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 32px; }
+    .logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; color: #fff; cursor: pointer; text-decoration: none; }
+    .logo-icon { background: #2563eb; color: #fff; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
+
+    .nav-links { display: flex; gap: 4px; background-color: #070d19; padding: 4px; border-radius: 12px; border: 1px solid #1e293b; }
+    .nav-link { color: #94a3b8; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .nav-link:hover { color: #fff; }
+    .nav-link.active { background-color: #2563eb; color: #fff; }
+
+    .auth-buttons { display: flex; gap: 12px; align-items: center; }
+    .btn-login { color: #cbd5e1; text-decoration: none; font-size: 13px; font-weight: 600; padding: 8px 12px; }
+    .btn-signup { background-color: #2563eb; color: #fff; text-decoration: none; font-size: 13px; padding: 8px 18px; border-radius: 20px; font-weight: 700; }
+
+    /* 타이틀 영역 */
+    .content-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+    .page-title h1 { font-size: 26px; font-weight: 800; color: #ffffff; margin-bottom: 6px; letter-spacing: -0.5px; }
+    .page-title p { color: #64748b; font-size: 13px; font-weight: 500; }
+
+    .btn-ai-strategy { background-color: #2563eb; color: #fff; border: none; padding: 10px 18px; border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 0 15px rgba(37, 99, 235, 0.4); }
+
+    /* 상단 KPI 카드 4개 */
+    .kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: #0f172a; border: 1px solid #1e293b; padding: 20px; border-radius: 12px; }
+    .kpi-title { font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 10px; }
+    .kpi-value { font-size: 26px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+    .kpi-value.text-red { color: #f43f5e; }
+    .kpi-value.text-yellow { color: #eab308; }
+    .kpi-value.text-green { color: #22c55e; }
+    .kpi-sub { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .kpi-sub.up { color: #22c55e; }
+    .kpi-sub.danger { color: #f43f5e; }
+    .kpi-sub.warning { color: #eab308; }
+    .kpi-sub.neutral { color: #64748b; }
+
+    /* 하단 차트 섹션 (1번 사진의 아래 영역 교체 부분) */
+    .chart-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .chart-card { background: #0f172a; border: 1px solid #1e293b; padding: 24px; border-radius: 12px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .chart-header h3 { font-size: 15px; font-weight: 700; color: #fff; }
+    .chart-header span { font-size: 12px; color: #64748b; }
+
+    .chart-wrapper { position: relative; height: 250px; display: flex; justify-content: center; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <!-- 네비게이션 바 (1번 사진 동일) -->
+  <nav class="navbar">
+    <a href="javascript:void(0)" class="logo">
+      <div class="logo-icon">S</div>
+      <span>StockClear</span>
+    </a>
+    <div class="nav-links">
+      <a href="javascript:void(0)" class="nav-link"><span>🏠</span> 메인 Home</a>
+      <a href="javascript:void(0)" class="nav-link"><span>☁️</span> 업로드</a>
+      <a href="javascript:void(0)" class="nav-link"><span>⏳</span> 업로드 기록</a>
+      <a href="javascript:void(0)" class="nav-link active"><span>📊</span> 대시보드</a>
+      <a href="javascript:void(0)" class="nav-link"><span>📦</span> 재고 목록</a>
+      <a href="javascript:void(0)" class="nav-link"><span>🪄</span> AI 전략</a>
+      <a href="javascript:void(0)" class="nav-link"><span>📄</span> 내보내기</a>
+    </div>
+    <div class="auth-buttons">
+      <a href="javascript:void(0)" class="btn-login">로그인</a>
+      <a href="javascript:void(0)" class="btn-signup">회원가입</a>
+    </div>
+  </nav>
+
+  <!-- 메인 타이틀 영역 (1번 사진 동일) -->
+  <div class="content-header">
+    <div class="page-title">
+      <h1>재고 실시간 현황 대시보드</h1>
+      <p>업로드된 파일 기반 AI 실시간 종합 모니터링</p>
+    </div>
+    <button class="btn-ai-strategy">🪄 AI 전략 바로가기</button>
+  </div>
+
+  <!-- KPI 카드 4개 (1번 사진 동일) -->
+  <section class="kpi-container">
+    <div class="kpi-card">
+      <div class="kpi-title">총 SKU 항목</div>
+      <div class="kpi-value">1,248 개</div>
+      <div class="kpi-sub up">↑ 정상 등록 완료</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">결품 주의 품목</div>
+      <div class="kpi-value text-red">23 개</div>
+      <div class="kpi-sub danger">⚠️ 안전재고 미달</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">과다 체류 재고</div>
+      <div class="kpi-value text-yellow">45 개</div>
+      <div class="kpi-sub warning">🕒 60일 이상 체류</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">월 예상 절감액</div>
+      <div class="kpi-value text-green">₩ 4,850,000</div>
+      <div class="kpi-sub neutral">최적화 적용 시</div>
+    </div>
+  </section>
+
+  <!-- 하단 차트 영역 (2번 사진 적용) -->
+  <section class="chart-container">
+    <!-- 재고 등급별 현황 (도넛 차트) -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>재고 등급별 현황</h3>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="donutChart"></canvas>
+      </div>
+    </div>
+
+    <!-- 위험 상품 TOP 5 (가로 바 차트) -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>위험 상품 TOP 5</h3>
+        <span>위험도 점수</span>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // 1. 재고 등급별 현황 (도넛 차트)
+    const ctxDonut = document.getElementById('donutChart').getContext('2d');
+    new Chart(ctxDonut, {
+      type: 'doughnut',
+      data: {
+        labels: ['정상 (850)', '주의 (210)', '장기 (120)', '악성 (70)'],
+        datasets: [{
+          data: [850, 210, 120, 70],
+          backgroundColor: ['#22c55e', '#eab308', '#f97316', '#ef4444'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#94a3b8',
+              font: { size: 12, weight: 'bold' },
+              padding: 14
+            }
+          }
+        },
+        cutout: '70%'
+      }
+    });
+
+    // 2. 위험 상품 TOP 5 (가로 바 차트)
+    const ctxBar = document.getElementById('barChart').getContext('2d');
+    new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels: ['1. 무선 선풍기', '2. 블루투스 스피커', '3. 캠핑 의자', '4. 전기 파리채', '5. 요가 매트'],
+        datasets: [{
+          data: [73, 68, 64, 61, 58],
+          backgroundColor: '#ef4444',
+          borderRadius: 4,
+          barThickness: 12
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            max: 100,
+            grid: { color: '#1e293b' },
+            ticks: { color: '#64748b' }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#cbd5e1', font: { size: 12 } }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

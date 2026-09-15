@@ -2,6 +2,8 @@ import io
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 # ---------------------------------------------------------
 # 아직 작업 안 한 외부 모듈 임포트는 주석 처리 해둡니다.
@@ -9,6 +11,7 @@ import pandas as pd
 # from analysis import analyze_inventory
 # from schemas import UploadResponse
 # from router import router
+
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 
@@ -31,7 +34,7 @@ app.add_middleware(
 # -------------------- 루트 기본 접속 테스트 --------------------
 @app.get("/")
 def read_root():
-    return {"message": "StockClear 백엔드 서버가 정상 실행 중입니다!"}
+    return FileResponse("static/upload.html")
 
 # -------------------- 엑셀 업로드 API (임시) --------------------
 # response_model=UploadResponse 부분은 schemas 작업 전이므로 임시 제거했습니다.
