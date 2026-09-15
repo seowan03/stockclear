@@ -1,0 +1,2 @@
+uvicon
+pydantic
