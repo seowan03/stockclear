@@ -4,244 +4,563 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockClear - 재고 목록</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
-    body { background-color: #050b14; color: #f8fafc; min-height: 100vh; padding: 24px 48px; }
-
-    /* 네비게이션 바 */
-    .navbar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 32px; }
-    .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 800; color: #fff; cursor: pointer; text-decoration: none; }
-    .logo-icon { background: #2563eb; color: #fff; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
-
-    .nav-links { display: flex; gap: 4px; background-color: #0e1726; padding: 4px; border-radius: 12px; border: 1px solid #1e293b; }
-    .nav-link { color: #94a3b8; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-    .nav-link:hover { color: #fff; }
-    .nav-link.active { background-color: #2563eb; color: #fff; }
-
-    .auth-buttons { display: flex; gap: 12px; align-items: center; }
-    .btn-login { color: #cbd5e1; text-decoration: none; font-size: 13px; font-weight: 600; padding: 8px 12px; }
-    .btn-signup { background-color: #2563eb; color: #fff; text-decoration: none; font-size: 13px; padding: 8px 18px; border-radius: 20px; font-weight: 700; }
-
-    /* 메인 콘텐츠 헤더 */
-    .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }
-    .page-title h1 { font-size: 28px; font-weight: 800; color: #ffffff; margin-bottom: 6px; letter-spacing: -0.5px; }
-    .page-title p { color: #64748b; font-size: 14px; font-weight: 500; }
-
-    /* 원래 오른쪽 버튼 그룹 스타일 원복 */
-    .action-buttons { display: flex; gap: 12px; align-items: center; }
-
-    .btn-excel { background-color: #1e293b; color: #ffffff; border: 1px solid #334155; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-    .btn-excel:hover { background-color: #334155; }
-
-    .btn-upload { background-color: #2563eb; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-    .btn-upload:hover { background-color: #1d4ed8; }
-
-    /* 휴지통 전용 버튼 (원래 디자인과 어울리도록 최소한의 영역 구성) */
-    .btn-trash-toggle { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-    .btn-trash-toggle:hover { color: #ef4444; border-color: #ef4444; background-color: rgba(239, 68, 68, 0.05); }
-    .trash-badge { background-color: #ef4444; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 800; }
-
-    /* 검색 및 필터 영역 */
-    .filter-card { background-color: #0b1322; border: 1px solid #1e293b; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
-    .search-input { background-color: #050b14; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 16px; color: #fff; width: 320px; font-size: 13px; }
-    .search-input::placeholder { color: #475569; }
-    .search-input:focus { outline: none; border-color: #2563eb; }
-    .status-select { background-color: #050b14; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 16px; color: #cbd5e1; font-size: 13px; cursor: pointer; }
-
-    /* 테이블 영역 */
-    .table-container { background-color: #0b1322; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background-color: #0b1322; color: #64748b; font-size: 12px; font-weight: 700; padding: 16px 24px; border-bottom: 1px solid #1e293b; }
-    td { padding: 18px 24px; font-size: 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background-color: rgba(30, 41, 59, 0.3); }
-
-    .sku-code { color: #3b82f6; font-weight: 700; text-decoration: none; }
-    .item-name { color: #ffffff; font-weight: 700; }
-
-    .qty-danger { color: #f87171; font-weight: 700; }
-    .qty-warning { color: #fbbf24; font-weight: 700; }
-    .qty-success { color: #4ade80; font-weight: 700; }
-
-    /* 상태 뱃지 */
-    .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; display: inline-block; }
-    .badge-danger { background-color: rgba(239, 68, 68, 0.15); color: #f87171; }
-    .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .badge-success { background-color: rgba(34, 197, 94, 0.15); color: #4ade80; }
-
-    .action-cell { text-align: right; }
-    .btn-delete-row { background: none; border: none; color: #475569; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all 0.2s; }
-    .btn-delete-row:hover { color: #ef4444; background-color: rgba(239, 68, 68, 0.1); }
-
-    /* 휴지통 모달 창 */
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; }
-    .modal-overlay.active { display: flex; }
-    .modal-card { background-color: #0b1322; border: 1px solid #1e293b; border-radius: 16px; width: 680px; max-width: 90%; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); }
-    .modal-header { padding: 20px 24px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
-    .modal-header h2 { font-size: 18px; font-weight: 700; color: #fff; }
-    .modal-close { background: none; border: none; color: #64748b; font-size: 22px; cursor: pointer; }
-    .modal-close:hover { color: #fff; }
-    .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
-    .modal-footer { padding: 16px 24px; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
-
-    .btn-modal-action { padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
-    .btn-restore { background-color: #1e293b; color: #3b82f6; border: 1px solid #334155; }
-    .btn-restore:hover { background-color: #2563eb; color: #fff; }
-    .btn-hard-delete { background-color: transparent; color: #ef4444; border: 1px solid #ef4444; }
-    .btn-hard-delete:hover { background-color: rgba(239, 68, 68, 0.1); }
-
-    .empty-trash { text-align: center; color: #475569; padding: 40px 0; font-size: 14px; }
-  </style>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome & SheetJS CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
-  <!-- 네비게이션 바 -->
-  <nav class="navbar">
-    <a href="javascript:void(0)" class="logo">
-      <div class="logo-icon">S</div>
-      <span>StockClear</span>
-    </a>
-    <div class="nav-links">
-      <a href="mainpage.html" class="nav-link"><span>🏠</span> 메인 Home</a>
-      <a href="javascript:void(0)" class="nav-link"><span>☁️</span> 업로드</a>
-      <a href="javascript:void(0)" class="nav-link"><span>⏳</span> 업로드 기록</a>
-      <a href="javascript:void(0)" class="nav-link"><span>📊</span> 대시보드</a>
-      <a href="javascript:void(0)" class="nav-link active"><span>📦</span> 재고 목록</a>
-      <a href="javascript:void(0)" class="nav-link"><span>🪄</span> AI 전략</a>
-      <a href="javascript:void(0)" class="nav-link"><span>📄</span> 내보내기</a>
-    </div> 
-    <div class="auth-buttons">
-      <a href="javascript:void(0)" class="btn-login">로그인</a>
-      <a href="javascript:void(0)" class="btn-signup">회원가입</a>
+  <!-- HEADER NAV (upload.html과 100% 동일한 고정 레이아웃) -->
+  <header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      
+      <!-- 1. 좌측 브랜드 로고 -->
+      <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
+        <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
+      </a>
+
+      <!-- 2. 중앙 네비게이션 메뉴 (AI 전략 제거 및 규격 통일) -->
+      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+  <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
+  <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
+  <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
+  <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
+  <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
+  <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
+</nav>
+
+      <!-- 3. 우측 로그인/회원가입 -->
+      <div class="flex items-center space-x-3">
+        <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
+        <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
+      </div>
+
     </div>
-  </nav>
+  </header>
 
-  <!-- 메인 헤더 -->
-  <div class="content-header">
-    <div class="page-title">
-      <h1>전체 재고 관리 목록</h1>
-      <p>실시간 품목 상태 및 적정 재고 유지 현황</p>
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-12 space-y-6">
+
+    <!-- 메인 헤더 & 버튼 영역 -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">전체 재고 관리 목록</h1>
+        <p class="text-sm text-gray-400 mt-1">SKU 코드 또는 품목명을 클릭하면 <strong class="text-blue-400">AI 상품 상세 분석</strong>을 확인하실 수 있습니다.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- 휴지통 버튼 -->
+        <button class="relative p-2.5 bg-gray-900 border border-gray-800 rounded-xl hover:bg-gray-800 text-gray-300 hover:text-white transition-all" onclick="openTrashModal()" title="휴지통 보기">
+          <i class="fa-solid fa-trash-can text-sm"></i>
+          <span class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0b1120]" id="trashCount">0</span>
+        </button>
+        <!-- 엑셀 다운로드 버튼 -->
+        <button class="px-4 py-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center" onclick="exportExcel()">
+          <i class="fa-solid fa-file-excel mr-2"></i>엑셀 다운로드
+        </button>
+        <!-- 재고 추가 업로드 버튼 -->
+        <a href="upload.html" class="px-4 py-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center">
+          <i class="fa-solid fa-plus mr-2"></i>재고 추가 업로드
+        </a>
+      </div>
     </div>
-    <!-- 기존 버튼 디자인 동일 복원 + 휴지통 토글 추가 -->
-    <div class="action-buttons">
-      <button class="btn-trash-toggle" onclick="openTrashModal()" title="휴지통 보기">
-        🗑️ <span class="trash-badge" id="trashCount">0</span>
-      </button>
-      <button class="btn-excel">엑셀 다운로드</button>
-      <button class="btn-upload">재고 추가 업로드</button>
+
+    <!-- 검색 및 필터 -->
+    <div class="bg-gray-900/60 border border-gray-800/80 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row gap-3">
+      <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="SKU 코드 또는 품목명 검색..." onkeyup="filterItems()">
+      <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
+        <option value="ALL">전체 상태 보기</option>
+        <option value="DEFICIT">결품 위험</option>
+        <option value="OVERSTOCK">과다 재고</option>
+        <option value="NORMAL">적정</option>
+      </select>
     </div>
-  </div>
 
-  <!-- 검색 및 필터 -->
-  <div class="filter-card">
-    <input type="text" class="search-input" id="searchInput" placeholder="SKU 코드 또는 품목명 검색..." onkeyup="filterItems()">
-    <select class="status-select" id="statusFilter" onchange="filterItems()">
-      <option value="ALL">전체 상태 보기</option>
-      <option value="DEFICIT">결품 위험</option>
-      <option value="OVERSTOCK">과다 재고</option>
-      <option value="NORMAL">적정</option>
-    </select>
-  </div>
+    <!-- 재고 테이블 -->
+    <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl shadow-xl overflow-hidden">
+      <table class="w-full text-left border-collapse" id="inventoryTable">
+        <thead>
+          <tr class="border-b border-gray-800 bg-gray-950/50 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <th class="py-3.5 px-6">SKU 코드</th>
+            <th class="py-3.5 px-6">품목명</th>
+            <th class="py-3.5 px-6">카테고리</th>
+            <th class="py-3.5 px-6">현재 수량</th>
+            <th class="py-3.5 px-6">적정 수량</th>
+            <th class="py-3.5 px-6">상태</th>
+            <th class="py-3.5 px-6 text-right">삭제</th>
+          </tr>
+        </thead>
+        <tbody id="inventoryBody" class="divide-y divide-gray-800/50 text-sm">
+          <!-- 동적 생성 -->
+        </tbody>
+      </table>
+    </div>
 
-  <!-- 재고 테이블 -->
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>SKU 코드</th>
-          <th>품목명</th>
-          <th>카테고리</th>
-          <th>현재 수량</th>
-          <th>적정 수량</th>
-          <th>상태</th>
-          <th style="text-align: right;">삭제</th>
-        </tr>
-      </thead>
-      <tbody id="inventoryBody">
-        <!-- 동적 생성 -->
-      </tbody>
-    </table>
+  </main>
+
+  <!-- AI 상품 상세 분석 모달 창 -->
+  <!-- AI 상품 상세 분석 모달 창 -->
+  <div class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-50 p-4" id="detailModal">
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <!-- 상단 헤더 -->
+      <div class="flex items-center justify-between px-8 py-5 border-b border-gray-800 bg-gray-950/60">
+        <div class="flex items-center space-x-3">
+          <span class="text-xs text-gray-400">재고 목록 &gt; <span class="text-blue-400 font-semibold">상품 상세</span></span>
+        </div>
+        <button class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors" onclick="closeDetailModal()">목록으로</button>
+      </div>
+
+      <!-- 모달 본문 -->
+      <div class="p-8 overflow-y-auto space-y-8 flex-1">
+        <!-- 상품 제목 및 상태 바 -->
+        <div class="flex items-center space-x-4">
+          <h2 class="text-2xl font-bold text-white" id="modalItemTitle">무선 마우스 A형</h2>
+          <span class="px-3 py-1 text-xs font-semibold rounded-full bg-red-500/10 text-red-400 border border-red-500/20" id="modalItemBadge">결품 위험</span>
+        </div>
+
+        <!-- 탭 버튼 영역 -->
+        <div class="flex space-x-6 border-b border-gray-800 text-sm font-semibold">
+          <button id="tabBtnDetail" onclick="switchTab('detail')" class="pb-3 text-gray-400 hover:text-white transition-colors">상세 정보</button>
+          <button id="tabBtnAnalysis" onclick="switchTab('analysis')" class="pb-3 border-b-2 border-blue-500 text-blue-400">분석 결과</button>
+          <button id="tabBtnHistory" onclick="switchTab('history')" class="pb-3 text-gray-400 hover:text-white transition-colors">판매 이력</button>
+        </div>
+
+        <!-- 메인 그리드 레이아웃 (좌측 공통 프로필 / 우측 탭별 컨텐츠) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          <!-- 좌측: 공통 요약 프로필 -->
+          <div class="lg:col-span-4 space-y-6">
+            <div class="bg-gray-950 border border-gray-800/80 rounded-2xl p-6 flex items-center justify-center h-52">
+              <i class="fa-solid fa-box-open text-6xl text-gray-700" id="modalItemIcon"></i>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+              <div class="flex justify-between py-1.5 border-b border-gray-800/50">
+                <span class="text-gray-400">카테고리</span>
+                <span class="text-gray-200 font-medium" id="modalCategory">전자기기</span>
+              </div>
+              <div class="flex justify-between py-1.5 border-b border-gray-800/50">
+                <span class="text-gray-400">모델명(SKU)</span>
+                <span class="text-blue-400 font-mono font-medium" id="modalSku">SKU-8801</span>
+              </div>
+              <div class="flex justify-between py-1.5 border-b border-gray-800/50">
+                <span class="text-gray-400">입고일</span>
+                <span class="text-gray-200 font-medium" id="modalDate">2026-01-10</span>
+              </div>
+              <div class="flex justify-between py-1.5 border-b border-gray-800/50">
+                <span class="text-gray-400">권장 소비자가</span>
+                <span class="text-gray-200 font-medium" id="modalOrigPrice">35,000 원</span>
+              </div>
+              <div class="flex justify-between py-1.5">
+                <span class="text-gray-400">현재 시장가</span>
+                <span class="text-gray-200 font-medium" id="modalCurrPrice">29,000 원</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 우측 컨텐츠 영역 -->
+          <div class="lg:col-span-8">
+            
+            <!-- 1. 상세 정보 탭 내용 (기본 숨김) -->
+            <div id="tabContentDetail" class="hidden space-y-6">
+              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center">
+                  <i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>기본 마스터 & 물류 정보
+                </h3>
+                <div class="grid grid-cols-2 gap-4 text-xs">
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">바코드 (EAN)</span>
+                    <span class="text-gray-200 font-mono">8809123456789</span>
+                  </div>
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">창고 위치</span>
+                    <span class="text-blue-400 font-bold">A구역-3번 렉</span>
+                  </div>
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">입고 단가(원가)</span>
+                    <span class="text-gray-200 font-medium">18,500 원</span>
+                  </div>
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">안전 재고 수량</span>
+                    <span class="text-amber-400 font-bold">25 개</span>
+                  </div>
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">규격 / 크기</span>
+                    <span class="text-gray-200">120 x 65 x 38 mm</span>
+                  </div>
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
+                    <span class="text-gray-400">중량</span>
+                    <span class="text-gray-200">85g</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center">
+                  <i class="fa-solid fa-truck-field text-emerald-400 mr-2"></i>공급처 정보
+                </h3>
+                <div class="space-y-3 text-xs">
+                  <div class="flex justify-between py-1.5 border-b border-gray-800/50">
+                    <span class="text-gray-400">공급업체</span>
+                    <span class="text-gray-200 font-medium">(주)테크로직스</span>
+                  </div>
+                  <div class="flex justify-between py-1.5 border-b border-gray-800/50">
+                    <span class="text-gray-400">담당자 연락처</span>
+                    <span class="text-gray-200">010-1234-5678 (김철수 팀장)</span>
+                  </div>
+                  <div class="flex justify-between py-1.5">
+                    <span class="text-gray-400">발주 리드타임</span>
+                    <span class="text-emerald-400 font-semibold">평균 3일 소요</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-2">
+                <h3 class="text-sm font-bold text-white flex items-center">
+                  <i class="fa-solid fa-note-sticky text-amber-400 mr-2"></i>재고 특이사항 메모
+                </h3>
+                <textarea class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-blue-500 resize-none" rows="2" placeholder="재고 특이사항 입력">박스 외관 스크래치 상품 1개 포함. 100개 단위 발주 시 무료배송 적용.</textarea>
+              </div>
+            </div>
+
+            <!-- 2. 분석 결과 탭 내용 (기본 표기) -->
+            <div id="tabContentAnalysis" class="space-y-6">
+              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center">
+                  <i class="fa-solid fa-chart-line text-blue-500 mr-2"></i>위험도 분석 결과
+                </h3>
+                
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-gray-400 w-24">예상 소진 기간</span>
+                    <span class="text-gray-200 font-semibold w-16" id="valExhaust">0.5 개월</span>
+                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
+                    </div>
+                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-gray-400 w-24">감가율</span>
+                    <span class="text-gray-200 font-semibold w-16" id="valDepreciation">10 %</span>
+                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
+                    </div>
+                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-gray-400 w-24">보관 기간</span>
+                    <span class="text-gray-200 font-semibold w-16" id="valStorage">45 일</span>
+                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
+                    </div>
+                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-gray-400 w-24">재고 금액 비중</span>
+                    <span class="text-gray-200 font-semibold w-16" id="valRatio">2 %</span>
+                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
+                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
+                    </div>
+                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800/80 mt-4 text-center">
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800">
+                    <span class="text-[11px] text-gray-400 block mb-1">최종 위험도</span>
+                    <span class="text-xl font-extrabold text-red-400" id="finalRiskScore">85 / 100</span>
+                  </div>
+                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800">
+                    <span class="text-[11px] text-gray-400 block mb-1">등급</span>
+                    <span class="text-xl font-extrabold text-red-500" id="finalRiskGrade">결품 위험</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center">
+                  <i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-2"></i>추천 정보
+                </h3>
+                
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                    <span class="text-xs text-gray-400">추천 할인율</span>
+                    <span class="text-base font-bold text-emerald-400" id="recDiscount">0 % (발주 필요)</span>
+                  </div>
+                  <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+                    <span class="text-xs text-gray-400">추천 판매가</span>
+                    <span class="text-lg font-bold text-blue-400" id="recPrice">29,000 원</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. 판매 이력 탭 내용 (기본 숨김) -->
+            <div id="tabContentHistory" class="hidden space-y-4">
+              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6">
+                <h3 class="text-sm font-bold text-white mb-4 flex items-center">
+                  <i class="fa-solid fa-clock-rotate-left text-purple-400 mr-2"></i>최근 3개월 판매 내역
+                </h3>
+                <div class="space-y-3 text-xs">
+                  <div class="flex justify-between items-center p-3 bg-gray-900/60 rounded-xl border border-gray-800">
+                    <div>
+                      <span class="text-gray-200 font-medium block">2026-03-10</span>
+                      <span class="text-gray-500 text-[11px]">스마트스토어 출고</span>
+                    </div>
+                    <span class="text-emerald-400 font-bold">+ 12개 판매</span>
+                  </div>
+                  <div class="flex justify-between items-center p-3 bg-gray-900/60 rounded-xl border border-gray-800">
+                    <div>
+                      <span class="text-gray-200 font-medium block">2026-02-25</span>
+                      <span class="text-gray-500 text-[11px]">쿠팡 로켓배송 입고</span>
+                    </div>
+                    <span class="text-emerald-400 font-bold">+ 35개 판매</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 휴지통 모달 창 -->
-  <div class="modal-overlay" id="trashModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>🗑️ 휴지통</h2>
-        <button class="modal-close" onclick="closeTrashModal()">&times;</button>
+  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4" id="trashModal">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-950/50">
+        <h2 class="text-base font-bold text-white flex items-center"><i class="fa-solid fa-trash-can mr-2 text-red-500"></i>휴지통</h2>
+        <button class="text-gray-400 hover:text-white text-xl font-bold" onclick="closeTrashModal()">&times;</button>
       </div>
-      <div class="modal-body">
-        <table>
+      <div class="p-6 max-h-[60vh] overflow-y-auto">
+        <table class="w-full text-left border-collapse">
           <thead>
-            <tr>
-              <th>SKU 코드</th>
-              <th>품목명</th>
-              <th>현재 수량</th>
-              <th style="text-align: right;">관리</th>
+            <tr class="border-b border-gray-800 text-xs font-semibold text-gray-400">
+              <th class="pb-3">SKU 코드</th>
+              <th class="pb-3">품목명</th>
+              <th class="pb-3">현재 수량</th>
+              <th class="pb-3 text-right">관리</th>
             </tr>
           </thead>
-          <tbody id="trashBody">
-            <!-- 삭제된 항목 표시 -->
-          </tbody>
+          <tbody id="trashBody" class="divide-y divide-gray-800 text-sm"></tbody>
         </table>
-        <div id="emptyTrashMsg" class="empty-trash" style="display: none;">
+        <div id="emptyTrashMsg" class="text-center py-8 text-gray-500 text-sm hidden">
           휴지통이 비어 있습니다.
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-modal-action btn-hard-delete" onclick="emptyTrashAll()">휴지통 비우기</button>
-        <button class="btn-excel" style="padding: 6px 14px; font-size: 12px;" onclick="closeTrashModal()">닫기</button>
+      <div class="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-gray-950/50">
+        <button class="px-3.5 py-1.5 text-xs font-semibold bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 rounded-lg transition-colors" onclick="emptyTrashAll()">휴지통 비우기</button>
+        <button class="px-4 py-1.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors" onclick="closeTrashModal()">닫기</button>
       </div>
     </div>
   </div>
 
+  <!-- FOOTER -->
+  <footer class="bg-gray-950 border-t border-gray-800/80 py-8 px-6 text-center text-xs text-gray-500">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <div class="w-5 h-5 rounded bg-blue-600 flex items-center justify-center font-black text-white text-xs">S</div>
+        <span class="font-bold text-gray-300">StockClear Inc.</span>
+      </div>
+      <p>© 2026 StockClear. All rights reserved.</p>
+    </div>
+  </footer>
+
   <script>
-    // 초기 재고 데이터
+function switchTab(tabName) {
+      // 탭 컨텐츠 숨기기/보이기
+      document.getElementById('tabContentDetail').classList.add('hidden');
+      document.getElementById('tabContentAnalysis').classList.add('hidden');
+      document.getElementById('tabContentHistory').classList.add('hidden');
+
+      // 탭 버튼 스타일 초기화
+      const tabs = ['Detail', 'Analysis', 'History'];
+      tabs.forEach(tab => {
+        const btn = document.getElementById(`tabBtn${tab}`);
+        btn.className = "pb-3 text-gray-400 hover:text-white transition-colors";
+      });
+
+      // 선택된 탭 활성화
+      if (tabName === 'detail') {
+        document.getElementById('tabContentDetail').classList.remove('hidden');
+        document.getElementById('tabBtnDetail').className = "pb-3 border-b-2 border-blue-500 text-blue-400 font-bold";
+      } else if (tabName === 'analysis') {
+        document.getElementById('tabContentAnalysis').classList.remove('hidden');
+        document.getElementById('tabBtnAnalysis').className = "pb-3 border-b-2 border-blue-500 text-blue-400 font-bold";
+      } else if (tabName === 'history') {
+        document.getElementById('tabContentHistory').classList.remove('hidden');
+        document.getElementById('tabBtnHistory').className = "pb-3 border-b-2 border-blue-500 text-blue-400 font-bold";
+      }
+    }
+
+
     let inventoryData = [
-      { id: 1, sku: 'SKU-8801', name: '무선 마우스 A형', category: '전자기기', currentQty: 8, targetQty: 30, status: 'DEFICIT', statusText: '결품 위험' },
-      { id: 2, sku: 'SKU-4103', name: '시즌 오프 가디건 L', category: '의류', currentQty: 142, targetQty: 30, status: 'OVERSTOCK', statusText: '과다 재고' },
-      { id: 3, sku: 'SKU-1055', name: '블루투스 스피커 세트', category: '전자기기', currentQty: 45, targetQty: 40, status: 'NORMAL', statusText: '적정' }
+      { 
+        id: 1, 
+        sku: 'SKU-8801', 
+        name: '무선 마우스 A형', 
+        category: '전자기기', 
+        currentQty: 8, 
+        targetQty: 30, 
+        status: 'DEFICIT', 
+        statusText: '결품 위험',
+        icon: 'fa-mouse',
+        date: '2026-01-10',
+        origPrice: '35,000 원',
+        currPrice: '29,000 원',
+        exhaust: '0.5 개월',
+        depreciation: '10 %',
+        storage: '45 일',
+        ratio: '2 %',
+        riskScore: '85 / 100',
+        riskGrade: '결품 위험',
+        recDiscount: '0 % (발주 필요)',
+        recPrice: '29,000 원'
+      },
+      { 
+        id: 2, 
+        sku: 'SKU-4103', 
+        name: '시즌 오프 가디건 L', 
+        category: '의류', 
+        currentQty: 142, 
+        targetQty: 30, 
+        status: 'OVERSTOCK', 
+        statusText: '과다 재고',
+        icon: 'fa-shirt',
+        date: '2025-08-15',
+        origPrice: '70,000 원',
+        currPrice: '60,000 원',
+        exhaust: '20 개월',
+        depreciation: '35 %',
+        storage: '240 일',
+        ratio: '6 %',
+        riskScore: '70 / 100',
+        riskGrade: '악성 재고',
+        recDiscount: '35 %',
+        recPrice: '45,500 원'
+      },
+      { 
+        id: 3, 
+        sku: 'SKU-1055', 
+        name: '블루투스 스피커 세트', 
+        category: '전자기기', 
+        currentQty: 45, 
+        targetQty: 40, 
+        status: 'NORMAL', 
+        statusText: '적정',
+        icon: 'fa-box-open',
+        date: '2026-02-01',
+        origPrice: '89,000 원',
+        currPrice: '89,000 원',
+        exhaust: '3 개월',
+        depreciation: '5 %',
+        storage: '30 일',
+        ratio: '3 %',
+        riskScore: '20 / 100',
+        riskGrade: '정상 재고',
+        recDiscount: '0 %',
+        recPrice: '89,000 원'
+      }
     ];
 
-    // 휴지통 데이터
     let trashData = [];
 
-    // 메인 테이블 렌더링
     function renderTable() {
       const tbody = document.getElementById('inventoryBody');
       tbody.innerHTML = '';
 
       inventoryData.forEach((item) => {
-        let qtyClass = 'qty-success';
-        let badgeClass = 'badge-success';
+        let qtyClass = 'text-emerald-400 font-semibold';
+        let badgeClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
 
         if (item.status === 'DEFICIT') {
-          qtyClass = 'qty-danger';
-          badgeClass = 'badge-danger';
+          qtyClass = 'text-red-400 font-semibold';
+          badgeClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
         } else if (item.status === 'OVERSTOCK') {
-          qtyClass = 'qty-warning';
-          badgeClass = 'badge-warning';
+          qtyClass = 'text-amber-400 font-semibold';
+          badgeClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
         }
 
         const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-800/30 transition-colors';
+        tr.setAttribute('data-id', item.id);
         tr.innerHTML = `
-          <td><a href="javascript:void(0)" class="sku-code">${item.sku}</a></td>
-          <td><span class="item-name">${item.name}</span></td>
-          <td style="color: #64748b;">${item.category}</td>
-          <td class="${qtyClass}">${item.currentQty} 개</td>
-          <td style="color: #94a3b8;">${item.targetQty} 개</td>
-          <td><span class="badge ${badgeClass}">${item.statusText}</span></td>
-          <td class="action-cell">
-            <button class="btn-delete-row" onclick="moveToTrash(${item.id})" title="삭제">🗑️</button>
+          <td class="py-4 px-6 font-mono font-medium">
+            <button onclick="openDetailModal(${item.id})" class="text-blue-400 hover:text-blue-300 hover:underline text-left">${item.sku}</button>
+          </td>
+          <td class="py-4 px-6 font-medium">
+            <button onclick="openDetailModal(${item.id})" class="text-white hover:text-blue-400 hover:underline text-left">${item.name}</button>
+          </td>
+          <td class="py-4 px-6 text-gray-400">${item.category}</td>
+          <td class="py-4 px-6 ${qtyClass}">${item.currentQty} 개</td>
+          <td class="py-4 px-6 text-gray-400">${item.targetQty} 개</td>
+          <td class="py-4 px-6">
+            <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${badgeClass}">${item.statusText}</span>
+          </td>
+          <td class="py-4 px-6 text-right">
+            <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
           </td>
         `;
         tbody.appendChild(tr);
       });
 
       document.getElementById('trashCount').innerText = trashData.length;
+      filterItems();
     }
 
-    // 휴지통으로 이동
+    function openDetailModal(id) {
+      const item = inventoryData.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('modalItemTitle').innerText = item.name;
+      document.getElementById('modalItemBadge').innerText = item.statusText;
+      
+      const badge = document.getElementById('modalItemBadge');
+      if (item.status === 'DEFICIT') {
+        badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-red-500/10 text-red-400 border border-red-500/20";
+      } else if (item.status === 'OVERSTOCK') {
+        badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20";
+      } else {
+        badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      }
+
+      document.getElementById('modalItemIcon').className = `fa-solid ${item.icon || 'fa-box-open'} text-6xl text-gray-700`;
+      document.getElementById('modalCategory').innerText = item.category;
+      document.getElementById('modalSku').innerText = item.sku;
+      document.getElementById('modalDate').innerText = item.date || '2026-01-01';
+      document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
+      document.getElementById('modalCurrPrice').innerText = item.currPrice || '-';
+
+      document.getElementById('valExhaust').innerText = item.exhaust || '-';
+      document.getElementById('valDepreciation').innerText = item.depreciation || '-';
+      document.getElementById('valStorage').innerText = item.storage || '-';
+      document.getElementById('valRatio').innerText = item.ratio || '-';
+
+      document.getElementById('finalRiskScore').innerText = item.riskScore || '-';
+      document.getElementById('finalRiskGrade').innerText = item.riskGrade || item.statusText;
+
+      document.getElementById('recDiscount').innerText = item.recDiscount || '0%';
+      document.getElementById('recPrice').innerText = item.recPrice || '-';
+
+      const modal = document.getElementById('detailModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeDetailModal() {
+      const modal = document.getElementById('detailModal');
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+    }
+
     function moveToTrash(id) {
       const index = inventoryData.findIndex(item => item.id === id);
       if (index !== -1) {
@@ -252,25 +571,25 @@
       }
     }
 
-    // 휴지통 테이블 렌더링
     function renderTrash() {
       const trashBody = document.getElementById('trashBody');
       const emptyMsg = document.getElementById('emptyTrashMsg');
       trashBody.innerHTML = '';
 
       if (trashData.length === 0) {
-        emptyMsg.style.display = 'block';
+        emptyMsg.classList.remove('hidden');
       } else {
-        emptyMsg.style.display = 'none';
+        emptyMsg.classList.add('hidden');
         trashData.forEach((item) => {
           const tr = document.createElement('tr');
+          tr.className = 'hover:bg-gray-800/30 transition-colors';
           tr.innerHTML = `
-            <td class="sku-code">${item.sku}</td>
-            <td><span class="item-name">${item.name}</span></td>
-            <td>${item.currentQty} 개</td>
-            <td class="action-cell">
-              <button class="btn-modal-action btn-restore" onclick="restoreItem(${item.id})">복원</button>
-              <button class="btn-modal-action btn-hard-delete" onclick="deletePermanently(${item.id})">삭제</button>
+            <td class="py-3 font-mono text-blue-400">${item.sku}</td>
+            <td class="py-3 text-gray-200">${item.name}</td>
+            <td class="py-3 text-gray-400">${item.currentQty} 개</td>
+            <td class="py-3 text-right space-x-2">
+              <button class="px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-md hover:bg-blue-600/30 transition-colors" onclick="restoreItem(${item.id})">복원</button>
+              <button class="px-2.5 py-1 text-xs bg-red-600/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-600/30 transition-colors" onclick="deletePermanently(${item.id})">삭제</button>
             </td>
           `;
           trashBody.appendChild(tr);
@@ -279,7 +598,6 @@
       document.getElementById('trashCount').innerText = trashData.length;
     }
 
-    // 복원하기
     function restoreItem(id) {
       const index = trashData.findIndex(item => item.id === id);
       if (index !== -1) {
@@ -290,7 +608,6 @@
       }
     }
 
-    // 영구 삭제
     function deletePermanently(id) {
       if (confirm('완전히 삭제하시겠습니까?')) {
         trashData = trashData.filter(item => item.id !== id);
@@ -298,7 +615,6 @@
       }
     }
 
-    // 휴지통 비우기
     function emptyTrashAll() {
       if (trashData.length === 0) return;
       if (confirm('휴지통을 완전히 비우시겠습니까?')) {
@@ -307,24 +623,27 @@
       }
     }
 
-    // 모달 제어
     function openTrashModal() {
       renderTrash();
-      document.getElementById('trashModal').classList.add('active');
+      const modal = document.getElementById('trashModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
     }
 
     function closeTrashModal() {
-      document.getElementById('trashModal').classList.remove('active');
+      const modal = document.getElementById('trashModal');
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
     }
 
-    // 검색 및 필터링
     function filterItems() {
       const searchVal = document.getElementById('searchInput').value.toLowerCase();
       const statusVal = document.getElementById('statusFilter').value;
 
       const rows = document.querySelectorAll('#inventoryBody tr');
-      rows.forEach((row, idx) => {
-        const item = inventoryData[idx];
+      rows.forEach((row) => {
+        const id = parseInt(row.getAttribute('data-id'));
+        const item = inventoryData.find(i => i.id === id);
         if (!item) return;
 
         const matchSearch = item.sku.toLowerCase().includes(searchVal) || item.name.toLowerCase().includes(searchVal);
@@ -338,8 +657,13 @@
       });
     }
 
-    // 초기 실행
-    renderTable();
+    function exportExcel() {
+      const table = document.getElementById('inventoryTable');
+      const wb = XLSX.utils.table_to_book(table, { sheet: "재고목록" });
+      XLSX.writeFile(wb, "StockClear_재고목록.xlsx");
+    }
+
+    renderTable();  
   </script>
 </body>
 </html>
