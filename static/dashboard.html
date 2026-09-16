@@ -3,307 +3,152 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StockClear - 분석 대시보드</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
+  <title>StockClear - 대시보드</title>
+  <!-- FontAwesome & Chart.js CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Chart.js -->
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <style>
-    body {
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-    }
-  </style>
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+<body class="dashboard-page">
 
-  <!-- NAVIGATION HEADER -->
-  <header class="bg-[#0b1120] border-b border-gray-800 text-white sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="upload.html" class="flex items-center space-x-3 cursor-pointer">
-        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">
-          S
-        </div>
-        <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
-      </a>
-
-      <!-- Navigation Tabs (3개 통합 메뉴) -->
-      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-        <a href="upload.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-cloud-arrow-up mr-2"></i>데이터 업로드
-        </a>
-        <a href="dashboard.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg bg-blue-600 text-white shadow-md">
-          <i class="fa-solid fa-chart-pie mr-2"></i>분석 대시보드
-        </a>
-        <a href="inventory.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-boxes-stacked mr-2"></i>전체 재고 목록
-        </a>
-      </nav>
-
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2 bg-gray-900 px-3 py-1.5 rounded-full border border-gray-800">
-          <div class="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">
-            <i class="fa-solid fa-user"></i>
-          </div>
-          <span class="text-xs font-medium text-gray-300">Store Manager</span>
-        </div>
-      </div>
+  <!-- 상단 네비게이션 바 -->
+  <nav class="navbar">
+    <a href="mainpage.html" class="logo">
+      <div class="logo-icon">S</div>
+      <span>StockClear</span>
+    </a>
+    <div class="nav-links">
+      <a href="mainpage.html" class="nav-link"><i class="fa-solid fa-house"></i> 메인 Home</a>
+      <a href="upload.html" class="nav-link"><i class="fa-solid fa-cloud-arrow-up"></i> 업로드</a>
+      <a href="history.html" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i> 업로드 기록</a>
+      <a href="dashboard.html" class="nav-link active"><i class="fa-solid fa-chart-pie"></i> 대시보드</a>
+      <a href="inventory.html" class="nav-link"><i class="fa-solid fa-boxes-stacked"></i> 재고 목록</a>
+      <a href="strategy.html" class="nav-link"><i class="fa-solid fa-wand-magic-sparkles"></i> AI 전략</a>
+      <a href="export.html" class="nav-link"><i class="fa-solid fa-file-export"></i> 내보내기</a>
     </div>
-  </header>
-
-  <!-- DASHBOARD CONTENT AREA -->
-  <main class="flex-1 py-8 px-6 max-w-7xl mx-auto space-y-8 w-full">
-    
-    <!-- TOP BANNER / NAVIGATION BAR -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-      <div>
-        <div class="flex items-center space-x-3">
-          <span class="px-2.5 py-0.5 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">분석 완료</span>
-          <span class="text-xs text-gray-400">2026.09.14 21:59 기준</span>
-        </div>
-        <h1 class="text-2xl font-bold text-gray-900 mt-1">A지점 재고 종합 분석 결과</h1>
-      </div>
-
-      <div class="flex items-center space-x-3">
-        <a href="upload.html" class="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl text-sm font-medium transition-colors flex items-center">
-          <i class="fa-solid fa-arrow-left mr-2"></i> 새 파일 업로드
-        </a>
-        <button onclick="alert('분석 리포트를 PDF로 다운로드합니다.');" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center">
-          <i class="fa-solid fa-file-arrow-down mr-2"></i> 리포트 내보내기
-        </button>
-      </div>
+    <div class="auth-buttons">
+      <a href="signin.html" class="btn-login">로그인</a>
+      <a href="signin.html" class="btn-signup">회원가입</a>
     </div>
+  </nav>
 
-    <!-- SUMMARY KPI CARDS -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-        <div class="flex items-center justify-between text-gray-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">전체 관리 품목</span>
-          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-            <i class="fa-solid fa-boxes-stacked text-sm"></i>
-          </div>
-        </div>
-        <div class="text-2xl font-extrabold text-gray-900">1,248 <span class="text-xs font-normal text-gray-500">개</span></div>
-        <p class="text-xs text-emerald-600 font-medium mt-2 flex items-center">
-          <i class="fa-solid fa-arrow-up mr-1"></i> 전월 대비 +12개 증가
-        </p>
+  <!-- 메인 타이틀 영역 -->
+  <div class="content-header">
+    <div class="page-title">
+      <h1>재고 실시간 현황 대시보드</h1>
+      <p>업로드된 파일 기반 AI 실시간 종합 모니터링</p>
+    </div>
+    <a href="strategy.html" class="btn-ai-strategy">🪄 AI 전략 바로가기</a>
+  </div>
+
+  <!-- KPI 카드 4개 -->
+  <section class="kpi-container">
+    <div class="kpi-card">
+      <div class="kpi-title">총 SKU 항목</div>
+      <div class="kpi-value">1,248 개</div>
+      <div class="kpi-sub up">↑ 정상 등록 완료</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">결품 주의 품목</div>
+      <div class="kpi-value text-red">23 개</div>
+      <div class="kpi-sub danger">⚠️ 안전재고 미달</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">과다 체류 재고</div>
+      <div class="kpi-value text-yellow">45 개</div>
+      <div class="kpi-sub warning">🕒 60일 이상 체류</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-title">월 예상 절감액</div>
+      <div class="kpi-value text-green">₩ 4,850,000</div>
+      <div class="kpi-sub neutral">최적화 적용 시</div>
+    </div>
+  </section>
+
+  <!-- 하단 차트 영역 -->
+  <section class="chart-container">
+    <!-- 재고 등급별 현황 (도넛 차트) -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>재고 등급별 현황</h3>
       </div>
-
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-        <div class="flex items-center justify-between text-gray-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">총 재고 자산</span>
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-            <i class="fa-solid fa-won-sign text-sm"></i>
-          </div>
-        </div>
-        <div class="text-2xl font-extrabold text-gray-900">₩ 84,520,000</div>
-        <p class="text-xs text-emerald-600 font-medium mt-2 flex items-center">
-          <i class="fa-solid fa-arrow-up mr-1"></i> 자산 건전성 양호
-        </p>
-      </div>
-
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-        <div class="flex items-center justify-between text-gray-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">재고 소진 위험 (부족)</span>
-          <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-            <i class="fa-solid fa-triangle-exclamation text-sm"></i>
-          </div>
-        </div>
-        <div class="text-2xl font-extrabold text-rose-600">14 <span class="text-xs font-normal text-gray-500">개 품목</span></div>
-        <p class="text-xs text-rose-600 font-medium mt-2 flex items-center">
-          <i class="fa-solid fa-circle-exclamation mr-1"></i> 즉시 발주 필요
-        </p>
-      </div>
-
-      <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
-        <div class="flex items-center justify-between text-gray-500 mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider">과다 재고 (滯留)</span>
-          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-            <i class="fa-solid fa-warehouse text-sm"></i>
-          </div>
-        </div>
-        <div class="text-2xl font-extrabold text-amber-600">8 <span class="text-xs font-normal text-gray-500">개 품목</span></div>
-        <p class="text-xs text-amber-600 font-medium mt-2 flex items-center">
-          <i class="fa-solid fa-clock-rotate-left mr-1"></i> 할인 프로모션 권장
-        </p>
+      <div class="chart-wrapper">
+        <canvas id="donutChart"></canvas>
       </div>
     </div>
 
-    <!-- VISUAL CHARTS SECTION -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-gray-900 text-lg">월별 재고 회전율 및 추이</h3>
-          <span class="text-xs text-gray-400">최근 6개월 데이터</span>
-        </div>
-        <div class="h-64">
-          <canvas id="trendChart"></canvas>
-        </div>
+    <!-- 위험 상품 TOP 5 (가로 바 차트) -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>위험 상품 TOP 5</h3>
+        <span>위험도 점수</span>
       </div>
-
-      <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="font-bold text-gray-900 text-lg">카테고리별 비중</h3>
-          <span class="text-xs text-gray-400">보유 자산 기준</span>
-        </div>
-        <div class="h-64 flex items-center justify-center">
-          <canvas id="categoryChart"></canvas>
-        </div>
+      <div class="chart-wrapper">
+        <canvas id="barChart"></canvas>
       </div>
     </div>
-
-    <!-- AI RECOMMENDATION INSIGHTS -->
-    <div class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-      <div class="flex items-center space-x-3 mb-4">
-        <div class="w-9 h-9 bg-blue-500/30 rounded-xl border border-blue-400/40 flex items-center justify-center text-blue-300">
-          <i class="fa-solid fa-brain text-lg"></i>
-        </div>
-        <h3 class="text-lg font-bold">StockClear AI 재고 최적화 제안</h3>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-1">
-          <div class="text-blue-300 font-semibold flex items-center">
-            <i class="fa-solid fa-cart-plus mr-2"></i> 긴급 발주 제안 (14건)
-          </div>
-          <p class="text-gray-300 text-xs leading-relaxed">
-            <strong>[노트북 파우치 15인치]</strong>의 현재 재고가 3개로 안전 재고 기준(10개) 미달입니다. 향후 3일 내 품절이 예상됩니다.
-          </p>
-        </div>
-
-        <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-1">
-          <div class="text-amber-300 font-semibold flex items-center">
-            <i class="fa-solid fa-tags mr-2"></i> 과다 재고 소진 제안 (8건)
-          </div>
-          <p class="text-gray-300 text-xs leading-relaxed">
-            <strong>[C타입 고속케이블 2M]</strong> 재고 보유 기간이 90일을 초과했습니다. 15% 번들 할인 프로모션을 권장합니다.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- DATA TABLE SECTION -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h3 class="font-bold text-gray-900 text-lg">실시간 재고 데이터 요약</h3>
-          <p class="text-xs text-gray-500 mt-0.5">업로드된 엑셀 파싱 결과입니다.</p>
-        </div>
-
-        <div class="flex items-center space-x-3">
-          <a href="inventory.html" class="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-xs font-semibold transition-colors flex items-center">
-            전체 목록 보기 <i class="fa-solid fa-arrow-right ml-1.5"></i>
-          </a>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs text-gray-600">
-          <thead class="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
-            <tr>
-              <th class="py-3.5 px-6">SKU 코드</th>
-              <th class="py-3.5 px-6">품목명</th>
-              <th class="py-3.5 px-6">카테고리</th>
-              <th class="py-3.5 px-6 text-right">현재 수량</th>
-              <th class="py-3.5 px-6 text-right">안전 재고</th>
-              <th class="py-3.5 px-6 text-right">단가</th>
-              <th class="py-3.5 px-6 text-center">상태</th>
-            </tr>
-          </thead>
-          <tbody id="inventory-table-body" class="divide-y divide-gray-100 font-medium">
-            <tr class="hover:bg-gray-50/80 transition-colors">
-              <td class="py-4 px-6 text-gray-400">SKU-1001</td>
-              <td class="py-4 px-6 text-gray-900 font-bold">무선 블루투스 마우스 A1</td>
-              <td class="py-4 px-6">전자기기</td>
-              <td class="py-4 px-6 text-right font-semibold text-gray-800">45 개</td>
-              <td class="py-4 px-6 text-right text-gray-500">15 개</td>
-              <td class="py-4 px-6 text-right">₩ 25,000</td>
-              <td class="py-4 px-6 text-center">
-                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-semibold">정상</span>
-              </td>
-            </tr>
-            <tr class="hover:bg-gray-50/80 transition-colors">
-              <td class="py-4 px-6 text-gray-400">SKU-1002</td>
-              <td class="py-4 px-6 text-gray-900 font-bold">노트북 파우치 15인치</td>
-              <td class="py-4 px-6">액세서리</td>
-              <td class="py-4 px-6 text-right font-bold text-rose-600">3 개</td>
-              <td class="py-4 px-6 text-right text-gray-500">10 개</td>
-              <td class="py-4 px-6 text-right">₩ 18,000</td>
-              <td class="py-4 px-6 text-center">
-                <span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full font-semibold">부족</span>
-              </td>
-            </tr>
-            <tr class="hover:bg-gray-50/80 transition-colors">
-              <td class="py-4 px-6 text-gray-400">SKU-1003</td>
-              <td class="py-4 px-6 text-gray-900 font-bold">C타입 고속케이블 2M</td>
-              <td class="py-4 px-6">액세서리</td>
-              <td class="py-4 px-6 text-right font-bold text-amber-600">210 개</td>
-              <td class="py-4 px-6 text-right text-gray-500">50 개</td>
-              <td class="py-4 px-6 text-right">₩ 5,500</td>
-              <td class="py-4 px-6 text-center">
-                <span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-semibold">과다</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </main>
+  </section>
 
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      const ctxTrend = document.getElementById('trendChart').getContext('2d');
-      new Chart(ctxTrend, {
-        type: 'line',
-        data: {
-          labels: ['4월', '5월', '6월', '7월', '8월', '9월'],
-          datasets: [
-            {
-              label: '입고 수량',
-              data: [1200, 1900, 1500, 2100, 1800, 2400],
-              borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              fill: true,
-              tension: 0.4
-            },
-            {
-              label: '출고 수량',
-              data: [1000, 1700, 1600, 1900, 1750, 2200],
-              borderColor: '#10b981',
-              backgroundColor: 'transparent',
-              borderDash: [5, 5],
-              tension: 0.4
+    // 1. 재고 등급별 현황 (도넛 차트)
+    const ctxDonut = document.getElementById('donutChart').getContext('2d');
+    new Chart(ctxDonut, {
+      type: 'doughnut',
+      data: {
+        labels: ['정상 (850)', '주의 (210)', '장기 (120)', '악성 (70)'],
+        datasets: [{
+          data: [850, 210, 120, 70],
+          backgroundColor: ['#22c55e', '#eab308', '#f97316', '#ef4444'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#94a3b8',
+              font: { size: 12, weight: 'bold' },
+              padding: 14
             }
-          ]
+          }
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } }
-        }
-      });
+        cutout: '70%'
+      }
+    });
 
-      const ctxCat = document.getElementById('categoryChart').getContext('2d');
-      new Chart(ctxCat, {
-        type: 'doughnut',
-        data: {
-          labels: ['전자기기', '액세서리', '생활용품', '기타'],
-          datasets: [{
-            data: [45, 30, 15, 10],
-            backgroundColor: ['#3b82f6', '#6366f1', '#f59e0b', '#9ca3af']
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } }
+    // 2. 위험 상품 TOP 5 (가로 바 차트)
+    const ctxBar = document.getElementById('barChart').getContext('2d');
+    new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels: ['1. 무선 선풍기', '2. 블루투스 스피커', '3. 캠핑 의자', '4. 전기 파리채', '5. 요가 매트'],
+        datasets: [{
+          data: [73, 68, 64, 61, 58],
+          backgroundColor: '#ef4444',
+          borderRadius: 4,
+          barThickness: 12
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            max: 100,
+            grid: { color: '#1e293b' },
+            ticks: { color: '#64748b' } 
+          },
+          y: {
+            grid: { display: false },
+            ticks: { color: '#cbd5e1', font: { size: 12 } }
+          }
         }
-      });
+      }
     });
   </script>
 </body>
