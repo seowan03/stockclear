@@ -147,11 +147,11 @@
   }
 
   // 2. CSV 파일 다운로드 함수
-  function exportToCSV() {
+  function exportToCSV() { 
     const table = document.getElementById('reportTable');
     const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
     XLSX.writeFile(wb, "StockClear_상세분석리포트.csv", { bookType: "csv" });
   }
-</script>
+</script>  
 </body>
 </html>
