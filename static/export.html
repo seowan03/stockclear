@@ -7,13 +7,13 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-body { font-family: 'Pretendard', sans-serif; }
-@media print { header, footer, .no-print { display: none !important; } body { background: #fff !important; color: #000 !important; } }
-</style>
+<link rel="stylesheet" href="style.css">
+<!-- 엑셀 추출을 위한 SheetJS 라이브러리 CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
+<body class="export-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
+<!-- HEADER NAV -->
 <header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
 <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
     <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer">
@@ -43,8 +43,15 @@ body { font-family: 'Pretendard', sans-serif; }
     <p class="text-gray-400 text-xs md:text-sm mt-1">심층 진단 데이터 보고서 저장 및 인쇄</p>
     </div>
     <div class="flex space-x-2 no-print">
-    <button onclick="window.print()" class="px-3.5 py-2 bg-gray-800 text-gray-200 text-xs font-semibold rounded-xl border border-gray-700"><i class="fa-solid fa-print mr-1"></i>인쇄 / PDF</button>
-    <button onclick="alert('엑셀 파일이 다운로드됩니다.')" class="px-3.5 py-2 bg-emerald-600 text-white text-xs font-semibold rounded-xl"><i class="fa-solid fa-file-excel mr-1"></i>Excel 저장</button>
+    <button onclick="window.print()" class="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold rounded-xl border border-gray-700 transition-all cursor-pointer">
+        <i class="fa-solid fa-print mr-1"></i>인쇄 / PDF
+    </button>
+    <button onclick="exportToExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer">
+        <i class="fa-solid fa-file-excel mr-1"></i>Excel 저장
+    </button>
+    <button onclick="exportToCSV()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer">
+        <i class="fa-solid fa-file-csv mr-1"></i>CSV 저장
+    </button>
     </div>
 </div>
 
@@ -54,6 +61,70 @@ body { font-family: 'Pretendard', sans-serif; }
     • 현재 결품 위험 항목은 총 23개로 24시간 내 추가 발주 생성이 필요합니다.<br>
     • 60일 이상 장기 체류 중인 재고 45개 품목에 대해 15% 프로모션 진행을 추천합니다.
     </p>
+</div>
+
+<!-- 내보내기 대상 데이터 미리보기 테이블 -->
+<div class="bg-gray-900/80 border border-gray-800 rounded-3xl p-6 space-y-4">
+    <div class="flex justify-between items-center">
+        <h3 class="text-base font-bold text-white"><i class="fa-solid fa-table-list text-blue-400 mr-2"></i>리포트 데이터 목록 미리보기</h3>
+        <span class="text-xs text-gray-400">총 5개 항목 선택됨</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table id="reportTable" class="w-full text-left text-xs text-gray-300">
+            <thead class="bg-gray-950 text-gray-400 border-b border-gray-800 uppercase">
+                <tr>
+                    <th class="py-3 px-4">SKU 코드</th>
+                    <th class="py-3 px-4">품목명</th>
+                    <th class="py-3 px-4">카테고리</th>
+                    <th class="py-3 px-4">현재 수량</th>
+                    <th class="py-3 px-4">재고 상태</th>
+                    <th class="py-3 px-4">AI 추천 조치</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800/60">
+                <tr class="hover:bg-gray-800/40">
+                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8801</td>
+                    <td class="py-3 px-4 font-semibold text-white">무선 선풍기</td>
+                    <td class="py-3 px-4">가전제품</td>
+                    <td class="py-3 px-4">12개</td>
+                    <td class="py-3 px-4 text-red-400 font-bold">결품 주의</td>
+                    <td class="py-3 px-4">긴급 발주 필요</td>
+                </tr>
+                <tr class="hover:bg-gray-800/40">
+                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8802</td>
+                    <td class="py-3 px-4 font-semibold text-white">블루투스 스피커</td>
+                    <td class="py-3 px-4">음향기기</td>
+                    <td class="py-3 px-4">15개</td>
+                    <td class="py-3 px-4 text-red-400 font-bold">결품 주의</td>
+                    <td class="py-3 px-4">안전재고 확보 권장</td>
+                </tr>
+                <tr class="hover:bg-gray-800/40">
+                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8803</td>
+                    <td class="py-3 px-4 font-semibold text-white">캠핑 의자</td>
+                    <td class="py-3 px-4">아웃도어</td>
+                    <td class="py-3 px-4">140개</td>
+                    <td class="py-3 px-4 text-yellow-400 font-bold">과다 체류</td>
+                    <td class="py-3 px-4">10% 할인가 판매</td>
+                </tr>
+                <tr class="hover:bg-gray-800/40">
+                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8804</td>
+                    <td class="py-3 px-4 font-semibold text-white">전기 파리채</td>
+                    <td class="py-3 px-4">생활잡화</td>
+                    <td class="py-3 px-4">95개</td>
+                    <td class="py-3 px-4 text-yellow-400 font-bold">과다 체류</td>
+                    <td class="py-3 px-4">번들 기획전 진행</td>
+                </tr>
+                <tr class="hover:bg-gray-800/40">
+                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8805</td>
+                    <td class="py-3 px-4 font-semibold text-white">요가 매트</td>
+                    <td class="py-3 px-4">스포츠</td>
+                    <td class="py-3 px-4">80개</td>
+                    <td class="py-3 px-4 text-yellow-400 font-bold">과다 체류</td>
+                    <td class="py-3 px-4">시즌 할인 프로모션</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 </main>
 
@@ -66,5 +137,21 @@ body { font-family: 'Pretendard', sans-serif; }
     <p>© 2026 StockClear. All rights reserved.</p>
 </div>
 </footer>
+
+<script>
+  // 1. Excel (.xlsx) 파일 다운로드 함수
+  function exportToExcel() {
+    const table = document.getElementById('reportTable');
+    const wb = XLSX.utils.table_to_book(table, { sheet: "상세분석리포트" });
+    XLSX.writeFile(wb, "StockClear_상세분석리포트.xlsx");
+  }
+
+  // 2. CSV 파일 다운로드 함수
+  function exportToCSV() {
+    const table = document.getElementById('reportTable');
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+    XLSX.writeFile(wb, "StockClear_상세분석리포트.csv", { bookType: "csv" });
+  }
+</script>
 </body>
 </html>

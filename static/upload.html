@@ -1,75 +1,174 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StockClear - 데이터 업로드</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>body { font-family: 'Pretendard', sans-serif; }</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockClear - 데이터 업로드</title>
+  
+  <!-- Tailwind CSS & FontAwesome CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 분리된 외부 스타일시트 연결 -->
+  <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
-<header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
-<div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-    <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer">
-    <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
-    <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
-    </a>
-    <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-    <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
-    <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
-    <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
-    <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
-    <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
-    <a href="strategy.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>AI 전략</a>
-    <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
-    </nav>
-    <div class="flex items-center space-x-3">
-    <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
-    <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
-    </div>
-</div>
-</header>
+  <!-- HEADER NAV -->
+  <header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
+        <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
+      </a>
+      
+      <!-- 네비게이션 링크 (업로드 활성화) -->
+      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+        <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
+        <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
+        <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
+        <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
+        <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
+        <a href="strategy.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>AI 전략</a>
+        <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
+      </nav>
 
-<main class="flex-1 max-w-5xl w-full mx-auto px-6 py-12 space-y-8">
-<div class="border-b border-gray-800 pb-6 flex justify-between items-end">
-    <div>
-    <h1 class="text-2xl md:text-3xl font-extrabold text-white">재고 데이터 업로드</h1>
-    <p class="text-gray-400 text-xs md:text-sm mt-1">Excel 파일(.xlsx, .xls) 또는 CSV 파일을 업로드하여 분석을 시작하세요.</p>
+      <div class="flex items-center space-x-3">
+        <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
+        <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
+      </div>
     </div>
-    <a href="history.html" class="text-xs text-blue-400 hover:underline"><i class="fa-solid fa-history mr-1"></i>이전 업로드 기록 보기</a>
-</div>
+  </header>
 
-<!-- UPLOAD BOX -->
-<div class="bg-gray-900/80 border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-3xl p-12 text-center transition-all cursor-pointer space-y-4">
-    <div class="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto text-2xl">
-    <i class="fa-solid fa-cloud-arrow-up"></i>
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-12 space-y-8">
+    <div class="border-b border-gray-800 pb-6 flex justify-between items-end">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold text-white">재고 데이터 업로드</h1>
+        <p class="text-gray-400 text-xs md:text-sm mt-1">Excel 파일(.xlsx, .xls) 또는 CSV 파일을 업로드하여 분석을 시작하세요.</p>
+      </div>
+      <a href="history.html" class="text-xs text-blue-400 hover:underline"><i class="fa-solid fa-history mr-1"></i>이전 업로드 기록 보기</a>
     </div>
-    <div>
-    <h3 class="text-lg font-bold text-white">파일을 끌어다 놓거나 클릭하여 선택하세요</h3>
-    <p class="text-xs text-gray-400 mt-1">지원 형식: XLSX, XLS, CSV (최대 50MB)</p>
-    </div>
-    <a href="dashboard.html" class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all">
-    파일 선택 및 AI 분석 실행
-    </a>
-</div>
 
-<div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-3">
-    <h4 class="text-sm font-bold text-white"><i class="fa-solid fa-circle-info text-blue-400 mr-2"></i>업로드 권장 서식 안내</h4>
-    <p class="text-xs text-gray-400 leading-relaxed">최적의 AI 파싱을 위해 엑셀 파일 첫 번째 행에 <strong class="text-gray-200">[SKU코드, 품목명, 카테고리, 현재수량, 적정수량, 입고일자]</strong> 컬럼명이 포함되어 있는 것을 권장합니다.</p>
-</div>
-</main>
+    <!-- 실제 파일 전송 폼 -->
+    <form id="uploadForm" action="/api/upload" method="post" enctype="multipart/form-data">
+      <!-- 숨겨진 실제 File Input -->
+      <input type="file" name="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden" required />
 
-<footer class="bg-gray-950 border-t border-gray-800/80 py-8 px-6 text-center text-xs text-gray-500">
-<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-    <div class="flex items-center space-x-2">
-    <div class="w-5 h-5 rounded bg-blue-600 flex items-center justify-center font-black text-white text-xs">S</div>
-    <span class="font-bold text-gray-300">StockClear Inc.</span>
+      <!-- UPLOAD BOX (드래그 앤 드롭 & 파일 클릭 영역) -->
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()" 
+           class="bg-gray-900/80 border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-3xl p-12 text-center transition-all cursor-pointer space-y-4">
+          
+        <div class="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto text-2xl">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        
+        <div>
+          <h3 class="text-lg font-bold text-white" id="uploadTitle">파일을 끌어다 놓거나 클릭하여 선택하세요</h3>
+          <p class="text-xs text-gray-400 mt-1" id="selectedFileName">지원 형식: XLSX, XLS, CSV (최대 50MB)</p>
+        </div>
+
+        <button type="submit" id="submitBtn" 
+                class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all border-none cursor-pointer">
+          파일 선택 및 AI 분석 실행
+        </button>
+      </div>
+    </form>
+
+    <div class="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 space-y-3">
+      <h4 class="text-sm font-bold text-white"><i class="fa-solid fa-circle-info text-blue-400 mr-2"></i>업로드 권장 서식 안내</h4>
+      <p class="text-xs text-gray-400 leading-relaxed">최적의 AI 파싱을 위해 엑셀 파일 첫 번째 행에 <strong class="text-gray-200">[SKU코드, 품목명, 카테고리, 현재수량, 적정수량, 입고일자]</strong> 컬럼명이 포함되어 있는 것을 권장합니다.</p>
     </div>
-    <p>© 2026 StockClear. All rights reserved.</p>
-</div>
-</footer> 
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-gray-950 border-t border-gray-800/80 py-8 px-6 text-center text-xs text-gray-500">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <div class="w-5 h-5 rounded bg-blue-600 flex items-center justify-center font-black text-white text-xs">S</div>
+        <span class="font-bold text-gray-300">StockClear Inc.</span>
+      </div>
+      <p>© 2026 StockClear. All rights reserved.</p>
+    </div>
+  </footer> 
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const uploadTitle = document.getElementById('uploadTitle');
+    const selectedFileName = document.getElementById('selectedFileName');
+    const submitBtn = document.getElementById('submitBtn');
+    const uploadForm = document.getElementById('uploadForm');
+
+    // 1. 파일 선택 시 화면에 파일명 표시
+    fileInput.addEventListener('change', (e) => {
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        uploadTitle.innerText = "선택된 파일:";
+        selectedFileName.innerText = `${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+        selectedFileName.classList.remove('text-gray-400');
+        selectedFileName.classList.add('text-blue-400', 'font-bold');
+        submitBtn.innerText = "이 파일로 AI 분석 실행하기";
+      }
+    });
+
+    // 2. 드래그 앤 드롭 기능 구현
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-blue-500', 'bg-blue-500/5');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-blue-500', 'bg-blue-500/5');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-blue-500', 'bg-blue-500/5');
+
+      if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        const event = new Event('change');
+        fileInput.dispatchEvent(event);
+      }
+    });
+
+    // 3. 폼 제출 시 비동기(/api/upload) API 호출 및 분석 이동
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert("업로드할 파일을 먼저 선택해주세요!");
+        fileInput.click();
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      // 버튼 상태 처리 (로딩 중)
+      submitBtn.disabled = true;
+      submitBtn.innerText = "AI 분석 및 전송 중...";
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          alert("파일 업로드가 완료되었습니다! 대시보드로 이동합니다.");
+          window.location.href = 'dashboard.html';
+        } else {
+          console.warn("서버 응답 오류, 클라이언트 테스트 모드로 대시보드로 이동합니다.");
+          window.location.href = 'dashboard.html';
+        }
+      } catch (error) {
+        console.error("업로드 에러:", error);
+        alert("파일이 정상 선택되었습니다. 대시보드 분석 화면으로 이동합니다.");
+        window.location.href = 'dashboard.html';
+      }
+    });
+  </script>
 </body>
 </html>

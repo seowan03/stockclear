@@ -4,115 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockClear - 재고 목록</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
-    body { background-color: #050b14; color: #f8fafc; min-height: 100vh; padding: 24px 48px; }
-
-    /* 네비게이션 바 */
-    .navbar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 32px; }
-    .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 800; color: #fff; cursor: pointer; text-decoration: none; }
-    .logo-icon { background: #2563eb; color: #fff; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; }
-
-    .nav-links { display: flex; gap: 4px; background-color: #0e1726; padding: 4px; border-radius: 12px; border: 1px solid #1e293b; }
-    .nav-link { color: #94a3b8; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-    .nav-link:hover { color: #fff; }
-    .nav-link.active { background-color: #2563eb; color: #fff; }
-
-    .auth-buttons { display: flex; gap: 12px; align-items: center; }
-    .btn-login { color: #cbd5e1; text-decoration: none; font-size: 13px; font-weight: 600; padding: 8px 12px; }
-    .btn-signup { background-color: #2563eb; color: #fff; text-decoration: none; font-size: 13px; padding: 8px 18px; border-radius: 20px; font-weight: 700; }
-
-    /* 메인 콘텐츠 헤더 */
-    .content-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; }
-    .page-title h1 { font-size: 28px; font-weight: 800; color: #ffffff; margin-bottom: 6px; letter-spacing: -0.5px; }
-    .page-title p { color: #64748b; font-size: 14px; font-weight: 500; }
-
-    /* 원래 오른쪽 버튼 그룹 스타일 원복 */
-    .action-buttons { display: flex; gap: 12px; align-items: center; }
-
-    .btn-excel { background-color: #1e293b; color: #ffffff; border: 1px solid #334155; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-    .btn-excel:hover { background-color: #334155; }
-
-    .btn-upload { background-color: #2563eb; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.2s; }
-    .btn-upload:hover { background-color: #1d4ed8; }
-
-    /* 휴지통 전용 버튼 (원래 디자인과 어울리도록 최소한의 영역 구성) */
-    .btn-trash-toggle { background-color: #1e293b; color: #94a3b8; border: 1px solid #334155; padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-    .btn-trash-toggle:hover { color: #ef4444; border-color: #ef4444; background-color: rgba(239, 68, 68, 0.05); }
-    .trash-badge { background-color: #ef4444; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 10px; font-weight: 800; }
-
-    /* 검색 및 필터 영역 */
-    .filter-card { background-color: #0b1322; border: 1px solid #1e293b; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
-    .search-input { background-color: #050b14; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 16px; color: #fff; width: 320px; font-size: 13px; }
-    .search-input::placeholder { color: #475569; }
-    .search-input:focus { outline: none; border-color: #2563eb; }
-    .status-select { background-color: #050b14; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 16px; color: #cbd5e1; font-size: 13px; cursor: pointer; }
-
-    /* 테이블 영역 */
-    .table-container { background-color: #0b1322; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background-color: #0b1322; color: #64748b; font-size: 12px; font-weight: 700; padding: 16px 24px; border-bottom: 1px solid #1e293b; }
-    td { padding: 18px 24px; font-size: 14px; border-bottom: 1px solid #1e293b; color: #e2e8f0; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background-color: rgba(30, 41, 59, 0.3); }
-
-    .sku-code { color: #3b82f6; font-weight: 700; text-decoration: none; }
-    .item-name { color: #ffffff; font-weight: 700; }
-
-    .qty-danger { color: #f87171; font-weight: 700; }
-    .qty-warning { color: #fbbf24; font-weight: 700; }
-    .qty-success { color: #4ade80; font-weight: 700; }
-
-    /* 상태 뱃지 */
-    .badge { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; display: inline-block; }
-    .badge-danger { background-color: rgba(239, 68, 68, 0.15); color: #f87171; }
-    .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .badge-success { background-color: rgba(34, 197, 94, 0.15); color: #4ade80; }
-
-    .action-cell { text-align: right; }
-    .btn-delete-row { background: none; border: none; color: #475569; cursor: pointer; padding: 6px; border-radius: 6px; font-size: 14px; transition: all 0.2s; }
-    .btn-delete-row:hover { color: #ef4444; background-color: rgba(239, 68, 68, 0.1); }
-
-    /* 휴지통 모달 창 */
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); z-index: 1000; justify-content: center; align-items: center; }
-    .modal-overlay.active { display: flex; }
-    .modal-card { background-color: #0b1322; border: 1px solid #1e293b; border-radius: 16px; width: 680px; max-width: 90%; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); }
-    .modal-header { padding: 20px 24px; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
-    .modal-header h2 { font-size: 18px; font-weight: 700; color: #fff; }
-    .modal-close { background: none; border: none; color: #64748b; font-size: 22px; cursor: pointer; }
-    .modal-close:hover { color: #fff; }
-    .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
-    .modal-footer { padding: 16px 24px; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; }
-
-    .btn-modal-action { padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
-    .btn-restore { background-color: #1e293b; color: #3b82f6; border: 1px solid #334155; }
-    .btn-restore:hover { background-color: #2563eb; color: #fff; }
-    .btn-hard-delete { background-color: transparent; color: #ef4444; border: 1px solid #ef4444; }
-    .btn-hard-delete:hover { background-color: rgba(239, 68, 68, 0.1); }
-
-    .empty-trash { text-align: center; color: #475569; padding: 40px 0; font-size: 14px; }
-  </style>
+  <!-- FontAwesome & SheetJS CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="inventory-page">
 
   <!-- 네비게이션 바 -->
   <nav class="navbar">
-    <a href="javascript:void(0)" class="logo">
+    <a href="mainpage.html" class="logo">
       <div class="logo-icon">S</div>
       <span>StockClear</span>
     </a>
     <div class="nav-links">
-      <a href="mainpage.html" class="nav-link"><span>🏠</span> 메인 Home</a>
-      <a href="javascript:void(0)" class="nav-link"><span>☁️</span> 업로드</a>
-      <a href="javascript:void(0)" class="nav-link"><span>⏳</span> 업로드 기록</a>
-      <a href="javascript:void(0)" class="nav-link"><span>📊</span> 대시보드</a>
-      <a href="javascript:void(0)" class="nav-link active"><span>📦</span> 재고 목록</a>
-      <a href="javascript:void(0)" class="nav-link"><span>🪄</span> AI 전략</a>
-      <a href="javascript:void(0)" class="nav-link"><span>📄</span> 내보내기</a>
+      <a href="mainpage.html" class="nav-link"><i class="fa-solid fa-house"></i> 메인 Home</a>
+      <a href="upload.html" class="nav-link"><i class="fa-solid fa-cloud-arrow-up"></i> 업로드</a>
+      <a href="history.html" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i> 업로드 기록</a>
+      <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> 대시보드</a>
+      <a href="inventory.html" class="nav-link active"><i class="fa-solid fa-boxes-stacked"></i> 재고 목록</a>
+      <a href="strategy.html" class="nav-link"><i class="fa-solid fa-wand-magic-sparkles"></i> AI 전략</a>
+      <a href="export.html" class="nav-link"><i class="fa-solid fa-file-export"></i> 내보내기</a>
     </div> 
     <div class="auth-buttons">
-      <a href="javascript:void(0)" class="btn-login">로그인</a>
-      <a href="javascript:void(0)" class="btn-signup">회원가입</a>
+      <a href="signin.html" class="btn-login">로그인</a>
+      <a href="signin.html" class="btn-signup">회원가입</a>
     </div>
   </nav>
 
@@ -122,13 +38,12 @@
       <h1>전체 재고 관리 목록</h1>
       <p>실시간 품목 상태 및 적정 재고 유지 현황</p>
     </div>
-    <!-- 기존 버튼 디자인 동일 복원 + 휴지통 토글 추가 -->
     <div class="action-buttons">
       <button class="btn-trash-toggle" onclick="openTrashModal()" title="휴지통 보기">
-        🗑️ <span class="trash-badge" id="trashCount">0</span>
+        <i class="fa-solid fa-trash-can"></i> <span class="trash-badge" id="trashCount">0</span>
       </button>
-      <button class="btn-excel">엑셀 다운로드</button>
-      <button class="btn-upload">재고 추가 업로드</button>
+      <button class="btn-excel" onclick="exportExcel()"><i class="fa-solid fa-file-excel mr-1"></i> 엑셀 다운로드</button>
+      <a href="upload.html" class="btn-upload"><i class="fa-solid fa-plus mr-1"></i> 재고 추가 업로드</a>
     </div>
   </div>
 
@@ -145,7 +60,7 @@
 
   <!-- 재고 테이블 -->
   <div class="table-container">
-    <table>
+    <table id="inventoryTable">
       <thead>
         <tr>
           <th>SKU 코드</th>
@@ -167,7 +82,7 @@
   <div class="modal-overlay" id="trashModal">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>🗑️ 휴지통</h2>
+        <h2><i class="fa-solid fa-trash-can mr-2"></i>휴지통</h2>
         <button class="modal-close" onclick="closeTrashModal()">&times;</button>
       </div>
       <div class="modal-body">
@@ -224,6 +139,7 @@
         }
 
         const tr = document.createElement('tr');
+        tr.setAttribute('data-id', item.id);
         tr.innerHTML = `
           <td><a href="javascript:void(0)" class="sku-code">${item.sku}</a></td>
           <td><span class="item-name">${item.name}</span></td>
@@ -232,13 +148,14 @@
           <td style="color: #94a3b8;">${item.targetQty} 개</td>
           <td><span class="badge ${badgeClass}">${item.statusText}</span></td>
           <td class="action-cell">
-            <button class="btn-delete-row" onclick="moveToTrash(${item.id})" title="삭제">🗑️</button>
+            <button class="btn-delete-row" onclick="moveToTrash(${item.id})" title="삭제"><i class="fa-solid fa-trash-can"></i></button>
           </td>
         `;
         tbody.appendChild(tr);
       });
 
       document.getElementById('trashCount').innerText = trashData.length;
+      filterItems();
     }
 
     // 휴지통으로 이동
@@ -323,8 +240,9 @@
       const statusVal = document.getElementById('statusFilter').value;
 
       const rows = document.querySelectorAll('#inventoryBody tr');
-      rows.forEach((row, idx) => {
-        const item = inventoryData[idx];
+      rows.forEach((row) => {
+        const id = parseInt(row.getAttribute('data-id'));
+        const item = inventoryData.find(i => i.id === id);
         if (!item) return;
 
         const matchSearch = item.sku.toLowerCase().includes(searchVal) || item.name.toLowerCase().includes(searchVal);
@@ -338,8 +256,15 @@
       });
     }
 
+    // 엑셀 내보내기 기능
+    function exportExcel() {
+      const table = document.getElementById('inventoryTable');
+      const wb = XLSX.utils.table_to_book(table, { sheet: "재고목록" });
+      XLSX.writeFile(wb, "StockClear_재고목록.xlsx");
+    }
+
     // 초기 실행
-    renderTable();
+    renderTable();  
   </script>
 </body>
 </html>
