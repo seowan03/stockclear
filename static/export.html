@@ -2,21 +2,13 @@
 <html lang="ko">
 <head>
 
-<style>
-  /* 1. 스크롤바 유무로 인한 좌우 덜컥거림 방지 */
-html { overflow-y: scroll; }
-
-  /* 2. 모든 FontAwesome 아이콘의 가로폭을 통일 */
-.fa-solid { display: inline-block; width: 1.25em; text-align: center; }
-</style>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StockClear - 상세 분석 및 내보내기</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="css/style.css">
 <!-- 엑셀 추출을 위한 SheetJS 라이브러리 CDN -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -75,7 +67,7 @@ html { overflow-y: scroll; }
 <div class="bg-gray-900/80 border border-gray-800 rounded-3xl p-6 space-y-4">
     <div class="flex justify-between items-center">
         <h3 class="text-base font-bold text-white"><i class="fa-solid fa-table-list text-blue-400 mr-2"></i>리포트 데이터 목록 미리보기</h3>
-        <span class="text-xs text-gray-400">총 5개 항목 선택됨</span>
+        <span class="text-xs text-gray-400" id="reportCount">총 0개 항목 선택됨</span>
     </div>
     <div class="overflow-x-auto">
         <table id="reportTable" class="w-full text-left text-xs text-gray-300">
@@ -89,48 +81,7 @@ html { overflow-y: scroll; }
                     <th class="py-3 px-4">AI 추천 조치</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-800/60">
-                <tr class="hover:bg-gray-800/40">
-                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8801</td>
-                    <td class="py-3 px-4 font-semibold text-white">무선 선풍기</td>
-                    <td class="py-3 px-4">가전제품</td>
-                    <td class="py-3 px-4">12개</td>
-                    <td class="py-3 px-4 text-red-400 font-bold">결품 주의</td>
-                    <td class="py-3 px-4">긴급 발주 필요</td>
-                </tr>
-                <tr class="hover:bg-gray-800/40">
-                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8802</td>
-                    <td class="py-3 px-4 font-semibold text-white">블루투스 스피커</td>
-                    <td class="py-3 px-4">음향기기</td>
-                    <td class="py-3 px-4">15개</td>
-                    <td class="py-3 px-4 text-red-400 font-bold">결품 주의</td>
-                    <td class="py-3 px-4">안전재고 확보 권장</td>
-                </tr>
-                <tr class="hover:bg-gray-800/40">
-                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8803</td>
-                    <td class="py-3 px-4 font-semibold text-white">캠핑 의자</td>
-                    <td class="py-3 px-4">아웃도어</td>
-                    <td class="py-3 px-4">140개</td>
-                    <td class="py-3 px-4 text-yellow-400 font-bold">과다 체류</td>
-                    <td class="py-3 px-4">10% 할인가 판매</td>
-                </tr>
-                <tr class="hover:bg-gray-800/40">
-                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8804</td>
-                    <td class="py-3 px-4 font-semibold text-white">전기 파리채</td>
-                    <td class="py-3 px-4">생활잡화</td>
-                    <td class="py-3 px-4">95개</td>
-                    <td class="py-3 px-4 text-yellow-400 font-bold">과다 체류</td>
-                    <td class="py-3 px-4">번들 기획전 진행</td>
-                </tr>
-                <tr class="hover:bg-gray-800/40">
-                    <td class="py-3 px-4 font-mono text-gray-200">SKU-8805</td>
-                    <td class="py-3 px-4 font-semibold text-white">요가 매트</td>
-                    <td class="py-3 px-4">스포츠</td>
-                    <td class="py-3 px-4">80개</td>
-                    <td class="py-3 px-4 text-yellow-400 font-bold">과다 체류</td>
-                    <td class="py-3 px-4">시즌 할인 프로모션</td>
-                </tr>
-            </tbody>
+            <tbody id="reportBody" class="divide-y divide-gray-800/60"></tbody>
         </table>
     </div>
 </div>
@@ -146,7 +97,16 @@ html { overflow-y: scroll; }
 </div>
 </footer>
 
+<script src="../js/stockclear.js"></script>
 <script>
+    const inventory = StockClear.getInventory();
+    document.getElementById('reportCount').textContent = `총 ${inventory.length.toLocaleString('ko-KR')}개 항목 선택됨`;
+    document.getElementById('reportBody').innerHTML = inventory.map((item) => {
+        const status = StockClear.classify(item);
+        const action = status === '처분 권장' ? '재고 처분 검토' : status === '장기 체류' ? '할인 프로모션' : '현 상태 유지';
+        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${item.product_name || '-'}</td><td class="py-3 px-4 font-semibold text-white">${item.product_name || '-'}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${status}</td><td class="py-3 px-4">${action}</td></tr>`;
+    }).join('');
+
   // 1. Excel (.xlsx) 파일 다운로드 함수
   function exportToExcel() {
     const table = document.getElementById('reportTable');

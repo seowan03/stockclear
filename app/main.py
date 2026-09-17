@@ -1,81 +1,28 @@
-from collections import Counter
-from datetime import datetime
-from decimal import Decimal
 import io
-from uuid import uuid4
-
-from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
+from datetime import datetime
+from fastapi import Depends, FastAPI, Request, Response, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import pandas as pd
 from pydantic import BaseModel
-from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
-from app.models import RawInventory, UploadHistory, User
-from app.router import raise_if_duplicate_upload
+from app.models import UploadHistory, User
+
+from app.analysis import analyze_inventory
 
 SESSION_COOKIE_NAME = "session_user"
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 
-
-# -------------------- 파싱 및 데이터 유틸 함수 --------------------
-def parse_int(value):
-    if pd.isna(value):
-        return None
-    return int(value)
-
-
-def parse_price(value):
-    if pd.isna(value):
-        return None
-    return Decimal(str(value))
-
-
-def parse_date(value):
-    if pd.isna(value):
-        return None
-    return pd.to_datetime(value).date()
-
-
-# 한 행의 핵심 컬럼 값을 튜플로 묶어 중복 업로드 비교 기준으로 사용
-def make_inventory_signature(product_name, stock_qty, purchase_price, inbound_date, market_price, sales_qty):
-    return (
-        None if pd.isna(product_name) else str(product_name),
-        parse_int(stock_qty),
-        parse_price(purchase_price),
-        parse_date(inbound_date),
-        parse_price(market_price),
-        parse_int(sales_qty),
-    )
-
-
-# DB 테이블 생성 및 스키마 검증
-def ensure_database_schema():
-    Base.metadata.create_all(bind=engine)
-    ensure_upload_files_user_id_column()
-
-    inspector = inspect(engine)
-    raw_inventory_columns = {
-        column["name"] for column in inspector.get_columns("raw_inventory")
-    }
-
-    if "sales_qty" not in raw_inventory_columns:
-        with engine.begin() as connection:
-            connection.execute(
-                text("ALTER TABLE raw_inventory ADD COLUMN sales_qty INT NULL")
-            )
-
-
-# -------------------- 앱 시작 시 초기화 --------------------
+# -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 @app.on_event("startup")
 def on_startup():
-    ensure_database_schema()
-
+    Base.metadata.create_all(bind=engine)
+    ensure_upload_files_user_id_column()
 
 # -------------------- CORS 설정 --------------------
 origins = [
@@ -94,7 +41,7 @@ app.add_middleware(
 )
 
 
-# -------------------- 로그인/인증 스키마 및 유틸 --------------------
+# -------------------- 로그인/인증 --------------------
 class SignupRequest(BaseModel):
     username: str
     email: str
@@ -116,12 +63,6 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
-def _save_history(db: Session, user_id: int, filename: str, file_size: int, status: str) -> None:
-    db.add(UploadHistory(user_id=user_id, file_name=filename, size=file_size, status=status))
-    db.commit()
-
-
-# -------------------- Auth API --------------------
 @app.post("/api/auth/signup")
 def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
@@ -173,14 +114,15 @@ def me(request: Request, db: Session = Depends(get_db)):
 def read_root():
     return FileResponse("static/upload.html")
 
-
-# -------------------- 엑셀 업로드 API (중복 예외 처리 반영) --------------------
+# -------------------- 엑셀 업로드 API (임시) --------------------
+# response_model=UploadResponse 부분은 schemas 작업 전이므로 임시 제거했습니다.
 @app.post("/api/upload")
 async def upload_and_parse_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+
     if not file.filename.endswith((".xlsx", ".xls", ".csv")):
         raise HTTPException(
             status_code=400,
@@ -205,64 +147,22 @@ async def upload_and_parse_excel(
                 detail=f"필수 컬럼이 없습니다: {missing_columns}"
             )
 
-        # 파일 내 행 데이터 시그니처 추출
-        upload_signature = Counter(
-            make_inventory_signature(
-                row["상품명"],
-                row["재고량"],
-                row["원가"],
-                row["입고일"],
-                row["판매가"],
-                row["판매량"],
-            )
-            for _, row in df.iterrows()
-        )
-
-        # 동일한 데이터 시그니처 묶음이 이미 DB에 존재하면 409 예외 처리
-        raise_if_duplicate_upload(db, current_user.user_id, upload_signature)
-
-        upload_batch_id = str(uuid4())
-        now = datetime.now()
-        inventory_items = []
-
-        # 중복 검사를 통과한 데이터만 RawInventory 저장
-        for signature, count in upload_signature.items():
-            product_name, stock_qty, purchase_price, inbound_date, market_price, sales_qty = signature
-            for _ in range(count):
-                inventory_items.append(
-                    RawInventory(
-                        user_id=current_user.user_id,
-                        upload_batch_id=upload_batch_id,
-                        product_name=product_name,
-                        stock_qty=stock_qty,
-                        purchase_price=purchase_price,
-                        market_price=market_price,
-                        sales_qty=sales_qty,
-                        inbound_date=inbound_date,
-                        created_at=now,
-                    )
-                )
-
-        db.add_all(inventory_items)
-        db.commit()
+        df = analyze_inventory(df)
 
         parsed_data = df.to_dict(orient="records")
+
         _save_history(db, current_user.user_id, file.filename, len(contents), "성공")
 
         return {
             "status": "success",
             "filename": file.filename,
-            "upload_batch_id": upload_batch_id,
             "total_rows": len(parsed_data),
-            "saved_rows": len(inventory_items),
             "data_preview": parsed_data
         }
 
     except HTTPException:
-        db.rollback()
         raise
     except Exception as e:
-        db.rollback()
         _save_history(db, current_user.user_id, file.filename, 0, "실패")
         raise HTTPException(
             status_code=500,
@@ -270,7 +170,12 @@ async def upload_and_parse_excel(
         )
 
 
-# -------------------- 업로드 기록 조회/삭제 API --------------------
+def _save_history(db: Session, user_id: int, filename: str, file_size: int, status: str) -> None:
+    db.add(UploadHistory(user_id=user_id, file_name=filename, size=file_size, status=status))
+    db.commit()
+
+
+# -------------------- 업로드 기록 조회/삭제 API (로그인한 사용자 본인 기록만) --------------------
 @app.get("/api/history")
 def list_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = (
@@ -315,6 +220,8 @@ def clear_history(db: Session = Depends(get_db), current_user: User = Depends(ge
     db.commit()
     return {"status": "success"}
 
-
-# -------------------- 정적 파일 서빙 --------------------
+# -------------------- 정적 HTML/CSS/JavaScript 페이지 연결 --------------------
+# 위의 명시적 라우트("/", "/api/...")에 안 걸린 나머지 경로를
+# static 폴더에서 파일명 그대로 서빙
+app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/", StaticFiles(directory="static"), name="static")

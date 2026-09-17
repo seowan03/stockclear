@@ -1,0 +1,23 @@
+@import url("../style.css");
+
+/* Page-specific styles are kept here so every HTML page shares one CSS entry point. */
+html {
+  overflow-y: scroll;
+}
+
+.fa-solid {
+  display: inline-block;
+  width: 1.25em;
+  text-align: center;
+}
+
+.dashboard-empty {
+  color: #94a3b8;
+  text-align: center;
+  padding: 2rem;
+}
+
+.data-status {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
