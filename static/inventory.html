@@ -3,14 +3,6 @@
 <head>
 
 
-<style>
-  /* 1. 스크롤바 유무로 인한 좌우 덜컥거림 방지 */
-  html { overflow-y: scroll; }
-  
-  /* 2. 모든 FontAwesome 아이콘의 가로폭을 통일 */
-  .fa-solid { display: inline-block; width: 1.25em; text-align: center; }
-</style>
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockClear - 재고 목록</title>
@@ -20,6 +12,7 @@
   <!-- FontAwesome & SheetJS CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -383,6 +376,7 @@
     </div>
   </footer>
 
+  <script src="../js/stockclear.js"></script>
   <script>
 function switchTab(tabName) {
       // 탭 컨텐츠 숨기기/보이기
@@ -411,74 +405,32 @@ function switchTab(tabName) {
     }
 
 
-    let inventoryData = [
-      { 
-        id: 1, 
-        sku: 'SKU-8801', 
-        name: '무선 마우스 A형', 
-        category: '전자기기', 
-        currentQty: 8, 
-        targetQty: 30, 
-        status: 'DEFICIT', 
-        statusText: '결품 위험',
-        icon: 'fa-mouse',
-        date: '2026-01-10',
-        origPrice: '35,000 원',
-        currPrice: '29,000 원',
-        exhaust: '0.5 개월',
-        depreciation: '10 %',
-        storage: '45 일',
-        ratio: '2 %',
-        riskScore: '85 / 100',
-        riskGrade: '결품 위험',
-        recDiscount: '0 % (발주 필요)',
-        recPrice: '29,000 원'
-      },
-      { 
-        id: 2, 
-        sku: 'SKU-4103', 
-        name: '시즌 오프 가디건 L', 
-        category: '의류', 
-        currentQty: 142, 
-        targetQty: 30, 
-        status: 'OVERSTOCK', 
-        statusText: '과다 재고',
-        icon: 'fa-shirt',
-        date: '2025-08-15',
-        origPrice: '70,000 원',
-        currPrice: '60,000 원',
-        exhaust: '20 개월',
-        depreciation: '35 %',
-        storage: '240 일',
-        ratio: '6 %',
-        riskScore: '70 / 100',
-        riskGrade: '악성 재고',
-        recDiscount: '35 %',
-        recPrice: '45,500 원'
-      },
-      { 
-        id: 3, 
-        sku: 'SKU-1055', 
-        name: '블루투스 스피커 세트', 
-        category: '전자기기', 
-        currentQty: 45, 
-        targetQty: 40, 
-        status: 'NORMAL', 
-        statusText: '적정',
+    const sourceInventory = StockClear.getInventory();
+    let inventoryData = sourceInventory.map((item, index) => {
+      const statusText = StockClear.classify(item);
+      return {
+        id: index + 1,
+        sku: item.sku || `ROW-${index + 1}`,
+        name: item.product_name || '이름 없음',
+        category: item.category || '-',
+        currentQty: StockClear.number(item.stock_qty),
+        targetQty: StockClear.number(item.reorder_point),
+        status: statusText === '처분 권장' ? 'DEFICIT' : statusText === '정상' ? 'NORMAL' : 'OVERSTOCK',
+        statusText,
         icon: 'fa-box-open',
-        date: '2026-02-01',
-        origPrice: '89,000 원',
-        currPrice: '89,000 원',
-        exhaust: '3 개월',
-        depreciation: '5 %',
-        storage: '30 일',
-        ratio: '3 %',
-        riskScore: '20 / 100',
-        riskGrade: '정상 재고',
-        recDiscount: '0 %',
-        recPrice: '89,000 원'
-      }
-    ];
+        date: item.received_date || '-',
+        origPrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
+        currPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
+        exhaust: `${StockClear.formatNumber(item.days_to_sell)} 일`,
+        depreciation: `${StockClear.number(item.depreciation_rate).toFixed(1)} %`,
+        storage: `${StockClear.formatNumber(item.storage_days)} 일`,
+        ratio: '-',
+        riskScore: `${Math.min(100, Math.round(StockClear.number(item.storage_days) / 1.2 + StockClear.number(item.depreciation_rate)))} / 100`,
+        riskGrade: statusText,
+        recDiscount: statusText === '장기 체류' ? '10 %' : '0 %',
+        recPrice: `${StockClear.formatNumber(item.selling_price)} 원`
+      };
+    });
 
     let trashData = [];
 

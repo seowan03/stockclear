@@ -32,7 +32,6 @@ class RawInventory(Base):
   upload_batch_id = Column(String(255))
   product_name = Column(String(255))
   stock_qty = Column(Integer)
-  sales_qty = Column(Integer)
   purchase_price = Column(Numeric(12, 2))
   market_price = Column(Numeric(12, 2))
   inbound_date = Column(Date)

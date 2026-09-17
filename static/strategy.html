@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- 분리된 외부 스타일시트 연결 -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -56,7 +56,7 @@
       <!-- 긴급 발주 카드 -->
       <div class="strategy-card bg-gray-900/80 border border-gray-800 rounded-3xl p-6 space-y-4">
         <h3 class="text-lg font-bold text-white flex items-center">
-          <i class="fa-solid fa-cart-plus text-rose-400 mr-2"></i>긴급 발주 추천 (23건)
+          <i class="fa-solid fa-cart-plus text-rose-400 mr-2"></i>긴급 발주 추천 (<span id="urgentCount">0</span>건)
         </h3>
         <p class="text-xs text-gray-400">안전재고 미달 품목 자동 발주 생성</p>
         <button onclick="alert('발주서 생성 완료')" class="action-btn w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/20">
@@ -67,7 +67,7 @@
       <!-- 소진 프로모션 카드 -->
       <div class="strategy-card bg-gray-900/80 border border-gray-800 rounded-3xl p-6 space-y-4">
         <h3 class="text-lg font-bold text-white flex items-center">
-          <i class="fa-solid fa-tags text-amber-400 mr-2"></i>소진 프로모션 제안 (45건)
+          <i class="fa-solid fa-tags text-amber-400 mr-2"></i>소진 프로모션 제안 (<span id="promotionCount">0</span>건)
         </h3>
         <p class="text-xs text-gray-400">60일 이상 장기 체류 재고 할인 적용</p>
         <button onclick="alert('프로모션 등록 완료')" class="action-btn w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-600/20">
@@ -87,6 +87,13 @@
       <p>© 2026 StockClear. All rights reserved.</p>
     </div>
   </footer>
+
+  <script src="../js/stockclear.js"></script>
+  <script>
+    const strategyInventory = StockClear.getInventory();
+    document.getElementById('urgentCount').textContent = strategyInventory.filter((item) => StockClear.classify(item) === '처분 권장').length;
+    document.getElementById('promotionCount').textContent = strategyInventory.filter((item) => ['주의', '장기 체류'].includes(StockClear.classify(item))).length;
+  </script>
 
 </body>
 </html>

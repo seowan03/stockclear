@@ -58,15 +58,15 @@ async def diagnose_inventory(item: InventoryItem):
     product_dict = item.model_dump()
 
     try:
-        from app.llm import get_ai_strategy_safely
+        from app.llm import get_ai_strategy
     except ImportError:
-        from app.llm import get_ai_startegy as get_ai_strategy_safely
+        from app.llm import get_ai_startegy as get_ai_strategy
 
-    ai_result = get_ai_strategy_safely(product_dict)
+    ai_result = get_ai_strategy(product_dict)
 
     return {
         "status": "success",
         "product_name": item.product_name,
-        "stock_status": ai_result.get("stock_status"),
-        "judgment": ai_result.get("judgment")
+        "stock_status": ai_result.get("status"),
+        "judgment": ai_result.get("comment")
     }
