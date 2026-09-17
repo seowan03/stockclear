@@ -1,10 +1,11 @@
 fastapi
 uvicorn
-pydantic
 pandas
-openpyxl
-sqlalchemy
-pymysql
 python-dotenv
-werkzeug
+pymysql
+openpyxl
 openai
+pydantic
+python-multipart
+sqlalchemy
+werkzeug
