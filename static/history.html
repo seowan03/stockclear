@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockClear - 업로드 기록</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="history-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
+
+<!-- HEADER NAV -->
+<header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
+<div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+    <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer">
+    <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
+    <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
+    </a>
+    <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+  <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
+  <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
+  <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
+  <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
+  <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
+  <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
+</nav>
+    <div class="flex items-center space-x-3">
+    <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
+    <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
+    </div>
+</div>
+</header>
+
+<main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8 space-y-8">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6">
+    <div>
+    <h1 class="text-2xl md:text-3xl font-extrabold text-white">데이터 업로드 히스토리</h1>
+    <p class="text-gray-400 text-xs md:text-sm mt-1">과거 파일 업로드 및 파싱 처리 로그 목록</p>
+    </div>
+    <a href="upload.html" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30 self-start md:self-auto transition-all"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>새 데이터 업로드</a>
+</div>
+
+<!-- 검색 및 필터 컨트롤 영역 -->
+<div class="flex flex-col sm:flex-row justify-between gap-4 items-center bg-gray-900/60 p-4 rounded-2xl border border-gray-800">
+    <div class="relative w-full sm:w-80">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+        <input type="text" id="searchInput" onkeyup="filterHistory()" placeholder="파일명으로 검색..." class="w-full bg-gray-950 border border-gray-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors">
+    </div>
+    <div class="flex items-center space-x-2 text-xs text-gray-400 w-full sm:w-auto justify-end">
+        <span>총 <strong id="totalCount" class="text-white">3</strong>개 이력</span>
+    </div>
+</div>
+
+<div class="bg-gray-900/80 border border-gray-800 rounded-3xl overflow-hidden shadow-xl">
+    <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+    <h3 class="font-bold text-white text-sm"><i class="fa-solid fa-list-check text-blue-400 mr-2"></i>업로드 이력 목록</h3>
+    <button onclick="clearHistory()" class="text-xs text-gray-500 hover:text-red-400 transition-colors"><i class="fa-solid fa-trash-can mr-1"></i>기록 전체 삭제</button>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full text-left text-xs">
+        <thead class="bg-gray-950/80 text-gray-400 font-semibold border-b border-gray-800">
+        <tr>
+            <th class="px-6 py-3.5">일시</th>
+            <th class="px-6 py-3.5">파일명</th>
+            <th class="px-6 py-3.5">용량</th>
+            <th class="px-6 py-3.5">상태</th>
+            <th class="px-6 py-3.5 text-right">관리</th>
+        </tr>
+        </thead>
+        <tbody id="historyTableBody" class="divide-y divide-gray-800/60 text-gray-300">
+        <tr class="hover:bg-gray-800/40 transition-colors">
+            <td class="px-6 py-4 font-mono text-gray-400">2026-09-15 14:23</td>
+            <td class="px-6 py-4 font-bold text-white"><i class="fa-solid fa-file-excel text-emerald-400 mr-2"></i>2026_Q3_Inventory_Master.xlsx</td>
+            <td class="px-6 py-4 text-gray-400">2.4 MB</td>
+            <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">성공</span></td>
+            <td class="px-6 py-4 text-right space-x-1">
+                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
+                <button onclick="deleteRow(this)" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </td>
+        </tr>
+        <tr class="hover:bg-gray-800/40 transition-colors">
+            <td class="px-6 py-4 font-mono text-gray-400">2026-09-01 09:10</td>
+            <td class="px-6 py-4 font-bold text-white"><i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>September_Stock_List.csv</td>
+            <td class="px-6 py-4 text-gray-400">1.1 MB</td>
+            <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">성공</span></td>
+            <td class="px-6 py-4 text-right space-x-1">
+                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
+                <button onclick="deleteRow(this)" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </td>
+        </tr>
+        <tr class="hover:bg-gray-800/40 transition-colors">
+            <td class="px-6 py-4 font-mono text-gray-400">2026-08-20 18:45</td>
+            <td class="px-6 py-4 font-bold text-white"><i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>August_Stock_List_Old.csv</td>
+            <td class="px-6 py-4 text-gray-400">890 KB</td>
+            <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-gray-500/10 border border-gray-500/30 text-gray-400 font-bold">보관됨</span></td>
+            <td class="px-6 py-4 text-right space-x-1">
+                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
+                <button onclick="deleteRow(this)" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+</main>
+
+<footer class="bg-gray-950 border-t border-gray-800/80 py-8 px-6 text-center text-xs text-gray-500">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center space-x-2">
+    <div class="w-5 h-5 rounded bg-blue-600 flex items-center justify-center font-black text-white text-xs">S</div>
+    <span class="font-bold text-gray-300">StockClear Inc.</span>
+    </div>
+    <p>© 2026 StockClear. All rights reserved.</p>
+</div>
+</footer>
+
+<script>
+  // 개별 행 삭제 함수
+  function deleteRow(button) {
+    if (confirm("이 업로드 기록을 삭제하시겠습니까?")) {
+      const row = button.closest('tr');
+      row.remove();
+      updateCount();
+    }
+  }
+
+  // 전체 기록 삭제 함수
+  function clearHistory() {
+    if (confirm("모든 업로드 기록을 삭제하시겠습니까?")) {
+      document.getElementById('historyTableBody').innerHTML = `
+        <tr>
+          <td colspan="5" class="px-6 py-8 text-center text-gray-500">업로드 기록이 없습니다.</td>
+        </tr>`;
+      updateCount();
+    }
+  }
+
+  // 실시간 파일명 검색 필터 함수
+  function filterHistory() {
+    const input = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#historyTableBody tr');
+
+    rows.forEach(row => {
+      const fileName = row.cells[1]?.innerText.toLowerCase() || '';
+      if (fileName.includes(input)) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  // 총 개수 업데이트 함수
+  function updateCount() { 
+    const visibleRows = document.querySelectorAll('#historyTableBody tr').length;
+    document.getElementById('totalCount').innerText = visibleRows;
+  }
+</script>  
+</body>   
+</html>
