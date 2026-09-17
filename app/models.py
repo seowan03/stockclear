@@ -36,6 +36,7 @@ class RawInventory(Base):
   market_price = Column(Numeric(12, 2))
   inbound_date = Column(Date)
   created_at = Column(DateTime)
+  sales_qty = Column(Integer)
 
 
 class AnalysisResult(Base):
