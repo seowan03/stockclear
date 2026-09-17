@@ -1,4 +1,6 @@
 import io
+import hashlib
+import json
 from datetime import datetime, timezone
 from fastapi import Depends, FastAPI, Request, Response, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
+from app.router import raise_if_duplicate_upload
 
 from app.analysis import analyze_inventory
 
@@ -118,6 +121,15 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
   return RedirectResponse(url="/dashboard.html")
 
 
+def make_upload_content_hash(df, required_columns):
+    """필수 컬럼의 실제 값으로 업로드 내용의 일관된 해시를 생성한다."""
+    normalized_data = df[required_columns].copy()
+    normalized_data["입고일"] = normalized_data["입고일"].map(
+        lambda value: None if pd.isna(value) else pd.to_datetime(value).date().isoformat()
+    )
+    records = normalized_data.where(pd.notna(normalized_data), None).to_dict(orient="records")
+    serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
 
 
 # -------------------- 앱 시작 시 테이블 자동 생성 --------------------
@@ -249,11 +261,21 @@ async def upload_and_parse_excel(
                 detail=f"필수 컬럼이 없습니다: {missing_columns}"
             )
 
+        content_hash = make_upload_content_hash(df, required_columns)
+        raise_if_duplicate_upload(db, current_user.user_id, content_hash)
+
         df = analyze_inventory(df)
 
         parsed_data = df.to_dict(orient="records")
 
-        _save_history(db, current_user.user_id, file.filename, len(contents), "성공")
+        _save_history(
+            db,
+            current_user.user_id,
+            file.filename,
+            len(contents),
+            "성공",
+            content_hash,
+        )
 
         return {
             "status": "success",
@@ -272,8 +294,21 @@ async def upload_and_parse_excel(
         )
 
 
-def _save_history(db: Session, user_id: int, filename: str, file_size: int, status: str) -> None:
-    db.add(UploadHistory(user_id=user_id, file_name=filename, size=file_size, status=status))
+def _save_history(
+    db: Session,
+    user_id: int,
+    filename: str,
+    file_size: int,
+    status: str,
+    content_hash: str | None = None,
+) -> None:
+    db.add(UploadHistory(
+        user_id=user_id,
+        file_name=filename,
+        size=file_size,
+        status=status,
+        content_hash=content_hash,
+    ))
     db.commit()
 
 

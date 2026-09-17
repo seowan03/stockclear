@@ -21,3 +21,25 @@ html {
   color: #94a3b8;
   font-size: 0.75rem;
 }
+
+/* Do not flash sign-in actions before the asynchronous session state is known. */
+header a[href="signin.html"] {
+  visibility: hidden;
+}
+
+@media (min-width: 768px) {
+  /* Keep both navigation and the async account label in fixed header positions. */
+  header > div > div:last-child {
+    display: flex;
+    flex: 0 0 164px;
+    justify-content: flex-end;
+    min-width: 164px;
+  }
+
+  header > div > div:last-child > span {
+    max-width: 164px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
