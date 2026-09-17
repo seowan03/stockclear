@@ -64,3 +64,7 @@ class UploadHistory(Base):
   file_name = Column(String(255))
   size = Column(Integer)  # bytes
   status = Column(String(50))  # 성공 / 실패 / 보관됨
+<<<<<<< HEAD
+=======
+  content_hash = Column(String(64), nullable=True)
+>>>>>>> 1729d78681dc6a4dc4ac46dc4c3b964ec3f7eebb

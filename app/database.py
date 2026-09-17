@@ -66,3 +66,9 @@ def ensure_upload_files_user_id_column():
     if "user_id" not in columns:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE upload_files ADD COLUMN user_id INT NULL"))
+<<<<<<< HEAD
+=======
+    if "content_hash" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE upload_files ADD COLUMN content_hash VARCHAR(64) NULL"))
+>>>>>>> 1729d78681dc6a4dc4ac46dc4c3b964ec3f7eebb
