@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-from fastapi import APIRouter
-from pydantic import BaseModel
-from app.llm import get_ai_strategy_safely
-=======
 from collections import Counter
 
 from fastapi import APIRouter, HTTPException
@@ -10,28 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.models import RawInventory
 from app.schemas import InventoryItem
->>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
 
 router = APIRouter()
 
 
-<<<<<<< HEAD
-# AI 분석에 전달할 데이터 형식
-class InventoryItem(BaseModel):
-    product_name: str
-    stock_qty: int
-    purchase_price: int
-    received_date: str
-    selling_price: int
-    sales_qty: int
-
-    storage_days: int
-    inventory_value: int
-    sales_speed: float
-    days_to_sell: float
-    depreciation_rate: float
-
-=======
 # 현재 로그인한 사용자의 업로드 묶음별 데이터와 현재 업로드 데이터를 비교해 같은 batch_id를 찾음
 def find_duplicate_upload_batch(db: Session, user_id: int, upload_signature):
     existing_items = (
@@ -73,7 +50,6 @@ def raise_if_duplicate_upload(db: Session, user_id: int, upload_signature):
             status_code=409,
             detail=f"이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다. batch_id: {duplicate_batch_id}"
         )
->>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
 
 # --- AI 처방전 진단 API ---
 @router.post("/api/ai-diagnose")
@@ -81,25 +57,16 @@ async def diagnose_inventory(item: InventoryItem):
 
     product_dict = item.model_dump()
 
-<<<<<<< HEAD
-    ai_result = get_ai_strategy_safely(product_dict)
-=======
     try:
         from app.llm import get_ai_strategy
     except ImportError:
         from app.llm import get_ai_startegy as get_ai_strategy
 
     ai_result = get_ai_strategy(product_dict)
->>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
 
     return {
         "status": "success",
         "product_name": item.product_name,
-<<<<<<< HEAD
-        "stock_status": ai_result.get("stock_status"),
-        "judgment": ai_result.get("judgment")
-=======
         "stock_status": ai_result.get("status"),
         "judgment": ai_result.get("comment")
->>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
     }

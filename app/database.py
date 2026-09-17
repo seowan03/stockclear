@@ -1,11 +1,7 @@
 import os
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
-<<<<<<< HEAD
-from sqlalchemy import create_engine
-=======
 from sqlalchemy import create_engine, inspect, text
->>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # .env 파일에서 환경 변수 로드
@@ -57,8 +53,6 @@ def get_db():
     finally:
         db.close()
 
-<<<<<<< HEAD
-=======
 
 def ensure_upload_files_user_id_column():
     """
@@ -72,4 +66,3 @@ def ensure_upload_files_user_id_column():
     if "user_id" not in columns:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE upload_files ADD COLUMN user_id INT NULL"))
->>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
