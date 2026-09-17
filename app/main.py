@@ -219,7 +219,7 @@ async def upload_and_parse_excel(
         )
 
         # 동일한 데이터 시그니처 묶음이 이미 DB에 존재하면 409 예외 처리
-        raise_if_duplicate_upload(db, upload_signature)
+        raise_if_duplicate_upload(db, current_user.user_id, upload_signature)
 
         upload_batch_id = str(uuid4())
         now = datetime.now()

@@ -9,11 +9,14 @@ from app.schemas import InventoryItem
 router = APIRouter()
 
 
-# DB에 저장된 업로드 묶음별 데이터와 현재 업로드 데이터를 비교해 같은 batch_id를 찾음
-def find_duplicate_upload_batch(db: Session, upload_signature):
+# 현재 로그인한 사용자의 업로드 묶음별 데이터와 현재 업로드 데이터를 비교해 같은 batch_id를 찾음
+def find_duplicate_upload_batch(db: Session, user_id: int, upload_signature):
     existing_items = (
         db.query(RawInventory)
-        .filter(RawInventory.upload_batch_id.isnot(None))
+        .filter(
+            RawInventory.user_id == user_id,
+            RawInventory.upload_batch_id.isnot(None),
+        )
         .order_by(RawInventory.upload_batch_id, RawInventory.item_id)
         .all()
     )
@@ -40,8 +43,8 @@ def find_duplicate_upload_batch(db: Session, upload_signature):
 
 
 # 중복 업로드가 확인되면 main.py의 업로드 흐름을 중단시키는 예외 발생
-def raise_if_duplicate_upload(db: Session, upload_signature):
-    duplicate_batch_id = find_duplicate_upload_batch(db, upload_signature)
+def raise_if_duplicate_upload(db: Session, user_id: int, upload_signature):
+    duplicate_batch_id = find_duplicate_upload_batch(db, user_id, upload_signature)
     if duplicate_batch_id:
         raise HTTPException(
             status_code=409,
