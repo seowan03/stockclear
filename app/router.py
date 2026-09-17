@@ -1,31 +1,63 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
-from app.llm import get_ai_strategy_safely
+from collections import Counter
+
+from fastapi import APIRouter, HTTPException
+from sqlalchemy.orm import Session
+
+from app.models import RawInventory
+from app.schemas import InventoryItem
 
 router = APIRouter()
 
 
-# AI 분석에 전달할 데이터 형식
-class InventoryItem(BaseModel):
-    product_name: str
-    stock_qty: int
-    purchase_price: int
-    received_date: str
-    selling_price: int
-    sales_qty: int
+# DB에 저장된 업로드 묶음별 데이터와 현재 업로드 데이터를 비교해 같은 batch_id를 찾음
+def find_duplicate_upload_batch(db: Session, upload_signature):
+    existing_items = (
+        db.query(RawInventory)
+        .filter(RawInventory.upload_batch_id.isnot(None))
+        .order_by(RawInventory.upload_batch_id, RawInventory.item_id)
+        .all()
+    )
 
-    storage_days: int
-    inventory_value: int
-    sales_speed: float
-    days_to_sell: float
-    depreciation_rate: float
+    batch_signatures = {}
+    for item in existing_items:
+        # 같은 upload_batch_id끼리 행 데이터를 모아 하나의 업로드 파일 내용처럼 비교
+        batch_signatures.setdefault(item.upload_batch_id, Counter()).update([
+            (
+                item.product_name,
+                item.stock_qty,
+                item.purchase_price,
+                item.inbound_date,
+                item.market_price,
+                item.sales_qty,
+            )
+        ])
 
+    for upload_batch_id, existing_signature in batch_signatures.items():
+        if existing_signature == upload_signature:
+            return upload_batch_id
+
+    return None
+
+
+# 중복 업로드가 확인되면 main.py의 업로드 흐름을 중단시키는 예외 발생
+def raise_if_duplicate_upload(db: Session, upload_signature):
+    duplicate_batch_id = find_duplicate_upload_batch(db, upload_signature)
+    if duplicate_batch_id:
+        raise HTTPException(
+            status_code=409,
+            detail=f"이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다. batch_id: {duplicate_batch_id}"
+        )
 
 # --- AI 처방전 진단 API ---
 @router.post("/api/ai-diagnose")
 async def diagnose_inventory(item: InventoryItem):
 
     product_dict = item.model_dump()
+
+    try:
+        from app.llm import get_ai_strategy_safely
+    except ImportError:
+        from app.llm import get_ai_startegy as get_ai_strategy_safely
 
     ai_result = get_ai_strategy_safely(product_dict)
 

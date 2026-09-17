@@ -1,2 +1,10 @@
-uvicon
+fastapi
+uvicorn
+pandas
+python-dotenv
+pymysql
+openpyxl
+openai
 pydantic
+python-multipart
+sqlalchemy
