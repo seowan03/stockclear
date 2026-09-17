@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+
+
+<style>
+  /* 1. 스크롤바 유무로 인한 좌우 덜컥거림 방지 */
+  html { overflow-y: scroll; }
+  
+  /* 2. 모든 FontAwesome 아이콘의 가로폭을 통일 */
+  .fa-solid { display: inline-block; width: 1.25em; text-align: center; }
+</style>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockClear - 재고 목록</title>
@@ -67,6 +77,7 @@
         </a>
       </div>
     </div>
+  </div>
 
     <!-- 검색 및 필터 -->
     <div class="bg-gray-900/60 border border-gray-800/80 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row gap-3">
@@ -608,6 +619,7 @@ function switchTab(tabName) {
       }
     }
 
+    // 영구 삭제
     function deletePermanently(id) {
       if (confirm('완전히 삭제하시겠습니까?')) {
         trashData = trashData.filter(item => item.id !== id);
@@ -615,6 +627,7 @@ function switchTab(tabName) {
       }
     }
 
+    // 휴지통 비우기
     function emptyTrashAll() {
       if (trashData.length === 0) return;
       if (confirm('휴지통을 완전히 비우시겠습니까?')) {
@@ -623,19 +636,17 @@ function switchTab(tabName) {
       }
     }
 
+    // 모달 제어
     function openTrashModal() {
       renderTrash();
-      const modal = document.getElementById('trashModal');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+      document.getElementById('trashModal').classList.add('active');
     }
 
     function closeTrashModal() {
-      const modal = document.getElementById('trashModal');
-      modal.classList.remove('flex');
-      modal.classList.add('hidden');
+      document.getElementById('trashModal').classList.remove('active');
     }
 
+    // 검색 및 필터링
     function filterItems() {
       const searchVal = document.getElementById('searchInput').value.toLowerCase();
       const statusVal = document.getElementById('statusFilter').value;
@@ -657,12 +668,14 @@ function switchTab(tabName) {
       });
     }
 
+    // 엑셀 내보내기 기능
     function exportExcel() {
       const table = document.getElementById('inventoryTable');
       const wb = XLSX.utils.table_to_book(table, { sheet: "재고목록" });
       XLSX.writeFile(wb, "StockClear_재고목록.xlsx");
     }
 
+    // 초기 실행
     renderTable();  
   </script>
 </body>

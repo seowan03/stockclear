@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+
+
+<style>
+  /* 1. 스크롤바 유무로 인한 좌우 덜컥거림 방지 */
+  html { overflow-y: scroll; }
+  
+  /* 2. 모든 FontAwesome 아이콘의 가로폭을 통일 */
+  .fa-solid { display: inline-block; width: 1.25em; text-align: center; }
+</style>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StockClear - 업로드 기록</title>
@@ -19,13 +29,14 @@
     <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
     </a>
     <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-  <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
-  <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
-  <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
-  <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
-  <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
-  <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
-</nav>
+    <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
+    <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
+    <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
+    <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
+    <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
+    <a href="strategy.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>AI 전략</a>
+    <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
+    </nav>
     <div class="flex items-center space-x-3">
     <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
     <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
@@ -70,35 +81,8 @@
         </tr>
         </thead>
         <tbody id="historyTableBody" class="divide-y divide-gray-800/60 text-gray-300">
-        <tr class="hover:bg-gray-800/40 transition-colors">
-            <td class="px-6 py-4 font-mono text-gray-400">2026-09-15 14:23</td>
-            <td class="px-6 py-4 font-bold text-white"><i class="fa-solid fa-file-excel text-emerald-400 mr-2"></i>2026_Q3_Inventory_Master.xlsx</td>
-            <td class="px-6 py-4 text-gray-400">2.4 MB</td>
-            <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">성공</span></td>
-            <td class="px-6 py-4 text-right space-x-1">
-                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
-                <button onclick="deleteRow(this)" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
-            </td>
-        </tr>
-        <tr class="hover:bg-gray-800/40 transition-colors">
-            <td class="px-6 py-4 font-mono text-gray-400">2026-09-01 09:10</td>
-            <td class="px-6 py-4 font-bold text-white"><i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>September_Stock_List.csv</td>
-            <td class="px-6 py-4 text-gray-400">1.1 MB</td>
-            <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">성공</span></td>
-            <td class="px-6 py-4 text-right space-x-1">
-                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
-                <button onclick="deleteRow(this)" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
-            </td>
-        </tr>
-        <tr class="hover:bg-gray-800/40 transition-colors">
-            <td class="px-6 py-4 font-mono text-gray-400">2026-08-20 18:45</td>
-            <td class="px-6 py-4 font-bold text-white"><i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>August_Stock_List_Old.csv</td>
-            <td class="px-6 py-4 text-gray-400">890 KB</td>
-            <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-gray-500/10 border border-gray-500/30 text-gray-400 font-bold">보관됨</span></td>
-            <td class="px-6 py-4 text-right space-x-1">
-                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
-                <button onclick="deleteRow(this)" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
-            </td>
+        <tr>
+          <td colspan="5" class="px-6 py-8 text-center text-gray-500">불러오는 중...</td>
         </tr>
         </tbody>
     </table>
@@ -117,23 +101,94 @@
 </footer>
 
 <script>
-  // 개별 행 삭제 함수
-  function deleteRow(button) {
-    if (confirm("이 업로드 기록을 삭제하시겠습니까?")) {
-      const row = button.closest('tr');
-      row.remove();
+  // 파일 크기(byte) -> 사람이 읽기 쉬운 단위로 변환
+  function formatFileSize(bytes) {
+    if (!bytes) return '-';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  // 파일명 확장자에 따른 아이콘/색상
+  function fileIcon(filename) {
+    const lower = (filename || '').toLowerCase();
+    if (lower.endsWith('.xlsx') || lower.endsWith('.xls')) {
+      return '<i class="fa-solid fa-file-excel text-emerald-400 mr-2"></i>';
+    }
+    return '<i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>';
+  }
+
+  // 상태값에 따른 배지 스타일
+  function statusBadge(status) {
+    if (status === '성공') {
+      return '<span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">성공</span>';
+    }
+    if (status === '실패') {
+      return '<span class="px-2 py-0.5 rounded bg-red-500/10 border border-red-500/30 text-red-400 font-bold">실패</span>';
+    }
+    return '<span class="px-2 py-0.5 rounded bg-gray-500/10 border border-gray-500/30 text-gray-400 font-bold">' + status + '</span>';
+  }
+
+  // DB에서 업로드 기록을 가져와 테이블 렌더링
+  async function loadHistory() {
+    const tbody = document.getElementById('historyTableBody');
+    try {
+      const res = await fetch('/api/history');
+      if (res.status === 401) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">로그인 후 이용 가능합니다. <a href="signin.html" class="text-blue-400 hover:underline">로그인하기</a></td></tr>`;
+        updateCount();
+        return;
+      }
+      if (!res.ok) throw new Error('요청 실패');
+      const rows = await res.json();
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">업로드 기록이 없습니다.</td></tr>`;
+      } else {
+        tbody.innerHTML = rows.map(row => `
+          <tr class="hover:bg-gray-800/40 transition-colors" data-history-id="${row.id}">
+            <td class="px-6 py-4 font-mono text-gray-400">${row.upload_date ? row.upload_date.replace('T', ' ').slice(0, 16) : '-'}</td>
+            <td class="px-6 py-4 font-bold text-white">${fileIcon(row.file_name)}${row.file_name}</td>
+            <td class="px-6 py-4 text-gray-400">${formatFileSize(row.size)}</td>
+            <td class="px-6 py-4">${statusBadge(row.status)}</td>
+            <td class="px-6 py-4 text-right space-x-1">
+                <a href="dashboard.html" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">대시보드 열기</a>
+                <button onclick="deleteRow(this, ${row.id})" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </td>
+          </tr>
+        `).join('');
+      }
       updateCount();
+    } catch (err) {
+      tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-red-400">기록을 불러오지 못했습니다.</td></tr>`;
     }
   }
 
-  // 전체 기록 삭제 함수
-  function clearHistory() {
-    if (confirm("모든 업로드 기록을 삭제하시겠습니까?")) {
+  // 개별 행 삭제 함수 (DB에서도 삭제)
+  async function deleteRow(button, historyId) {
+    if (!confirm("이 업로드 기록을 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(`/api/history/${historyId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제 실패');
+      button.closest('tr').remove();
+      updateCount();
+    } catch (err) {
+      alert('삭제 중 오류가 발생했습니다.');
+    }
+  }
+
+  // 전체 기록 삭제 함수 (DB에서도 삭제)
+  async function clearHistory() {
+    if (!confirm("모든 업로드 기록을 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch('/api/history', { method: 'DELETE' });
+      if (!res.ok) throw new Error('삭제 실패');
       document.getElementById('historyTableBody').innerHTML = `
         <tr>
           <td colspan="5" class="px-6 py-8 text-center text-gray-500">업로드 기록이 없습니다.</td>
         </tr>`;
       updateCount();
+    } catch (err) {
+      alert('삭제 중 오류가 발생했습니다.');
     }
   }
 
@@ -153,10 +208,12 @@
   }
 
   // 총 개수 업데이트 함수
-  function updateCount() { 
-    const visibleRows = document.querySelectorAll('#historyTableBody tr').length;
+  function updateCount() {
+    const visibleRows = document.querySelectorAll('#historyTableBody tr[data-history-id]').length;
     document.getElementById('totalCount').innerText = visibleRows;
   }
-</script>  
+
+  loadHistory();
+</script>
 </body>   
 </html>

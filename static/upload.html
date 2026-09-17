@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+
+<style>
+  /* 1. 스크롤바 유무로 인한 좌우 덜컥거림 방지 */
+  html { overflow-y: scroll; }
+  
+  /* 2. 모든 FontAwesome 아이콘의 가로폭을 통일 */
+  .fa-solid { display: inline-block; width: 1.25em; text-align: center; }
+</style>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockClear - 데이터 업로드</title>
@@ -8,6 +17,8 @@
   <!-- Tailwind CSS & FontAwesome CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- 분리된 외부 스타일시트 연결 -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
@@ -22,13 +33,14 @@
       
       <!-- 네비게이션 링크 (업로드 활성화) -->
       <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-  <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
-  <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
-  <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
-  <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
-  <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
-  <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
-</nav>
+        <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
+        <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
+        <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
+        <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
+        <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
+        <a href="strategy.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>AI 전략</a>
+        <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
+      </nav>
 
       <div class="flex items-center space-x-3">
         <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
@@ -53,7 +65,7 @@
       <input type="file" name="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden" required />
 
       <!-- UPLOAD BOX (드래그 앤 드롭 & 파일 클릭 영역) -->
-      <div id="dropZone" 
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()" 
            class="bg-gray-900/80 border-2 border-dashed border-gray-700 hover:border-blue-500 rounded-3xl p-12 text-center transition-all cursor-pointer space-y-4">
           
         <div class="w-16 h-16 rounded-2xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto text-2xl">
@@ -65,9 +77,9 @@
           <p class="text-xs text-gray-400 mt-1" id="selectedFileName">지원 형식: XLSX, XLS, CSV (최대 50MB)</p>
         </div>
 
-        <button type="button" id="submitBtn" 
+        <button type="submit" id="submitBtn" 
                 class="inline-block px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all border-none cursor-pointer">
-          파일 선택하기
+          파일 선택 및 AI 분석 실행
         </button>
       </div>
     </form>
@@ -160,6 +172,7 @@
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
 
+      // 버튼 상태 처리 (로딩 중)
       submitBtn.disabled = true;
       submitBtn.innerText = "AI 분석 및 전송 중...";
 
@@ -172,14 +185,22 @@
         if (response.ok) {
           alert("파일 업로드가 완료되었습니다! 대시보드로 이동합니다.");
           window.location.href = 'dashboard.html';
+        } else if (response.status === 401) {
+          alert("로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.");
+          window.location.href = 'signin.html';
         } else {
-          window.location.href = 'dashboard.html';
+          const data = await response.json().catch(() => ({}));
+          alert(data.detail || "업로드 중 오류가 발생했습니다.");
+          submitBtn.disabled = false;
+          submitBtn.innerText = "이 파일로 AI 분석 실행하기";
         }
       } catch (error) {
-        alert("파일이 정상 선택되었습니다. 대시보드 분석 화면으로 이동합니다.");
-        window.location.href = 'dashboard.html';
+        console.error("업로드 에러:", error);
+        alert("서버에 연결할 수 없습니다.");
+        submitBtn.disabled = false;
+        submitBtn.innerText = "이 파일로 AI 분석 실행하기";
       }
-    });  
+    });
   </script>
 </body>
 </html>
