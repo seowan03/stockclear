@@ -109,13 +109,13 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-  # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
-  response.set_cookie(
+  # 4. 로그인이 완료되면 대시보드 페이지로 리다이렉트하면서, 그 리다이렉트 응답에 직접 세션 쿠키를 심는다.
+  # (참고: 주입받은 response 파라미터에 set_cookie 해도 함수가 다른 Response를 반환하면 무시된다)
+  redirect_response = RedirectResponse(url="/dashboard.html")
+  redirect_response.set_cookie(
       SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
   )
-
-  # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
-  return RedirectResponse(url="/dashboard.html")
+  return redirect_response
 
 
 
