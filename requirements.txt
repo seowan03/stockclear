@@ -1,2 +1,10 @@
-uvicon
+fastapi
+uvicorn
 pydantic
+pandas
+openpyxl
+sqlalchemy
+pymysql
+python-dotenv
+werkzeug
+openai

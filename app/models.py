@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.sql import func
 
 
 # ORM 모델 정의
@@ -52,3 +53,14 @@ class AnalysisResult(Base):
   ai_diagnosis = Column(Text)
   action_plans = Column(Text)
   updated_at = Column(DateTime)
+
+
+class UploadHistory(Base):
+  __tablename__ = "upload_files"
+
+  id = Column(Integer, primary_key=True, autoincrement=True)
+  user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+  upload_date = Column(DateTime, server_default=func.now())
+  file_name = Column(String(255))
+  size = Column(Integer)  # bytes
+  status = Column(String(50))  # 성공 / 실패 / 보관됨

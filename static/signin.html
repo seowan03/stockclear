@@ -32,23 +32,35 @@
     <div class="auth-card w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-8 shadow-2xl space-y-6">
       
       <div class="text-center space-y-2">
-        <h1 class="text-2xl font-black text-white">StockClear 시작하기</h1>
-        <p class="text-xs text-gray-400">서비스 이용을 위해 로그인하거나 계정을 생성하세요.</p>
+        <h1 class="text-2xl font-black text-white" id="authTitle">StockClear 로그인</h1>
+        <p class="text-xs text-gray-400" id="authSubtitle">서비스 이용을 위해 로그인하세요.</p>
       </div>
 
-      <div class="space-y-4">
+      <!-- 로그인 / 회원가입 전환 탭 -->
+      <div class="grid grid-cols-2 gap-2 bg-gray-950 border border-gray-800 rounded-xl p-1">
+        <button type="button" id="tabLogin" onclick="switchMode('login')" class="py-2 text-xs font-bold rounded-lg bg-blue-600 text-white transition-colors">로그인</button>
+        <button type="button" id="tabSignup" onclick="switchMode('signup')" class="py-2 text-xs font-bold rounded-lg text-gray-400 transition-colors">회원가입</button>
+      </div>
+
+      <p id="authError" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></p>
+
+      <form id="authForm" class="space-y-4">
+        <div id="usernameField" class="hidden">
+          <label class="block text-xs font-semibold text-gray-300 mb-1.5">이름</label>
+          <input type="text" id="usernameInput" placeholder="홍길동" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
+        </div>
         <div>
           <label class="block text-xs font-semibold text-gray-300 mb-1.5">이메일 주소</label>
-          <input type="email" placeholder="name@company.com" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
+          <input type="email" id="emailInput" placeholder="name@company.com" required class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
         </div>
         <div>
           <label class="block text-xs font-semibold text-gray-300 mb-1.5">비밀번호</label>
-          <input type="password" placeholder="••••••••" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
+          <input type="password" id="passwordInput" placeholder="••••••••" required class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
         </div>
-        <a href="dashboard.html" class="block text-center w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all">
-          로그인 / 계정 생성
-        </a>
-      </div>
+        <button type="submit" id="authSubmitBtn" class="block text-center w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all border-none cursor-pointer">
+          로그인
+        </button>
+      </form>
 
       <div class="relative flex py-2 items-center">
         <div class="flex-grow border-t border-gray-800"></div>
@@ -72,6 +84,59 @@
   <footer class="bg-gray-950 border-t border-gray-800/80 py-6 px-6 text-center text-xs text-gray-500">
     <p>© 2026 StockClear. All rights reserved.</p>
   </footer>
-  
+
+  <script>
+    let mode = 'login';
+
+    function switchMode(newMode) {
+      mode = newMode;
+      const isLogin = mode === 'login';
+      document.getElementById('tabLogin').classList.toggle('bg-blue-600', isLogin);
+      document.getElementById('tabLogin').classList.toggle('text-white', isLogin);
+      document.getElementById('tabLogin').classList.toggle('text-gray-400', !isLogin);
+      document.getElementById('tabSignup').classList.toggle('bg-blue-600', !isLogin);
+      document.getElementById('tabSignup').classList.toggle('text-white', !isLogin);
+      document.getElementById('tabSignup').classList.toggle('text-gray-400', isLogin);
+      document.getElementById('usernameField').classList.toggle('hidden', isLogin);
+      document.getElementById('authTitle').innerText = isLogin ? 'StockClear 로그인' : 'StockClear 회원가입';
+      document.getElementById('authSubtitle').innerText = isLogin ? '서비스 이용을 위해 로그인하세요.' : '새 계정을 생성하고 서비스를 시작하세요.';
+      document.getElementById('authSubmitBtn').innerText = isLogin ? '로그인' : '회원가입';
+      document.getElementById('authError').classList.add('hidden');
+    }
+
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errorBox = document.getElementById('authError');
+      errorBox.classList.add('hidden');
+
+      const email = document.getElementById('emailInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const username = document.getElementById('usernameInput').value.trim();
+
+      const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
+      const payload = mode === 'login' ? { email, password } : { email, password, username };
+
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorBox.innerText = data.detail || '요청 처리 중 오류가 발생했습니다.';
+          errorBox.classList.remove('hidden');
+          return;
+        }
+
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        errorBox.innerText = '서버에 연결할 수 없습니다.';
+        errorBox.classList.remove('hidden');
+      }
+    });
+  </script>
+
 </body>
 </html>
