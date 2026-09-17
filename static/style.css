@@ -8,8 +8,15 @@
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
 
+/* 스크롤바가 생겨도 안 생겨도 레이아웃 전용 공간을 항상 100% 고정 */
+html {
+  overflow-y: scroll !important;
+  scrollbar-gutter: stable !important;
+}
+
 body {
   -webkit-font-smoothing: antialiased;
+  overflow-y: visible !important;
 }
 
 ::-webkit-scrollbar {
@@ -113,7 +120,6 @@ body.dashboard-page {
   background-color: #0b1120;
   color: #f8fafc;
   min-height: 100vh;
-  padding: 24px 48px;
 }
 
 .dashboard-page .navbar {
