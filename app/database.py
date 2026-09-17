@@ -1,7 +1,11 @@
 import os
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
+<<<<<<< HEAD
 from sqlalchemy import create_engine
+=======
+from sqlalchemy import create_engine, inspect, text
+>>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # .env 파일에서 환경 변수 로드
@@ -53,3 +57,19 @@ def get_db():
     finally:
         db.close()
 
+<<<<<<< HEAD
+=======
+
+def ensure_upload_files_user_id_column():
+    """
+    upload_files 테이블이 이미 존재하는(수동 생성된) 환경에서는
+    create_all이 컬럼을 추가해주지 않으므로, user_id 컬럼이 없으면 직접 ALTER TABLE로 추가한다.
+    """
+    inspector = inspect(engine)
+    if "upload_files" not in inspector.get_table_names():
+        return
+    columns = [col["name"] for col in inspector.get_columns("upload_files")]
+    if "user_id" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE upload_files ADD COLUMN user_id INT NULL"))
+>>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07

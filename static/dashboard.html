@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<<<<<<< HEAD
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockClear - 분석 대시보드</title>
@@ -306,5 +307,124 @@
       });
     });
   </script>
+=======
+
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockClear - 대시보드</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome & Chart.js CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-[#070c18] text-white min-h-screen">
+
+  <!-- 공통 HEADER 영역 (위치 및 크기 완전 통일) -->
+  <header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      
+      <!-- 1. 좌측 브랜드 로고 -->
+      <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
+        <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
+      </a>
+
+      <!-- 2. 중앙 네비게이션 메뉴 (대시보드 페이지 파란색 활성화) -->
+      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
+  <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
+  <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
+  <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
+  <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
+  <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
+  <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
+</nav>
+
+      <!-- 3. 우측 로그인/회원가입 -->
+      <div class="flex items-center space-x-3 shrink-0">
+        <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
+        <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- 본문 콘텐츠 컨테이너 -->
+  <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+    
+    <!-- 메인 타이틀 영역 -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-white">재고 실시간 현황 대시보드</h1>
+        <p class="text-sm text-gray-400 mt-1">업로드된 파일 기반 AI 실시간 종합 모니터링</p>
+      </div>
+      <a href="strategy.html" class="inline-flex items-center justify-center px-4 py-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">
+        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>AI 전략 바로가기
+      </a>
+    </div>
+  </nav>
+
+    <!-- KPI 카드 4개 -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl shadow-xl">
+        <div class="text-xs font-semibold text-gray-400">총 SKU 항목</div>
+        <div class="text-2xl font-bold text-white my-2" id="totalSku">0 개</div>
+        <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+          <span>↑</span> 정상 등록 완료
+        </div>
+      </div>
+      <div class="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl shadow-xl">
+        <div class="text-xs font-semibold text-gray-400">결품 주의 품목</div>
+        <div class="text-2xl font-bold text-red-500 my-2" id="deficitCount">0 개</div>
+        <div class="text-xs font-semibold text-red-400 flex items-center gap-1">
+          <span>⚠️</span> 안전재고 미달
+        </div>
+      </div>
+      <div class="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl shadow-xl">
+        <div class="text-xs font-semibold text-gray-400">과다 체류 재고</div>
+        <div class="text-2xl font-bold text-amber-400 my-2" id="staleCount">0 개</div>
+        <div class="text-xs font-semibold text-amber-400 flex items-center gap-1">
+          <span>🕒</span> 60일 이상 체류
+        </div>
+      </div>
+      <div class="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl shadow-xl">
+        <div class="text-xs font-semibold text-gray-400">월 예상 절감액</div>
+        <div class="text-2xl font-bold text-emerald-400 my-2" id="inventoryValue">₩ 0</div>
+        <div class="text-xs font-semibold text-gray-400">최적화 적용 시</div>
+      </div>
+    </section>
+
+    <!-- 하단 차트 영역 -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- 재고 등급별 현황 (도넛 차트) -->
+      <div class="bg-gray-900/60 border border-gray-800/80 p-6 rounded-2xl shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-bold text-white">재고 등급별 현황</h3>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="donutChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 위험 상품 TOP 5 (가로 바 차트) -->
+      <div class="bg-gray-900/60 border border-gray-800/80 p-6 rounded-2xl shadow-xl">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-base font-bold text-white">위험 상품 TOP 5</h3>
+          <span class="text-xs font-medium text-gray-400">위험도 점수</span>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="../js/stockclear.js"></script>
+  <script src="../js/dashboard.js"></script>
+>>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
 </body>
 </html>

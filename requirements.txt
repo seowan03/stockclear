@@ -1,2 +1,16 @@
+<<<<<<< HEAD
 uvicon
 pydantic
+=======
+fastapi
+uvicorn
+pandas
+python-dotenv
+pymysql
+openpyxl
+openai
+pydantic
+python-multipart
+sqlalchemy
+werkzeug
+>>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
