@@ -10,14 +10,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
-
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
 from app.router import raise_if_duplicate_upload
-
 from app.analysis import analyze_inventory
-
-
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
 from dotenv import load_dotenv
@@ -113,13 +109,16 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
     db.refresh(user)
 
   # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
-  response.set_cookie(
+  # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
+  redirect_response = RedirectResponse(url="/dashboard.html")
+  redirect_response.set_cookie(
       SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
   )
 
   # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
-  return RedirectResponse(url="/dashboard.html")
+  return redirect_response
 
+# -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 
 def make_upload_content_hash(df, required_columns):
     """필수 컬럼의 실제 값으로 업로드 내용의 일관된 해시를 생성한다."""
@@ -131,8 +130,6 @@ def make_upload_content_hash(df, required_columns):
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
 
-
-# -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
