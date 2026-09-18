@@ -13,4 +13,8 @@ pydantic
 python-multipart
 sqlalchemy
 werkzeug
+<<<<<<< HEAD
 >>>>>>> e7955dc6700508d73dd275ac2a15d57d3f144e07
+=======
+requests
+>>>>>>> f861c82bd213364381139a1d1dd7228685465c95
