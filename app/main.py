@@ -47,6 +47,19 @@ app.add_middleware(
     https_only=SESSION_HTTPS_ONLY,
 )
 
+# 배포 시 프론트와 도메인이 달라지면 .env에서 이 값들만 바꾸면 된다 (코드 수정 불필요).
+SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+
+# itsdangerous로 서명된 쿠키를 사용해 request.session의 값이 변조되면 서버가 자동으로 무시한다.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie=SESSION_COOKIE_NAME,
+    same_site=SESSION_SAME_SITE,
+    https_only=SESSION_HTTPS_ONLY,
+)
+
 # -------------------- 카카오 소셜 로그인 --------------------
 
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
