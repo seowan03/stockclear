@@ -27,17 +27,60 @@ header a[href="signin.html"] {
   visibility: hidden;
 }
 
+.session-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.session-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 106px;
+  overflow: hidden;
+  padding: 0.48rem 0.65rem;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 0.75rem;
+  color: #dbeafe;
+  background: rgba(59, 130, 246, 0.1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.session-logout {
+  padding: 0.48rem 0.65rem;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  color: #cbd5e1;
+  background: #172033;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.session-logout:hover {
+  border-color: #64748b;
+  color: #fff;
+}
+
 @media (min-width: 768px) {
   /* Keep both navigation and the async account label in fixed header positions. */
   header > div > div:last-child {
     display: flex;
-    flex: 0 0 164px;
+    flex: 0 0 230px;
     justify-content: flex-end;
-    min-width: 164px;
+    min-width: 230px;
+  }
+
+  header > div > div:last-child .session-controls {
+    width: 230px;
   }
 
   header > div > div:last-child > span {
-    max-width: 164px;
+    max-width: 230px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

@@ -5,7 +5,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const accountArea = authLinks[0].parentElement;
   const authMarkup = accountArea.innerHTML;
   const showAccount = accountName => {
-    accountArea.innerHTML = `<span class="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-blue-100 bg-blue-500/10 border border-blue-400/20 rounded-xl"><i class="fa-solid fa-user"></i>${accountName}</span>`;
+    accountArea.innerHTML = `
+      <div class="session-controls">
+        <span class="session-account"><i class="fa-solid fa-user"></i>${accountName}</span>
+        <button type="button" class="session-logout">로그아웃</button>
+      </div>
+    `;
+    accountArea.querySelector('.session-logout').addEventListener('click', logout);
   };
   const showAuthLinks = () => {
     accountArea.innerHTML = authMarkup;
@@ -16,6 +22,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const cachedAccountName = localStorage.getItem('stockclear-account-name');
   if (cachedAccountName) showAccount(cachedAccountName);
+
+  async function logout() {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('Logout failed');
+      localStorage.removeItem('stockclear-account-name');
+      window.location.href = 'mainpage.html';
+    } catch {
+      window.alert('로그아웃 처리 중 오류가 발생했습니다.');
+    }
+  }
 
   try {
     const response = await fetch('/api/auth/me');
