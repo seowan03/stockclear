@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
-from app.models import UploadHistory, User
+from app.models import AnalysisResult, RawInventory, UploadHistory, User
 from app.router import raise_if_duplicate_upload, router
 from app.analysis import analyze_inventory
 # -------------------- 카카오 소셜 로그인 관련 --------------------
@@ -31,21 +31,6 @@ if not SESSION_SECRET_KEY:
     SESSION_SECRET_KEY = os.urandom(32).hex()
 
 app = FastAPI(title="StockClear Backend", version="1.0")
-# AI 처방전 API는 router.py에서 정의하고 이 앱에 한 번만 등록한다.
-app.include_router(router)
-
-# 배포 시 프론트와 도메인이 달라지면 .env에서 이 값들만 바꾸면 된다 (코드 수정 불필요).
-SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
-SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
-
-# itsdangerous로 서명된 쿠키를 사용해 request.session의 값이 변조되면 서버가 자동으로 무시한다.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SESSION_SECRET_KEY,
-    session_cookie=SESSION_COOKIE_NAME,
-    same_site=SESSION_SAME_SITE,
-    https_only=SESSION_HTTPS_ONLY,
-)
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -147,6 +132,60 @@ def make_upload_content_hash(df, required_columns):
     records = normalized_data.where(pd.notna(normalized_data), None).to_dict(orient="records")
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
+
+def _store_analysis_results(db: Session, user_id: int, dataframe: pd.DataFrame) -> None:
+    # 분석 완료된 행을 DB에 저장하는 함수
+    for record in dataframe.to_dict(orient="records"):
+        inventory = RawInventory(
+            user_id=user_id,
+            product_name=record["product_name"],
+            stock_qty=int(record["stock_qty"]),
+            purchase_price=float(record["purchase_price"]),
+            market_price=float(record["selling_price"]),
+            inbound_date=record["received_date"].date(),
+            created_at=datetime.utcnow(),
+        )
+        db.add(inventory)
+        db.flush()
+
+        db.add(AnalysisResult(
+            item_id=inventory.item_id,
+            sales_velocity=float(record["sales_speed"]),
+            aging_days=int(record["storage_days"]),
+            days_to_sell=int(record["days_to_sell"]),
+            inventory_amount=float(record["inventory_value"]),
+            fluctuation_rate=float(record["depreciation_rate"]),
+            updated_at=datetime.utcnow(),
+        ))
+
+    db.commit()
+
+
+def _inventory_items(db: Session, user_id: int) -> list[dict]:
+    # DB의 원본 재고와 분석 결과를 합쳐 API 응답 데이터로 만든다.
+    rows = (
+        db.query(RawInventory, AnalysisResult)
+        .outerjoin(AnalysisResult, AnalysisResult.item_id == RawInventory.item_id)
+        .filter(RawInventory.user_id == user_id)
+        .all()
+    )
+
+    return [
+        {
+            "item_id": inventory.item_id,
+            "product_name": inventory.product_name,
+            "stock_qty": inventory.stock_qty,
+            "purchase_price": float(inventory.purchase_price or 0),
+            "selling_price": float(inventory.market_price or 0),
+            "aging_days": result.aging_days if result else 0,
+            "days_to_sell": result.days_to_sell if result else 0,
+            "risk_grade": result.risk_grade if result else "정상",
+            "final_score": result.final_score if result else 0,
+            "ai_diagnosis": result.ai_diagnosis if result else None,
+            "action_plans": result.action_plans if result else None,
+        }
+        for inventory, result in rows
+    ]
 
 @app.on_event("startup")
 def on_startup():
