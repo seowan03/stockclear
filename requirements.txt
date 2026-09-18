@@ -9,3 +9,4 @@ pydantic
 python-multipart
 sqlalchemy
 werkzeug
+requests

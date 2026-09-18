@@ -1,26 +1,124 @@
 import io
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import Depends, FastAPI, Request, Response, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
-
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
 from app.router import raise_if_duplicate_upload
-
 from app.analysis import analyze_inventory
+# -------------------- 카카오 소셜 로그인 관련 --------------------
+import os
+from dotenv import load_dotenv
+import requests # 파일 상단에 requests 임포트가 필요합니다.
+load_dotenv()
 
+# -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 
+# -------------------- 카카오 소셜 로그인 --------------------
+
+KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
+KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
+KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI", "http://127.0.0.1:8000/api/auth/kakao/callback")
+
+# ----------------------------------------------------
+# 1. 카카오 로그인 페이지로 리다이렉트하는 엔드포인트
+# ----------------------------------------------------
+@app.get("/api/auth/kakao")
+def kakao_login():
+  kakao_auth_url = (
+      f"https://kauth.kakao.com/oauth/authorize"
+      f"?client_id={KAKAO_CLIENT_ID}"
+      f"&redirect_uri={KAKAO_REDIRECT_URI}"
+      f"&response_type=code"
+  )
+  return RedirectResponse(kakao_auth_url)
+
+
+# ----------------------------------------------------
+# 2. 카카오 로그인 완료 후 돌아오는 콜백 엔드포인트
+# ----------------------------------------------------
+@app.get("/api/auth/kakao/callback")
+def kakao_callback(code: str, response: Response, db: Session = Depends(get_db)):
+  # 1. 인가 코드로 액세스 토큰 요청
+  token_url = "https://kauth.kakao.com/oauth/token"
+  data = {
+      "grant_type": "authorization_code",
+      "client_id": KAKAO_CLIENT_ID,
+      "client_secret": KAKAO_CLIENT_SECRET,
+      "redirect_uri": KAKAO_REDIRECT_URI,
+      "code": code,
+  }
+  headers = {"Content-Type": "application/x-www-form-urlencoded;charset=utf-8"}
+  token_response = requests.post(token_url, data=data, headers=headers)
+  token_json = token_response.json()
+
+  # 터미널에 카카오의 응답을 출력 (디버깅용)
+  print("🔥 카카오 응답 데이터:", token_json)
+
+  # 토큰 발급 실패 시 에러 처리 (중복 제거 완료)
+  if "access_token" not in token_json:
+    error_msg = token_json.get("error_description", str(token_json))
+    raise HTTPException(
+        status_code=400, detail=f"카카오 토큰 발급 실패: {error_msg}"
+    )
+
+  access_token = token_json["access_token"]
+
+  # 2. 액세스 토큰으로 카카오 사용자 정보 조회
+  user_info_response = requests.get(
+      "https://kapi.kakao.com/v2/user/me",
+      headers={
+          "Authorization": f"Bearer {access_token}",
+          "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+      },
+  )
+  user_info = user_info_response.json()
+
+  kakao_account = user_info.get("kakao_account", {})
+  email = kakao_account.get("email")
+  nickname = user_info.get("properties", {}).get("nickname", "카카오사용자")
+
+  # 카카오 계정에 이메일 정보가 동의 항목에 없을 경우의 대체 처리
+  if not email:
+    email = f"kakao_{user_info.get('id')}@stockclear.com"
+
+  # 3. DB에 이미 가입된 유저인지 확인
+  user = db.query(User).filter(User.email == email).first()
+
+  if not user:
+    # 가입되어 있지 않다면 자동으로 회원가입 처리 (DB의 password_hash가 NOT NULL이라 사용 불가능한 임의 값을 채움)
+    user = User(
+        username=nickname,
+        email=email,
+        password_hash=generate_password_hash(os.urandom(16).hex()),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+  # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
+  # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
+  redirect_response = RedirectResponse(url="/dashboard.html")
+  redirect_response.set_cookie(
+      SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
+  )
+
+  # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
+  return redirect_response
+
+# -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 
 def make_upload_content_hash(df, required_columns):
     """필수 컬럼의 실제 값으로 업로드 내용의 일관된 해시를 생성한다."""
@@ -32,7 +130,6 @@ def make_upload_content_hash(df, required_columns):
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
 
-# -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
