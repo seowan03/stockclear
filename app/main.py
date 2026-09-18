@@ -33,18 +33,6 @@ if not SESSION_SECRET_KEY:
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 
-# router.py의 AI 처방전 API를 FastAPI 앱에 등록한다.
-app.include_router(router)
-
-# 로그인 사용자 정보를 서명된 세션 쿠키로 읽고 저장한다.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SESSION_SECRET_KEY,
-    session_cookie=SESSION_COOKIE_NAME,
-    same_site="lax",
-    https_only=False,
-)
-
 # -------------------- 카카오 소셜 로그인 --------------------
 
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
@@ -148,19 +136,15 @@ def make_upload_content_hash(df, required_columns):
 
 def _store_analysis_results(db: Session, user_id: int, dataframe: pd.DataFrame) -> None:
     # 분석 완료된 행을 DB에 저장하는 함수
-    upload_batch_id = str(uuid.uuid4())
-
     for record in dataframe.to_dict(orient="records"):
         inventory = RawInventory(
             user_id=user_id,
-            upload_batch_id=upload_batch_id,
             product_name=record["product_name"],
             stock_qty=int(record["stock_qty"]),
             purchase_price=float(record["purchase_price"]),
             market_price=float(record["selling_price"]),
             inbound_date=record["received_date"].date(),
             created_at=datetime.utcnow(),
-            sales_qty=int(record["sales_qty"]),
         )
         db.add(inventory)
         db.flush()
