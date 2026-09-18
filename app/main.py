@@ -112,13 +112,13 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-  # 4. 로그인이 완료되면 대시보드 페이지로 리다이렉트하면서, 그 리다이렉트 응답에 직접 세션 쿠키를 심는다.
-  # (참고: 주입받은 response 파라미터에 set_cookie 해도 함수가 다른 Response를 반환하면 무시된다)
-  redirect_response = RedirectResponse(url="/dashboard.html")
-  redirect_response.set_cookie(
+  # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
+  response.set_cookie(
       SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
   )
-  return redirect_response
+
+  # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
+  return RedirectResponse(url="/dashboard.html")
 
 
 def make_upload_content_hash(df, required_columns):
@@ -130,6 +130,7 @@ def make_upload_content_hash(df, required_columns):
     records = normalized_data.where(pd.notna(normalized_data), None).to_dict(orient="records")
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
+
 
 # -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 @app.on_event("startup")
@@ -263,21 +264,10 @@ async def upload_and_parse_excel(
         content_hash = make_upload_content_hash(df, required_columns)
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 
-        content_hash = make_upload_content_hash(df, required_columns)
-        raise_if_duplicate_upload(db, current_user.user_id, content_hash)
-
         df = analyze_inventory(df)
 
         parsed_data = df.to_dict(orient="records")
 
-        _save_history(
-            db,
-            current_user.user_id,
-            file.filename,
-            len(contents),
-            "성공",
-            content_hash,
-        )
         _save_history(
             db,
             current_user.user_id,
@@ -304,21 +294,6 @@ async def upload_and_parse_excel(
         )
 
 
-def _save_history(
-    db: Session,
-    user_id: int,
-    filename: str,
-    file_size: int,
-    status: str,
-    content_hash: str | None = None,
-) -> None:
-    db.add(UploadHistory(
-        user_id=user_id,
-        file_name=filename,
-        size=file_size,
-        status=status,
-        content_hash=content_hash,
-    ))
 def _save_history(
     db: Session,
     user_id: int,
