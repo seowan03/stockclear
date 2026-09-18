@@ -2,13 +2,14 @@ import io
 import hashlib
 import json
 from datetime import datetime, timezone
-from fastapi import Depends, FastAPI, Request, Response, UploadFile, File, HTTPException
+from fastapi import Depends, FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
@@ -23,9 +24,28 @@ load_dotenv()
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
 
+# 쿠키 서명에 쓰이는 비밀 키. 반드시 .env의 SESSION_SECRET_KEY로 관리하고 외부에 노출하지 않는다.
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    print("⚠️ SESSION_SECRET_KEY가 설정되지 않아 임시 키를 사용합니다. 서버 재시작 시 기존 세션이 모두 무효화됩니다.")
+    SESSION_SECRET_KEY = os.urandom(32).hex()
+
 app = FastAPI(title="StockClear Backend", version="1.0")
 # AI 처방전 API는 router.py에서 정의하고 이 앱에 한 번만 등록한다.
 app.include_router(router)
+
+# 배포 시 프론트와 도메인이 달라지면 .env에서 이 값들만 바꾸면 된다 (코드 수정 불필요).
+SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+
+# itsdangerous로 서명된 쿠키를 사용해 request.session의 값이 변조되면 서버가 자동으로 무시한다.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie=SESSION_COOKIE_NAME,
+    same_site=SESSION_SAME_SITE,
+    https_only=SESSION_HTTPS_ONLY,
+)
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -51,7 +71,7 @@ def kakao_login():
 # 2. 카카오 로그인 완료 후 돌아오는 콜백 엔드포인트
 # ----------------------------------------------------
 @app.get("/api/auth/kakao/callback")
-def kakao_callback(code: str, response: Response, db: Session = Depends(get_db)):
+def kakao_callback(code: str, request: Request, db: Session = Depends(get_db)):
   # 1. 인가 코드로 액세스 토큰 요청
   token_url = "https://kauth.kakao.com/oauth/token"
   data = {
@@ -110,15 +130,11 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-  # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
-  # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
-  redirect_response = RedirectResponse(url="/dashboard.html")
-  redirect_response.set_cookie(
-      SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
-  )
+  # 4. 기존 일반 로그인과 동일하게 서명된 세션에 유저 정보 저장
+  request.session["user_id"] = user.user_id
 
   # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
-  return redirect_response
+  return RedirectResponse(url="/dashboard.html")
 
 # -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 
@@ -145,6 +161,11 @@ origins = [
     "http://127.0.0.1:5173",
 ]
 
+# 배포한 프론트엔드 주소(GitHub Pages 등)를 .env의 EXTRA_CORS_ORIGINS에 콤마로 구분해 추가하면 된다.
+extra_origins = os.getenv("EXTRA_CORS_ORIGINS", "")
+if extra_origins:
+    origins.extend(origin.strip() for origin in extra_origins.split(",") if origin.strip())
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -167,7 +188,7 @@ class LoginRequest(BaseModel):
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = request.session.get("user_id")
     if not user_id:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     user = db.query(User).filter(User.user_id == int(user_id)).first()
@@ -177,7 +198,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 
 
 @app.post("/api/auth/signup")
-def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db)):
+def signup(data: SignupRequest, request: Request, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
 
@@ -191,29 +212,29 @@ def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db
     db.commit()
     db.refresh(user)
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    request.session["user_id"] = user.user_id
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
 @app.post("/api/auth/login")
-def login(data: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not user.password_hash or not check_password_hash(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    request.session["user_id"] = user.user_id
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
 @app.post("/api/auth/logout")
-def logout(response: Response):
-    response.delete_cookie(SESSION_COOKIE_NAME)
+def logout(request: Request):
+    request.session.clear()
     return {"status": "success"}
 
 
 @app.get("/api/auth/me")
 def me(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = request.session.get("user_id")
     if not user_id:
         return {"logged_in": False}
     user = db.query(User).filter(User.user_id == int(user_id)).first()
@@ -250,7 +271,9 @@ async def upload_and_parse_excel(
         else:
             df = pd.read_csv(io.BytesIO(contents))
 
-        required_columns = ["상품명", "재고량", "카테고리", "원가", "입고일", "판매가", "판매량"]
+        # 분석 계산에 필요한 값만 필수로 받고, 물품 정보는 없어도 업로드를 허용한다.
+        required_columns = ["상품명", "재고량", "원가", "입고일", "판매가", "판매량"]
+        optional_columns = ["물품 코드", "카테고리"]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -259,6 +282,10 @@ async def upload_and_parse_excel(
                 status_code=400,
                 detail=f"필수 컬럼이 없습니다: {missing_columns}"
             )
+
+        for column in optional_columns:
+            if column not in df.columns:
+                df[column] = "-"
 
         content_hash = make_upload_content_hash(df, required_columns)
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
