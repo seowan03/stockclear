@@ -47,6 +47,19 @@ app.add_middleware(
     https_only=SESSION_HTTPS_ONLY,
 )
 
+# 배포 시 프론트와 도메인이 달라지면 .env에서 이 값들만 바꾸면 된다 (코드 수정 불필요).
+SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+
+# itsdangerous로 서명된 쿠키를 사용해 request.session의 값이 변조되면 서버가 자동으로 무시한다.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie=SESSION_COOKIE_NAME,
+    same_site=SESSION_SAME_SITE,
+    https_only=SESSION_HTTPS_ONLY,
+)
+
 # -------------------- 카카오 소셜 로그인 --------------------
 
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
@@ -271,7 +284,9 @@ async def upload_and_parse_excel(
         else:
             df = pd.read_csv(io.BytesIO(contents))
 
-        required_columns = ["상품명", "재고량", "카테고리", "원가", "입고일", "판매가", "판매량"]
+        # 분석 계산에 필요한 값만 필수로 받고, 물품 정보는 없어도 업로드를 허용한다.
+        required_columns = ["상품명", "재고량", "원가", "입고일", "판매가", "판매량"]
+        optional_columns = ["물품 코드", "카테고리"]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -280,6 +295,10 @@ async def upload_and_parse_excel(
                 status_code=400,
                 detail=f"필수 컬럼이 없습니다: {missing_columns}"
             )
+
+        for column in optional_columns:
+            if column not in df.columns:
+                df[column] = "-"
 
         content_hash = make_upload_content_hash(df, required_columns)
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
