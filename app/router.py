@@ -20,7 +20,7 @@ def raise_if_duplicate_upload(db: Session, user_id: int, content_hash: str):
     if duplicate:
         raise HTTPException(
             status_code=409,
-            detail=f"이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다. history_id: {duplicate.id}"
+            detail=f"이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다."
         )
 
 # --- AI 처방전 진단 API ---
