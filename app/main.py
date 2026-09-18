@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
-from app.router import raise_if_duplicate_upload
+from app.router import raise_if_duplicate_upload, router
 from app.analysis import analyze_inventory
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
@@ -24,6 +24,8 @@ load_dotenv()
 SESSION_COOKIE_NAME = "session_user"
 
 app = FastAPI(title="StockClear Backend", version="1.0")
+# AI 처방전 API는 router.py에서 정의하고 이 앱에 한 번만 등록한다.
+app.include_router(router)
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -363,21 +365,6 @@ def get_export(db: Session = Depends(get_db), current_user: User = Depends(get_c
     return {"summary": f"총 {len(items)}개 재고 중 {risk_count}개 항목을 관리 대상으로 분류했습니다.", "items": items}
 
 
-# -------------------- AI 처방전 진단 API --------------------
-@app.post("/api/ai-diagnose")
-async def diagnose_inventory(item: InventoryItem):
-    """선택한 재고 항목의 계산값을 AI 처방전 생성기에 전달한다."""
-    from app.llm import get_ai_strategy
-
-    ai_result = get_ai_strategy(item.model_dump())
-    return {
-        "status": "success",
-        "product_name": item.product_name,
-        "stock_status": ai_result.get("status"),
-        "judgment": ai_result.get("comment"),
-    }
-
-
 def _save_history(
     db: Session,
     user_id: int,
@@ -440,3 +427,6 @@ def clear_history(db: Session = Depends(get_db), current_user: User = Depends(ge
     db.query(UploadHistory).filter(UploadHistory.user_id == current_user.user_id).delete()
     db.commit()
     return {"status": "success"}
+
+app.mount("/js", StaticFiles(directory="js"), name="js")
+app.mount("/", StaticFiles(directory="static"), name="static")
