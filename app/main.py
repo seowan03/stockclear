@@ -1,6 +1,7 @@
 import io
 import hashlib
 import json
+import uuid
 from datetime import datetime, timezone
 from fastapi import Depends, FastAPI, Request, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,18 @@ if not SESSION_SECRET_KEY:
     SESSION_SECRET_KEY = os.urandom(32).hex()
 
 app = FastAPI(title="StockClear Backend", version="1.0")
+
+SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
+SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
+
+# itsdangerous로 서명된 쿠키를 사용해 request.session의 값이 변조되면 서버가 자동으로 무시한다.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET_KEY,
+    session_cookie=SESSION_COOKIE_NAME,
+    same_site=SESSION_SAME_SITE,
+    https_only=SESSION_HTTPS_ONLY,
+)
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -133,11 +146,12 @@ def make_upload_content_hash(df, required_columns):
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
 
-def _store_analysis_results(db: Session, user_id: int, dataframe: pd.DataFrame) -> None:
+def _store_analysis_results(db: Session, user_id: int, dataframe: pd.DataFrame, upload_batch_id: str) -> None:
     # 분석 완료된 행을 DB에 저장하는 함수
     for record in dataframe.to_dict(orient="records"):
         inventory = RawInventory(
             user_id=user_id,
+            upload_batch_id=upload_batch_id,
             product_name=record["product_name"],
             stock_qty=int(record["stock_qty"]),
             purchase_price=float(record["purchase_price"]),
@@ -331,7 +345,8 @@ async def upload_and_parse_excel(
 
         df = analyze_inventory(df)
         # 계산값을 DB에 보관해 다른 화면과 브라우저에서도 동일한 분석 결과를 쓴다.
-        _store_analysis_results(db, current_user.user_id, df)
+        upload_batch_id = uuid.uuid4().hex
+        _store_analysis_results(db, current_user.user_id, df, upload_batch_id)
 
         parsed_data = df.to_dict(orient="records")
 
@@ -347,7 +362,9 @@ async def upload_and_parse_excel(
         return {
             "status": "success",
             "filename": file.filename,
+            "upload_batch_id": upload_batch_id,
             "total_rows": len(parsed_data),
+            "saved_rows": len(parsed_data),
             "data_preview": parsed_data
         }
 
