@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
-from app.router import raise_if_duplicate_upload
+from app.router import raise_if_duplicate_upload, router
 from app.analysis import analyze_inventory
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
@@ -31,6 +31,8 @@ if not SESSION_SECRET_KEY:
     SESSION_SECRET_KEY = os.urandom(32).hex()
 
 app = FastAPI(title="StockClear Backend", version="1.0")
+# AI 처방전 API는 router.py에서 정의하고 이 앱에 한 번만 등록한다.
+app.include_router(router)
 
 # 배포 시 프론트와 도메인이 달라지면 .env에서 이 값들만 바꾸면 된다 (코드 수정 불필요).
 SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
@@ -269,7 +271,7 @@ async def upload_and_parse_excel(
         else:
             df = pd.read_csv(io.BytesIO(contents))
 
-        required_columns = ["상품명", "재고량", "원가", "입고일", "판매가", "판매량"]
+        required_columns = ["상품명", "재고량", "카테고리", "원가", "입고일", "판매가", "판매량"]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -283,6 +285,8 @@ async def upload_and_parse_excel(
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 
         df = analyze_inventory(df)
+        # 계산값을 DB에 보관해 다른 화면과 브라우저에서도 동일한 분석 결과를 쓴다.
+        _store_analysis_results(db, current_user.user_id, df)
 
         parsed_data = df.to_dict(orient="records")
 
@@ -310,6 +314,76 @@ async def upload_and_parse_excel(
             status_code=500,
             detail=f"엑셀 파싱 중 에러 발생: {str(e)}"
         )
+
+
+# -------------------- 분석 결과 조회 API --------------------
+@app.get("/api/inventory")
+def list_inventory(
+    search: str = "",
+    status: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    items = _inventory_items(db, current_user.user_id)
+    if search:
+        normalized_search = search.lower()
+        items = [item for item in items if normalized_search in item["product_name"].lower()]
+    if status:
+        items = [item for item in items if item["risk_grade"] == status]
+    return {"items": items}
+
+
+@app.get("/api/inventory/{item_id}")
+def get_inventory_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = next((item for item in _inventory_items(db, current_user.user_id) if item["item_id"] == item_id), None)
+    if not item:
+        raise HTTPException(status_code=404, detail="재고 항목을 찾을 수 없습니다.")
+    return item
+
+
+@app.get("/api/dashboard")
+def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    items = _inventory_items(db, current_user.user_id)
+    risk_items = [item for item in items if item["risk_grade"] in {"주의", "장기 체류", "처분 권장"}]
+    aging_items = [item for item in items if item["aging_days"] >= 60]
+    grades = [
+        {"name": grade, "count": sum(item["risk_grade"] == grade for item in items), "color": color}
+        for grade, color in [("정상", "#10b981"), ("주의", "#f59e0b"), ("장기 체류", "#f97316"), ("처분 권장", "#ef4444")]
+    ]
+    return {
+        "total_sku": len(items),
+        "risk_count": len(risk_items),
+        "aging_count": len(aging_items),
+        "monthly_saving": sum(item["purchase_price"] * item["stock_qty"] for item in risk_items),
+        "grades": grades,
+        "risk_items": sorted(risk_items, key=lambda item: item["final_score"], reverse=True)[:10],
+    }
+
+
+@app.get("/api/strategy")
+def get_strategy(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    items = _inventory_items(db, current_user.user_id)
+    groups = []
+    for grade, title, summary in [
+        ("처분 권장", "즉시 처분", "재고 소진을 위한 할인 또는 묶음 판매가 필요합니다."),
+        ("장기 체류", "판매 촉진", "장기 보관 재고의 노출과 할인 전략을 검토하세요."),
+        ("주의", "재고 모니터링", "판매 추이를 확인하고 추가 입고를 조절하세요."),
+    ]:
+        count = sum(item["risk_grade"] == grade for item in items)
+        if count:
+            groups.append({"type": grade, "title": title, "summary": summary, "count": count})
+    return {"groups": groups}
+
+
+@app.get("/api/export")
+def get_export(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    items = _inventory_items(db, current_user.user_id)
+    risk_count = sum(item["risk_grade"] != "정상" for item in items)
+    return {"summary": f"총 {len(items)}개 재고 중 {risk_count}개 항목을 관리 대상으로 분류했습니다.", "items": items}
 
 
 def _save_history(
@@ -375,8 +449,5 @@ def clear_history(db: Session = Depends(get_db), current_user: User = Depends(ge
     db.commit()
     return {"status": "success"}
 
-# -------------------- 정적 HTML/CSS/JavaScript 페이지 연결 --------------------
-# 위의 명시적 라우트("/", "/api/...")에 안 걸린 나머지 경로를
-# static 폴더에서 파일명 그대로 서빙
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/", StaticFiles(directory="static"), name="static")
