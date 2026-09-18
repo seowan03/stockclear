@@ -263,10 +263,21 @@ async def upload_and_parse_excel(
         content_hash = make_upload_content_hash(df, required_columns)
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 
+        content_hash = make_upload_content_hash(df, required_columns)
+        raise_if_duplicate_upload(db, current_user.user_id, content_hash)
+
         df = analyze_inventory(df)
 
         parsed_data = df.to_dict(orient="records")
 
+        _save_history(
+            db,
+            current_user.user_id,
+            file.filename,
+            len(contents),
+            "성공",
+            content_hash,
+        )
         _save_history(
             db,
             current_user.user_id,
@@ -293,6 +304,21 @@ async def upload_and_parse_excel(
         )
 
 
+def _save_history(
+    db: Session,
+    user_id: int,
+    filename: str,
+    file_size: int,
+    status: str,
+    content_hash: str | None = None,
+) -> None:
+    db.add(UploadHistory(
+        user_id=user_id,
+        file_name=filename,
+        size=file_size,
+        status=status,
+        content_hash=content_hash,
+    ))
 def _save_history(
     db: Session,
     user_id: int,
