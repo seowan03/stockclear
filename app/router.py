@@ -29,10 +29,7 @@ async def diagnose_inventory(item: InventoryItem):
 
     product_dict = item.model_dump()
 
-    try:
-        from app.llm import get_ai_strategy
-    except ImportError:
-        from app.llm import get_ai_startegy as get_ai_strategy
+    from app.llm import get_ai_strategy
 
     ai_result = get_ai_strategy(product_dict)
 

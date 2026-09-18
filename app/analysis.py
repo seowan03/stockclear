@@ -1,4 +1,8 @@
+import numpy as np
 import pandas as pd
+
+# 재고량/원가/판매가/판매량은 논리적으로 음수가 될 수 없는 값
+NON_NEGATIVE_COLUMNS = ["재고량", "원가", "판매가", "판매량"]
 
 
 def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
@@ -9,7 +13,7 @@ def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
     상품명, 재고량, 원가, 입고일, 판매가, 판매량
 
     계산 컬럼:
-    보관기간, 재고금액, 판매속도, 예상소진기간, 감가율
+    보관기간, 재고금액, 판매속도, 예상소진기간, 감가율, 위험점수, 위험등급
     """
 
     # --------------------------------
@@ -25,6 +29,13 @@ def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(
             "입고일 데이터에 잘못된 날짜가 있습니다."
         )
+
+    # --------------------------------
+    # 1-1. 음수 값 검증
+    # --------------------------------
+    for column in NON_NEGATIVE_COLUMNS:
+        if (df[column] < 0).any():
+            raise ValueError(f"{column} 컬럼에 음수 값이 있습니다.")
 
     # --------------------------------
     # 2. 현재 날짜
@@ -48,43 +59,42 @@ def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # --------------------------------
-    # 5. 판매속도 계산
+    # 5. 판매속도 계산 (벡터화 연산)
     # --------------------------------
-    # 판매량 ÷ 보관기간
-    df["판매속도"] = df.apply(
-        lambda row:
-            row["판매량"] / row["보관기간"]
-            if row["보관기간"] > 0
-            else 0,
-        axis=1
+    # 판매량 ÷ 보관기간, 보관기간이 0 이하이면 0으로 처리
+    df["판매속도"] = np.where(
+        df["보관기간"] > 0,
+        df["판매량"] / df["보관기간"],
+        0
     )
 
     # --------------------------------
-    # 6. 예상 소진 기간 계산
+    # 6. 예상 소진 기간 계산 (벡터화 연산)
     # --------------------------------
-    # 현재 재고량 ÷ 하루 평균 판매량
-    df["예상소진기간"] = df.apply(
-        lambda row:
-            row["재고량"] / row["판매속도"]
-            if row["판매속도"] > 0
-            else 9999,
-        axis=1
+    # 현재 재고량 ÷ 하루 평균 판매량, 판매속도가 0이면 소진 불가로 간주해 9999로 처리
+    df["예상소진기간"] = np.where(
+        df["판매속도"] > 0,
+        df["재고량"] / df["판매속도"],
+        9999
     )
 
     # --------------------------------
-    # 7. 감가율 계산
+    # 7. 감가율 계산 (벡터화 연산)
     # --------------------------------
     # (원가 - 판매가) ÷ 원가 × 100
-    df["감가율"] = df.apply(
-        lambda row:
-            ((row["원가"] - row["판매가"]) / row["원가"]) * 100
-            if row["원가"] > 0
-            else 0,
-        axis=1
+    df["감가율"] = np.where(
+        df["원가"] > 0,
+        (df["원가"] - df["판매가"]) / df["원가"] * 100,
+        0
     )
 
     # --------------------------------
-    # 8. API에서 사용할 수 있도록
+    # 8. 위험점수 / 위험등급 판정
+    # --------------------------------
+    df["위험점수"], df["위험등급"] = _classify_risk(df)
+
+    # --------------------------------
+    # 9. API에서 사용할 수 있도록
     #    컬럼명을 영어로 변환
     # --------------------------------
     df = df.rename(columns={
@@ -99,7 +109,26 @@ def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
         "재고금액": "inventory_value",
         "판매속도": "sales_speed",
         "예상소진기간": "days_to_sell",
-        "감가율": "depreciation_rate"
+        "감가율": "depreciation_rate",
+        "위험점수": "final_score",
+        "위험등급": "risk_grade",
     })
 
     return df
+
+
+def _classify_risk(df: pd.DataFrame):
+    """보관기간·예상소진기간·감가율을 0~100점 위험점수로 환산해 4단계 등급을 매긴다."""
+    aging_score = (df["보관기간"] / 90 * 40).clip(upper=40)
+    turnover_score = (df["예상소진기간"] / 180 * 30).clip(upper=30)
+    depreciation_score = (df["감가율"] / 50 * 30).clip(lower=0, upper=30)
+
+    final_score = (aging_score + turnover_score + depreciation_score).clip(lower=0, upper=100)
+
+    grade = np.select(
+        [final_score >= 70, final_score >= 45, final_score >= 25],
+        ["처분 권장", "위험", "주의"],
+        default="정상",
+    )
+
+    return final_score, grade

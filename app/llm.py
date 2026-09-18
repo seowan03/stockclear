@@ -35,7 +35,7 @@ def get_ai_strategy(product_data: dict) -> dict:
                 {"role":"system","content": "당신은 이커머스 직매입 재고 관리 전문가입니다. 정확한 JSON 형식으로만 응답합니다."},
                 {"role":"user","content":prompt}
             ],
-            response_format={"type:json_object"}
+            response_format={"type": "json_object"}
         )
 
         result_content = response.choices[0].message.content
@@ -49,5 +49,10 @@ def get_ai_strategy(product_data: dict) -> dict:
         }
 
 
+<<<<<<< Updated upstream
     # 이전 이름을 사용하는 코드와 호환성을 유지한다.
     get_ai_startegy = get_ai_strategy
+=======
+# 이전 이름을 사용하는 코드와 호환성을 유지한다.
+get_ai_startegy = get_ai_strategy
+>>>>>>> Stashed changes
