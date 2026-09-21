@@ -12,9 +12,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
-from app.models import UploadHistory, User
-from app.router import raise_if_duplicate_upload
+from app.models import AnalysisResult, RawInventory, UploadHistory, User
+from app.router import raise_if_duplicate_upload, router
 from app.analysis import analyze_inventory
+from app.security import (
+    SESSION_COOKIE_NAME,
+    get_current_user,
+    set_session_cookie,
+    verify_session_token,
+)
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
 from dotenv import load_dotenv
@@ -24,7 +30,15 @@ load_dotenv()
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
 
+# 쿠키 서명에 쓰이는 비밀 키. 반드시 .env의 SESSION_SECRET_KEY로 관리하고 외부에 노출하지 않는다.
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    print("⚠️ SESSION_SECRET_KEY가 설정되지 않아 임시 키를 사용합니다. 서버 재시작 시 기존 세션이 모두 무효화됩니다.")
+    SESSION_SECRET_KEY = os.urandom(32).hex()
+
 app = FastAPI(title="StockClear Backend", version="1.0")
+# router.py의 모든 엔드포인트(/api/ai-diagnose 등)에 로그인 검증을 일괄 적용한다.
+app.include_router(router, dependencies=[Depends(get_current_user)])
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -109,12 +123,8 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-  # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
-  # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
-  redirect_response = RedirectResponse(url="/dashboard.html")
-  redirect_response.set_cookie(
-      SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
-  )
+  # 4. 기존 일반 로그인과 동일하게 서명된 세션에 유저 정보 저장
+  request.session["user_id"] = user.user_id
 
   # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
   return redirect_response
@@ -166,7 +176,7 @@ class LoginRequest(BaseModel):
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = request.session.get("user_id")
     if not user_id:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     user = db.query(User).filter(User.user_id == int(user_id)).first()
@@ -190,7 +200,7 @@ def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db
     db.commit()
     db.refresh(user)
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    request.session["user_id"] = user.user_id
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
@@ -200,7 +210,7 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
     if not user or not user.password_hash or not check_password_hash(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    request.session["user_id"] = user.user_id
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
@@ -212,10 +222,10 @@ def logout(response: Response):
 
 @app.get("/api/auth/me")
 def me(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = request.session.get("user_id")
     if not user_id:
         return {"logged_in": False}
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return {"logged_in": False}
     return {"logged_in": True, "user_id": user.user_id, "username": user.username, "email": user.email}
@@ -266,7 +276,7 @@ async def upload_and_parse_excel(
 
         parsed_data = df.to_dict(orient="records")
 
-        _save_history(
+        history = _save_history(
             db,
             current_user.user_id,
             file.filename,
@@ -274,6 +284,7 @@ async def upload_and_parse_excel(
             "성공",
             content_hash,
         )
+        _save_raw_inventory(db, current_user.user_id, history.id, df)
 
         return {
             "status": "success",
@@ -299,14 +310,39 @@ def _save_history(
     file_size: int,
     status: str,
     content_hash: str | None = None,
-) -> None:
-    db.add(UploadHistory(
+) -> UploadHistory:
+    history = UploadHistory(
         user_id=user_id,
         file_name=filename,
         size=file_size,
         status=status,
         content_hash=content_hash,
-    ))
+    )
+    db.add(history)
+    db.commit()
+    db.refresh(history)
+    return history
+
+
+def _save_raw_inventory(db: Session, user_id: int, batch_id: int, df: pd.DataFrame) -> None:
+    """업로드된 엑셀 행들을 raw_inventory 테이블에 저장한다."""
+    # analyze_inventory()가 컬럼명을 영문으로 변환한 뒤의 df를 받는다.
+    now = datetime.utcnow()
+    rows = [
+        RawInventory(
+            user_id=user_id,
+            upload_batch_id=str(batch_id),
+            product_name=row["product_name"],
+            stock_qty=int(row["stock_qty"]),
+            purchase_price=row["purchase_price"],
+            market_price=row["selling_price"],
+            inbound_date=row["received_date"].date(),
+            created_at=now,
+            sales_qty=int(row["sales_qty"]),
+        )
+        for _, row in df.iterrows()
+    ]
+    db.add_all(rows)
     db.commit()
 
 
