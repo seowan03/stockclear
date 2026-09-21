@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 
+from app.llm import get_ai_strategy
 from app.models import UploadHistory
 from app.schemas import InventoryItem
 
@@ -20,7 +21,7 @@ def raise_if_duplicate_upload(db: Session, user_id: int, content_hash: str):
     if duplicate:
         raise HTTPException(
             status_code=409,
-            detail=f"이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다. history_id: {duplicate.id}"
+            detail=f"이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다."
         )
 
 # --- AI 처방전 진단 API ---
@@ -29,8 +30,11 @@ async def diagnose_inventory(item: InventoryItem):
 
     product_dict = item.model_dump()
 
+<<<<<<< HEAD
     from app.llm import get_ai_strategy
 
+=======
+>>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
     ai_result = get_ai_strategy(product_dict)
 
     return {

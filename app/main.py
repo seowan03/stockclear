@@ -1,6 +1,7 @@
 import io
 import hashlib
 import json
+import logging
 from datetime import datetime, timezone
 from fastapi import Depends, FastAPI, Request, Response, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,14 +14,25 @@ from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import AnalysisResult, RawInventory, UploadHistory, User
+<<<<<<< HEAD
 from app.router import raise_if_duplicate_upload
+=======
+from app.router import raise_if_duplicate_upload, router
+>>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
 from app.analysis import analyze_inventory
+from app.security import (
+    SESSION_COOKIE_NAME,
+    get_current_user,
+    set_session_cookie,
+    verify_session_token,
+)
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
 from dotenv import load_dotenv
 import requests # 파일 상단에 requests 임포트가 필요합니다.
 load_dotenv()
 
+<<<<<<< HEAD
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
@@ -32,8 +44,13 @@ RISK_GRADE_META = {
     "위험": {"color": "#ef4444", "title": "할인 프로모션 대상", "summary": "결품/체류 위험이 있어 할인 및 프로모션 검토가 필요합니다."},
     "처분 권장": {"color": "#a855f7", "title": "즉시 처분 대상", "summary": "회전율이 낮고 감가가 심해 빠른 재고 소진이 필요합니다."},
 }
+=======
+logger = logging.getLogger(__name__)
+>>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
 
 app = FastAPI(title="StockClear Backend", version="1.0")
+# router.py의 모든 엔드포인트(/api/ai-diagnose 등)에 로그인 검증을 일괄 적용한다.
+app.include_router(router, dependencies=[Depends(get_current_user)])
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -121,9 +138,7 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
   # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
   # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
   redirect_response = RedirectResponse(url="/dashboard.html")
-  redirect_response.set_cookie(
-      SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
-  )
+  set_session_cookie(redirect_response, user.user_id)
 
   # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
   return redirect_response
@@ -174,16 +189,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    return user
-
-
 @app.post("/api/auth/signup")
 def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
@@ -199,7 +204,7 @@ def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db
     db.commit()
     db.refresh(user)
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
@@ -209,7 +214,7 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
     if not user or not user.password_hash or not check_password_hash(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
@@ -221,10 +226,11 @@ def logout(response: Response):
 
 @app.get("/api/auth/me")
 def me(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if not user_id:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = verify_session_token(token) if token else None
+    if user_id is None:
         return {"logged_in": False}
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return {"logged_in": False}
     return {"logged_in": True, "user_id": user.user_id, "username": user.username, "email": user.email}
@@ -253,17 +259,43 @@ async def upload_and_parse_excel(
     try:
         contents = await file.read()
 
+<<<<<<< HEAD
         if len(contents) > MAX_UPLOAD_SIZE_BYTES:
             _save_history(db, current_user.user_id, file.filename, len(contents), "실패")
             raise HTTPException(
                 status_code=400,
                 detail="파일 용량은 10MB를 초과할 수 없습니다."
             )
+=======
+        # 빈 파일 거부
+        if len(contents) == 0:
+            raise HTTPException(status_code=400, detail="빈 파일은 업로드할 수 없습니다.")
+
+        # 최대 50MB로 업로드 크기 제한
+        MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=400, detail="파일 크기는 50MB를 초과할 수 없습니다.")
+
+        # 확장자와 실제 내용이 일치하는지 검사 (확장자 위조 방지)
+        if file.filename.endswith((".xlsx", ".xls")):
+            if contents[:2] != b"PK":
+                raise HTTPException(status_code=400, detail="파일 내용이 엑셀 형식이 아닙니다.")
+        else:
+            try:
+                contents.decode("utf-8")
+            except UnicodeDecodeError:
+                raise HTTPException(status_code=400, detail="파일 내용이 CSV 형식이 아닙니다.")
+>>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
 
         if file.filename.endswith((".xlsx", ".xls")):
             df = pd.read_excel(io.BytesIO(contents))
         else:
             df = pd.read_csv(io.BytesIO(contents))
+
+        # 최대 5만 행으로 처리 범위 제한
+        MAX_ROWS = 50_000
+        if len(df) > MAX_ROWS:
+            raise HTTPException(status_code=400, detail=f"행 수는 {MAX_ROWS}개를 초과할 수 없습니다.")
 
         required_columns = ["상품명", "재고량", "원가", "입고일", "판매가", "판매량"]
         missing_columns = [col for col in required_columns if col not in df.columns]
@@ -284,7 +316,7 @@ async def upload_and_parse_excel(
 
         parsed_data = df.to_dict(orient="records")
 
-        _save_history(
+        history = _save_history(
             db,
             current_user.user_id,
             file.filename,
@@ -292,6 +324,7 @@ async def upload_and_parse_excel(
             "성공",
             content_hash,
         )
+        _save_raw_inventory(db, current_user.user_id, history.id, df)
 
         return {
             "status": "success",
@@ -302,6 +335,7 @@ async def upload_and_parse_excel(
 
     except HTTPException:
         raise
+<<<<<<< HEAD
     except ValueError as e:
         _save_history(db, current_user.user_id, file.filename, 0, "실패")
         raise HTTPException(
@@ -310,9 +344,19 @@ async def upload_and_parse_excel(
         )
     except Exception as e:
         _save_history(db, current_user.user_id, file.filename, 0, "실패")
+=======
+    except Exception:
+        logger.exception("업로드 처리 중 오류 발생")
+        db.rollback()
+        try:
+            _save_history(db, current_user.user_id, file.filename, 0, "실패")
+        except Exception:
+            db.rollback()
+            logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
+>>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
         raise HTTPException(
             status_code=500,
-            detail=f"엑셀 파싱 중 에러 발생: {str(e)}"
+            detail="업로드 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
         )
 
 
@@ -354,14 +398,54 @@ def _save_history(
     file_size: int,
     status: str,
     content_hash: str | None = None,
-) -> None:
-    db.add(UploadHistory(
+) -> UploadHistory:
+    history = UploadHistory(
         user_id=user_id,
         file_name=filename,
         size=file_size,
         status=status,
         content_hash=content_hash,
-    ))
+    )
+    db.add(history)
+    db.commit()
+    db.refresh(history)
+    return history
+
+
+def _save_raw_inventory(db: Session, user_id: int, batch_id: int, df: pd.DataFrame) -> None:
+    """업로드된 엑셀 행들을 raw_inventory와 analysis_results 테이블에 함께 저장한다."""
+    # analyze_inventory()가 컬럼명을 영문으로 변환한 뒤의 df를 받는다.
+    now = datetime.utcnow()
+    raw_rows = [
+        RawInventory(
+            user_id=user_id,
+            upload_batch_id=str(batch_id),
+            product_name=row["product_name"],
+            stock_qty=int(row["stock_qty"]),
+            purchase_price=row["purchase_price"],
+            market_price=row["selling_price"],
+            inbound_date=row["received_date"].date(),
+            created_at=now,
+            sales_qty=int(row["sales_qty"]),
+        )
+        for _, row in df.iterrows()
+    ]
+    db.add_all(raw_rows)
+    db.flush()  # analysis_results가 참조할 item_id를 커밋 전에 미리 확보한다.
+
+    analysis_rows = [
+        AnalysisResult(
+            item_id=raw_row.item_id,
+            sales_velocity=row["sales_speed"],
+            aging_days=int(row["storage_days"]),
+            days_to_sell=int(round(row["days_to_sell"])),
+            inventory_amount=row["inventory_value"],
+            fluctuation_rate=row["depreciation_rate"],
+            updated_at=now,
+        )
+        for raw_row, (_, row) in zip(raw_rows, df.iterrows())
+    ]
+    db.add_all(analysis_rows)
     db.commit()
 
 
