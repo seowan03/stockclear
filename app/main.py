@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
-from app.models import RawInventory, UploadHistory, User
+from app.models import AnalysisResult, RawInventory, UploadHistory, User
 from app.router import raise_if_duplicate_upload, router
 from app.analysis import analyze_inventory
 from app.security import (
@@ -341,10 +341,10 @@ def _save_history(
 
 
 def _save_raw_inventory(db: Session, user_id: int, batch_id: int, df: pd.DataFrame) -> None:
-    """업로드된 엑셀 행들을 raw_inventory 테이블에 저장한다."""
+    """업로드된 엑셀 행들을 raw_inventory와 analysis_results 테이블에 함께 저장한다."""
     # analyze_inventory()가 컬럼명을 영문으로 변환한 뒤의 df를 받는다.
     now = datetime.utcnow()
-    rows = [
+    raw_rows = [
         RawInventory(
             user_id=user_id,
             upload_batch_id=str(batch_id),
@@ -358,7 +358,22 @@ def _save_raw_inventory(db: Session, user_id: int, batch_id: int, df: pd.DataFra
         )
         for _, row in df.iterrows()
     ]
-    db.add_all(rows)
+    db.add_all(raw_rows)
+    db.flush()  # analysis_results가 참조할 item_id를 커밋 전에 미리 확보한다.
+
+    analysis_rows = [
+        AnalysisResult(
+            item_id=raw_row.item_id,
+            sales_velocity=row["sales_speed"],
+            aging_days=int(row["storage_days"]),
+            days_to_sell=int(round(row["days_to_sell"])),
+            inventory_amount=row["inventory_value"],
+            fluctuation_rate=row["depreciation_rate"],
+            updated_at=now,
+        )
+        for raw_row, (_, row) in zip(raw_rows, df.iterrows())
+    ]
+    db.add_all(analysis_rows)
     db.commit()
 
 
