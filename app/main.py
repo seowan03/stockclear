@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import UploadHistory, User
 from app.router import raise_if_duplicate_upload
@@ -22,6 +23,45 @@ load_dotenv()
 
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
+SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7  # 7일
+
+# 쿠키 변조를 막기 위한 서명 키. 운영 환경에서는 반드시 .env에 강력한 값을 설정해야 한다.
+SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SECRET_KEY:
+    if os.getenv("ENV", "development") == "production":
+        raise RuntimeError("SESSION_SECRET_KEY 환경 변수가 설정되지 않았습니다.")
+    SECRET_KEY = "dev-only-insecure-secret-key"
+
+session_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="session-cookie")
+
+
+def create_session_token(user_id: int) -> str:
+    """user_id를 서명된(변조 불가능한) 토큰으로 인코딩한다."""
+    return session_serializer.dumps({"user_id": user_id})
+
+
+def verify_session_token(token: str) -> int | None:
+    """서명을 검증하고 user_id를 복원한다. 위조/만료된 값이면 None을 반환한다."""
+    try:
+        data = session_serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return None
+    return data.get("user_id")
+
+
+# HTTPS 배포 환경(ENV=production)에서는 secure 쿠키를 강제한다.
+IS_PRODUCTION = os.getenv("ENV", "development") == "production"
+
+
+def set_session_cookie(response: Response, user_id: int) -> None:
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        create_session_token(user_id),
+        httponly=True,
+        samesite="lax",
+        secure=IS_PRODUCTION,
+        max_age=SESSION_MAX_AGE_SECONDS,
+    )
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 
@@ -111,9 +151,7 @@ def kakao_callback(code: str, response: Response, db: Session = Depends(get_db))
   # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
   # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
   redirect_response = RedirectResponse(url="/dashboard.html")
-  redirect_response.set_cookie(
-      SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax"
-  )
+  set_session_cookie(redirect_response, user.user_id)
 
   # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
   return redirect_response
@@ -165,10 +203,11 @@ class LoginRequest(BaseModel):
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if not user_id:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = verify_session_token(token) if token else None
+    if user_id is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     return user
@@ -189,7 +228,7 @@ def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db
     db.commit()
     db.refresh(user)
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
@@ -199,7 +238,7 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
     if not user or not user.password_hash or not check_password_hash(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
-    response.set_cookie(SESSION_COOKIE_NAME, str(user.user_id), httponly=True, samesite="lax")
+    set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
@@ -211,10 +250,11 @@ def logout(response: Response):
 
 @app.get("/api/auth/me")
 def me(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get(SESSION_COOKIE_NAME)
-    if not user_id:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = verify_session_token(token) if token else None
+    if user_id is None:
         return {"logged_in": False}
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return {"logged_in": False}
     return {"logged_in": True, "user_id": user.user_id, "username": user.username, "email": user.email}
