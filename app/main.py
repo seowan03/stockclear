@@ -1,20 +1,19 @@
 import io
 import hashlib
 import json
-import uuid
 from datetime import datetime, timezone
-from fastapi import Depends, FastAPI, Request, UploadFile, File, HTTPException
+from fastapi import Depends, FastAPI, Request, Response, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from starlette.middleware.sessions import SessionMiddleware
 from werkzeug.security import check_password_hash, generate_password_hash
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
-from app.models import AnalysisResult, RawInventory, UploadHistory, User
-from app.router import raise_if_duplicate_upload, router
+from app.models import UploadHistory, User
+from app.router import raise_if_duplicate_upload
 from app.analysis import analyze_inventory
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
@@ -24,26 +23,47 @@ load_dotenv()
 
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
+SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7  # 7일
 
-# 쿠키 서명에 쓰이는 비밀 키. 반드시 .env의 SESSION_SECRET_KEY로 관리하고 외부에 노출하지 않는다.
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
-if not SESSION_SECRET_KEY:
-    print("⚠️ SESSION_SECRET_KEY가 설정되지 않아 임시 키를 사용합니다. 서버 재시작 시 기존 세션이 모두 무효화됩니다.")
-    SESSION_SECRET_KEY = os.urandom(32).hex()
+# 쿠키 변조를 막기 위한 서명 키. 운영 환경에서는 반드시 .env에 강력한 값을 설정해야 한다.
+SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SECRET_KEY:
+    if os.getenv("ENV", "development") == "production":
+        raise RuntimeError("SESSION_SECRET_KEY 환경 변수가 설정되지 않았습니다.")
+    SECRET_KEY = "dev-only-insecure-secret-key"
+
+session_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="session-cookie")
+
+
+def create_session_token(user_id: int) -> str:
+    """user_id를 서명된(변조 불가능한) 토큰으로 인코딩한다."""
+    return session_serializer.dumps({"user_id": user_id})
+
+
+def verify_session_token(token: str) -> int | None:
+    """서명을 검증하고 user_id를 복원한다. 위조/만료된 값이면 None을 반환한다."""
+    try:
+        data = session_serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return None
+    return data.get("user_id")
+
+
+# HTTPS 배포 환경(ENV=production)에서는 secure 쿠키를 강제한다.
+IS_PRODUCTION = os.getenv("ENV", "development") == "production"
+
+
+def set_session_cookie(response: Response, user_id: int) -> None:
+    response.set_cookie(
+        SESSION_COOKIE_NAME,
+        create_session_token(user_id),
+        httponly=True,
+        samesite="lax",
+        secure=IS_PRODUCTION,
+        max_age=SESSION_MAX_AGE_SECONDS,
+    )
 
 app = FastAPI(title="StockClear Backend", version="1.0")
-
-SESSION_SAME_SITE = os.getenv("SESSION_SAME_SITE", "lax")
-SESSION_HTTPS_ONLY = os.getenv("SESSION_HTTPS_ONLY", "false").lower() == "true"
-
-# itsdangerous로 서명된 쿠키를 사용해 request.session의 값이 변조되면 서버가 자동으로 무시한다.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SESSION_SECRET_KEY,
-    session_cookie=SESSION_COOKIE_NAME,
-    same_site=SESSION_SAME_SITE,
-    https_only=SESSION_HTTPS_ONLY,
-)
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -69,7 +89,7 @@ def kakao_login():
 # 2. 카카오 로그인 완료 후 돌아오는 콜백 엔드포인트
 # ----------------------------------------------------
 @app.get("/api/auth/kakao/callback")
-def kakao_callback(code: str, request: Request, db: Session = Depends(get_db)):
+def kakao_callback(code: str, response: Response, db: Session = Depends(get_db)):
   # 1. 인가 코드로 액세스 토큰 요청
   token_url = "https://kauth.kakao.com/oauth/token"
   data = {
@@ -128,11 +148,13 @@ def kakao_callback(code: str, request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-  # 4. 기존 일반 로그인과 동일하게 서명된 세션에 유저 정보 저장
-  request.session["user_id"] = user.user_id
+  # 4. 기존 일반 로그인과 동일하게 세션 쿠키 발급
+  # 실제로 반환되는 RedirectResponse에 직접 쿠키를 설정해야 브라우저에 반영된다.
+  redirect_response = RedirectResponse(url="/dashboard.html")
+  set_session_cookie(redirect_response, user.user_id)
 
   # 5. 로그인이 완료되면 대시보드 페이지로 리다이렉트
-  return RedirectResponse(url="/dashboard.html")
+  return redirect_response
 
 # -------------------- 앱 시작 시 테이블 자동 생성 --------------------
 
@@ -146,61 +168,6 @@ def make_upload_content_hash(df, required_columns):
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
 
-def _store_analysis_results(db: Session, user_id: int, dataframe: pd.DataFrame, upload_batch_id: str) -> None:
-    # 분석 완료된 행을 DB에 저장하는 함수
-    for record in dataframe.to_dict(orient="records"):
-        inventory = RawInventory(
-            user_id=user_id,
-            upload_batch_id=upload_batch_id,
-            product_name=record["product_name"],
-            stock_qty=int(record["stock_qty"]),
-            purchase_price=float(record["purchase_price"]),
-            market_price=float(record["selling_price"]),
-            inbound_date=record["received_date"].date(),
-            created_at=datetime.utcnow(),
-        )
-        db.add(inventory)
-        db.flush()
-
-        db.add(AnalysisResult(
-            item_id=inventory.item_id,
-            sales_velocity=float(record["sales_speed"]),
-            aging_days=int(record["storage_days"]),
-            days_to_sell=int(record["days_to_sell"]),
-            inventory_amount=float(record["inventory_value"]),
-            fluctuation_rate=float(record["depreciation_rate"]),
-            updated_at=datetime.utcnow(),
-        ))
-
-    db.commit()
-
-
-def _inventory_items(db: Session, user_id: int) -> list[dict]:
-    # DB의 원본 재고와 분석 결과를 합쳐 API 응답 데이터로 만든다.
-    rows = (
-        db.query(RawInventory, AnalysisResult)
-        .outerjoin(AnalysisResult, AnalysisResult.item_id == RawInventory.item_id)
-        .filter(RawInventory.user_id == user_id)
-        .all()
-    )
-
-    return [
-        {
-            "item_id": inventory.item_id,
-            "product_name": inventory.product_name,
-            "stock_qty": inventory.stock_qty,
-            "purchase_price": float(inventory.purchase_price or 0),
-            "selling_price": float(inventory.market_price or 0),
-            "aging_days": result.aging_days if result else 0,
-            "days_to_sell": result.days_to_sell if result else 0,
-            "risk_grade": result.risk_grade if result else "정상",
-            "final_score": result.final_score if result else 0,
-            "ai_diagnosis": result.ai_diagnosis if result else None,
-            "action_plans": result.action_plans if result else None,
-        }
-        for inventory, result in rows
-    ]
-
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
@@ -213,11 +180,6 @@ origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
 ]
-
-# 배포한 프론트엔드 주소(GitHub Pages 등)를 .env의 EXTRA_CORS_ORIGINS에 콤마로 구분해 추가하면 된다.
-extra_origins = os.getenv("EXTRA_CORS_ORIGINS", "")
-if extra_origins:
-    origins.extend(origin.strip() for origin in extra_origins.split(",") if origin.strip())
 
 app.add_middleware(
     CORSMiddleware,
@@ -241,17 +203,18 @@ class LoginRequest(BaseModel):
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    user_id = request.session.get("user_id")
-    if not user_id:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = verify_session_token(token) if token else None
+    if user_id is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     return user
 
 
 @app.post("/api/auth/signup")
-def signup(data: SignupRequest, request: Request, db: Session = Depends(get_db)):
+def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
 
@@ -265,32 +228,33 @@ def signup(data: SignupRequest, request: Request, db: Session = Depends(get_db))
     db.commit()
     db.refresh(user)
 
-    request.session["user_id"] = user.user_id
+    set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
 @app.post("/api/auth/login")
-def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
+def login(data: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not user.password_hash or not check_password_hash(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
 
-    request.session["user_id"] = user.user_id
+    set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 
 
 @app.post("/api/auth/logout")
-def logout(request: Request):
-    request.session.clear()
+def logout(response: Response):
+    response.delete_cookie(SESSION_COOKIE_NAME)
     return {"status": "success"}
 
 
 @app.get("/api/auth/me")
 def me(request: Request, db: Session = Depends(get_db)):
-    user_id = request.session.get("user_id")
-    if not user_id:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    user_id = verify_session_token(token) if token else None
+    if user_id is None:
         return {"logged_in": False}
-    user = db.query(User).filter(User.user_id == int(user_id)).first()
+    user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
         return {"logged_in": False}
     return {"logged_in": True, "user_id": user.user_id, "username": user.username, "email": user.email}
@@ -324,9 +288,7 @@ async def upload_and_parse_excel(
         else:
             df = pd.read_csv(io.BytesIO(contents))
 
-        # 분석 계산에 필요한 값만 필수로 받고, 물품 정보는 없어도 업로드를 허용한다.
         required_columns = ["상품명", "재고량", "원가", "입고일", "판매가", "판매량"]
-        optional_columns = ["물품 코드", "카테고리"]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
@@ -336,17 +298,10 @@ async def upload_and_parse_excel(
                 detail=f"필수 컬럼이 없습니다: {missing_columns}"
             )
 
-        for column in optional_columns:
-            if column not in df.columns:
-                df[column] = "-"
-
         content_hash = make_upload_content_hash(df, required_columns)
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 
         df = analyze_inventory(df)
-        # 계산값을 DB에 보관해 다른 화면과 브라우저에서도 동일한 분석 결과를 쓴다.
-        upload_batch_id = uuid.uuid4().hex
-        _store_analysis_results(db, current_user.user_id, df, upload_batch_id)
 
         parsed_data = df.to_dict(orient="records")
 
@@ -362,9 +317,7 @@ async def upload_and_parse_excel(
         return {
             "status": "success",
             "filename": file.filename,
-            "upload_batch_id": upload_batch_id,
             "total_rows": len(parsed_data),
-            "saved_rows": len(parsed_data),
             "data_preview": parsed_data
         }
 
@@ -376,76 +329,6 @@ async def upload_and_parse_excel(
             status_code=500,
             detail=f"엑셀 파싱 중 에러 발생: {str(e)}"
         )
-
-
-# -------------------- 분석 결과 조회 API --------------------
-@app.get("/api/inventory")
-def list_inventory(
-    search: str = "",
-    status: str = "",
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    items = _inventory_items(db, current_user.user_id)
-    if search:
-        normalized_search = search.lower()
-        items = [item for item in items if normalized_search in item["product_name"].lower()]
-    if status:
-        items = [item for item in items if item["risk_grade"] == status]
-    return {"items": items}
-
-
-@app.get("/api/inventory/{item_id}")
-def get_inventory_item(
-    item_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    item = next((item for item in _inventory_items(db, current_user.user_id) if item["item_id"] == item_id), None)
-    if not item:
-        raise HTTPException(status_code=404, detail="재고 항목을 찾을 수 없습니다.")
-    return item
-
-
-@app.get("/api/dashboard")
-def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    items = _inventory_items(db, current_user.user_id)
-    risk_items = [item for item in items if item["risk_grade"] in {"주의", "장기 체류", "처분 권장"}]
-    aging_items = [item for item in items if item["aging_days"] >= 60]
-    grades = [
-        {"name": grade, "count": sum(item["risk_grade"] == grade for item in items), "color": color}
-        for grade, color in [("정상", "#10b981"), ("주의", "#f59e0b"), ("장기 체류", "#f97316"), ("처분 권장", "#ef4444")]
-    ]
-    return {
-        "total_sku": len(items),
-        "risk_count": len(risk_items),
-        "aging_count": len(aging_items),
-        "monthly_saving": sum(item["purchase_price"] * item["stock_qty"] for item in risk_items),
-        "grades": grades,
-        "risk_items": sorted(risk_items, key=lambda item: item["final_score"], reverse=True)[:10],
-    }
-
-
-@app.get("/api/strategy")
-def get_strategy(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    items = _inventory_items(db, current_user.user_id)
-    groups = []
-    for grade, title, summary in [
-        ("처분 권장", "즉시 처분", "재고 소진을 위한 할인 또는 묶음 판매가 필요합니다."),
-        ("장기 체류", "판매 촉진", "장기 보관 재고의 노출과 할인 전략을 검토하세요."),
-        ("주의", "재고 모니터링", "판매 추이를 확인하고 추가 입고를 조절하세요."),
-    ]:
-        count = sum(item["risk_grade"] == grade for item in items)
-        if count:
-            groups.append({"type": grade, "title": title, "summary": summary, "count": count})
-    return {"groups": groups}
-
-
-@app.get("/api/export")
-def get_export(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    items = _inventory_items(db, current_user.user_id)
-    risk_count = sum(item["risk_grade"] != "정상" for item in items)
-    return {"summary": f"총 {len(items)}개 재고 중 {risk_count}개 항목을 관리 대상으로 분류했습니다.", "items": items}
 
 
 def _save_history(
@@ -511,5 +394,8 @@ def clear_history(db: Session = Depends(get_db), current_user: User = Depends(ge
     db.commit()
     return {"status": "success"}
 
+# -------------------- 정적 HTML/CSS/JavaScript 페이지 연결 --------------------
+# 위의 명시적 라우트("/", "/api/...")에 안 걸린 나머지 경로를
+# static 폴더에서 파일명 그대로 서빙
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/", StaticFiles(directory="static"), name="static")
