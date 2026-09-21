@@ -83,5 +83,3 @@ def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-# 이전 이름을 사용하는 코드와 호환성을 유지한다.
-get_ai_startegy = get_ai_strategy
