@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy.orm import Session
 
+from app.llm import get_ai_strategy
 from app.models import UploadHistory
 from app.schemas import InventoryItem
 
@@ -28,11 +29,6 @@ def raise_if_duplicate_upload(db: Session, user_id: int, content_hash: str):
 async def diagnose_inventory(item: InventoryItem):
 
     product_dict = item.model_dump()
-
-    try:
-        from app.llm import get_ai_strategy
-    except ImportError:
-        from app.llm import get_ai_startegy as get_ai_strategy
 
     ai_result = get_ai_strategy(product_dict)
 
