@@ -1,12 +1,31 @@
-import os
 import json
+import logging
+import os
+from typing import Any
+
 from openai import OpenAI
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field, ValidationError
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_ai_strategy(product_data: dict) -> dict:
+logger = logging.getLogger(__name__)
+
+
+class AIStrategy(BaseModel):
+    status: str
+    recommended_discount: float = Field(ge=0, le=100)
+    comment: str
+
+
+def _get_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    return OpenAI(api_key=api_key, timeout=20.0, max_retries=1)
+
+
+def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
     """
     재고 데이터를 받아 GPT-4o-mini를 통해 처방전을 반환하는 함수
     """
@@ -29,23 +48,38 @@ def get_ai_strategy(product_data: dict) -> dict:
     """
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role":"system","content": "당신은 이커머스 직매입 재고 관리 전문가입니다. 정확한 JSON 형식으로만 응답합니다."},
-                {"role":"user","content":prompt}
+                {
+                    "role": "system",
+                    "content": "당신은 이커머스 직매입 재고 관리 전문가입니다. 정확한 JSON 형식으로만 응답합니다.",
+                },
+                {"role": "user", "content": prompt},
             ],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
 
         result_content = response.choices[0].message.content
-        return json.loads(result_content)
+        if not result_content:
+            raise ValueError("OpenAI returned an empty response")
 
-    except Exception as e:
+        result = AIStrategy.model_validate(json.loads(result_content))
+        return result.model_dump()
+
+    except (json.JSONDecodeError, ValidationError, RuntimeError, ValueError):
+        logger.exception("AI strategy response validation failed")
         return {
             "status": "분석 오류",
             "recommended_discount": 0,
-            "comment": f"AI 분석 중 오류 발생: {str(e)}"
+            "comment": "AI 분석을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        }
+    except Exception:
+        logger.exception("AI strategy request failed")
+        return {
+            "status": "분석 오류",
+            "recommended_discount": 0,
+            "comment": "AI 분석 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
         }
 
 
