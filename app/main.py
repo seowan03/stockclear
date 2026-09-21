@@ -10,60 +10,25 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
-from app.models import UploadHistory, User
-from app.router import raise_if_duplicate_upload
+from app.models import RawInventory, UploadHistory, User
+from app.router import raise_if_duplicate_upload, router
 from app.analysis import analyze_inventory
+from app.security import (
+    SESSION_COOKIE_NAME,
+    get_current_user,
+    set_session_cookie,
+    verify_session_token,
+)
 # -------------------- 카카오 소셜 로그인 관련 --------------------
 import os
 from dotenv import load_dotenv
 import requests # 파일 상단에 requests 임포트가 필요합니다.
 load_dotenv()
 
-# -------------------- 세션 관련 --------------------
-SESSION_COOKIE_NAME = "session_user"
-SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7  # 7일
-
-# 쿠키 변조를 막기 위한 서명 키. 운영 환경에서는 반드시 .env에 강력한 값을 설정해야 한다.
-SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
-if not SECRET_KEY:
-    if os.getenv("ENV", "development") == "production":
-        raise RuntimeError("SESSION_SECRET_KEY 환경 변수가 설정되지 않았습니다.")
-    SECRET_KEY = "dev-only-insecure-secret-key"
-
-session_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="session-cookie")
-
-
-def create_session_token(user_id: int) -> str:
-    """user_id를 서명된(변조 불가능한) 토큰으로 인코딩한다."""
-    return session_serializer.dumps({"user_id": user_id})
-
-
-def verify_session_token(token: str) -> int | None:
-    """서명을 검증하고 user_id를 복원한다. 위조/만료된 값이면 None을 반환한다."""
-    try:
-        data = session_serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
-    except (BadSignature, SignatureExpired):
-        return None
-    return data.get("user_id")
-
-
-# HTTPS 배포 환경(ENV=production)에서는 secure 쿠키를 강제한다.
-IS_PRODUCTION = os.getenv("ENV", "development") == "production"
-
-
-def set_session_cookie(response: Response, user_id: int) -> None:
-    response.set_cookie(
-        SESSION_COOKIE_NAME,
-        create_session_token(user_id),
-        httponly=True,
-        samesite="lax",
-        secure=IS_PRODUCTION,
-        max_age=SESSION_MAX_AGE_SECONDS,
-    )
-
 app = FastAPI(title="StockClear Backend", version="1.0")
+# router.py의 모든 엔드포인트(/api/ai-diagnose 등)에 로그인 검증을 일괄 적용한다.
+app.include_router(router, dependencies=[Depends(get_current_user)])
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -202,17 +167,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    user_id = verify_session_token(token) if token else None
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    return user
-
-
 @app.post("/api/auth/signup")
 def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
@@ -305,7 +259,7 @@ async def upload_and_parse_excel(
 
         parsed_data = df.to_dict(orient="records")
 
-        _save_history(
+        history = _save_history(
             db,
             current_user.user_id,
             file.filename,
@@ -313,6 +267,7 @@ async def upload_and_parse_excel(
             "성공",
             content_hash,
         )
+        _save_raw_inventory(db, current_user.user_id, history.id, df)
 
         return {
             "status": "success",
@@ -338,14 +293,39 @@ def _save_history(
     file_size: int,
     status: str,
     content_hash: str | None = None,
-) -> None:
-    db.add(UploadHistory(
+) -> UploadHistory:
+    history = UploadHistory(
         user_id=user_id,
         file_name=filename,
         size=file_size,
         status=status,
         content_hash=content_hash,
-    ))
+    )
+    db.add(history)
+    db.commit()
+    db.refresh(history)
+    return history
+
+
+def _save_raw_inventory(db: Session, user_id: int, batch_id: int, df: pd.DataFrame) -> None:
+    """업로드된 엑셀 행들을 raw_inventory 테이블에 저장한다."""
+    # analyze_inventory()가 컬럼명을 영문으로 변환한 뒤의 df를 받는다.
+    now = datetime.utcnow()
+    rows = [
+        RawInventory(
+            user_id=user_id,
+            upload_batch_id=str(batch_id),
+            product_name=row["product_name"],
+            stock_qty=int(row["stock_qty"]),
+            purchase_price=row["purchase_price"],
+            market_price=row["selling_price"],
+            inbound_date=row["received_date"].date(),
+            created_at=now,
+            sales_qty=int(row["sales_qty"]),
+        )
+        for _, row in df.iterrows()
+    ]
+    db.add_all(rows)
     db.commit()
 
 
