@@ -30,11 +30,6 @@ async def diagnose_inventory(item: InventoryItem):
 
     product_dict = item.model_dump()
 
-<<<<<<< HEAD
-    from app.llm import get_ai_strategy
-
-=======
->>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
     ai_result = get_ai_strategy(product_dict)
 
     return {

@@ -14,11 +14,7 @@ from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 from app.database import Base, engine, ensure_upload_files_user_id_column, get_db
 from app.models import AnalysisResult, RawInventory, UploadHistory, User
-<<<<<<< HEAD
-from app.router import raise_if_duplicate_upload
-=======
 from app.router import raise_if_duplicate_upload, router
->>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
 from app.analysis import analyze_inventory
 from app.security import (
     SESSION_COOKIE_NAME,
@@ -32,9 +28,6 @@ from dotenv import load_dotenv
 import requests # 파일 상단에 requests 임포트가 필요합니다.
 load_dotenv()
 
-<<<<<<< HEAD
-# -------------------- 세션 관련 --------------------
-SESSION_COOKIE_NAME = "session_user"
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
 
 # 대시보드/전략 화면에서 사용하는 위험등급별 표시 정보
@@ -44,9 +37,7 @@ RISK_GRADE_META = {
     "위험": {"color": "#ef4444", "title": "할인 프로모션 대상", "summary": "결품/체류 위험이 있어 할인 및 프로모션 검토가 필요합니다."},
     "처분 권장": {"color": "#a855f7", "title": "즉시 처분 대상", "summary": "회전율이 낮고 감가가 심해 빠른 재고 소진이 필요합니다."},
 }
-=======
 logger = logging.getLogger(__name__)
->>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 # router.py의 모든 엔드포인트(/api/ai-diagnose 등)에 로그인 검증을 일괄 적용한다.
@@ -259,33 +250,16 @@ async def upload_and_parse_excel(
     try:
         contents = await file.read()
 
-<<<<<<< HEAD
+        if len(contents) == 0:
+            _save_history(db, current_user.user_id, file.filename, 0, "실패")
+            raise HTTPException(status_code=400, detail="빈 파일은 업로드할 수 없습니다.")
+
         if len(contents) > MAX_UPLOAD_SIZE_BYTES:
             _save_history(db, current_user.user_id, file.filename, len(contents), "실패")
             raise HTTPException(
                 status_code=400,
                 detail="파일 용량은 10MB를 초과할 수 없습니다."
             )
-=======
-        # 빈 파일 거부
-        if len(contents) == 0:
-            raise HTTPException(status_code=400, detail="빈 파일은 업로드할 수 없습니다.")
-
-        # 최대 50MB로 업로드 크기 제한
-        MAX_UPLOAD_SIZE = 50 * 1024 * 1024
-        if len(contents) > MAX_UPLOAD_SIZE:
-            raise HTTPException(status_code=400, detail="파일 크기는 50MB를 초과할 수 없습니다.")
-
-        # 확장자와 실제 내용이 일치하는지 검사 (확장자 위조 방지)
-        if file.filename.endswith((".xlsx", ".xls")):
-            if contents[:2] != b"PK":
-                raise HTTPException(status_code=400, detail="파일 내용이 엑셀 형식이 아닙니다.")
-        else:
-            try:
-                contents.decode("utf-8")
-            except UnicodeDecodeError:
-                raise HTTPException(status_code=400, detail="파일 내용이 CSV 형식이 아닙니다.")
->>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
 
         if file.filename.endswith((".xlsx", ".xls")):
             df = pd.read_excel(io.BytesIO(contents))
@@ -335,16 +309,18 @@ async def upload_and_parse_excel(
 
     except HTTPException:
         raise
-<<<<<<< HEAD
-    except ValueError as e:
-        _save_history(db, current_user.user_id, file.filename, 0, "실패")
+    except ValueError:
+        logger.exception("업로드 데이터 검증 중 오류 발생")
+        db.rollback()
+        try:
+            _save_history(db, current_user.user_id, file.filename, 0, "실패")
+        except Exception:
+            db.rollback()
+            logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
         raise HTTPException(
             status_code=400,
-            detail=str(e)
+            detail="업로드 데이터 형식이 올바르지 않습니다. 입력 파일을 확인해주세요."
         )
-    except Exception as e:
-        _save_history(db, current_user.user_id, file.filename, 0, "실패")
-=======
     except Exception:
         logger.exception("업로드 처리 중 오류 발생")
         db.rollback()
@@ -353,7 +329,6 @@ async def upload_and_parse_excel(
         except Exception:
             db.rollback()
             logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
->>>>>>> 8cada1cbd3764bfb48bb416accf1cd0e9b5ddac6
         raise HTTPException(
             status_code=500,
             detail="업로드 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
