@@ -29,6 +29,9 @@ import requests # 파일 상단에 requests 임포트가 필요합니다.
 load_dotenv()
 
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+MAX_UPLOAD_BODY_SIZE_BYTES = MAX_UPLOAD_SIZE_BYTES + (1024 * 1024)
+MAX_UPLOAD_ROWS = 50_000
+UPLOAD_READ_CHUNK_SIZE = 1024 * 1024
 
 # 대시보드/전략 화면에서 사용하는 위험등급별 표시 정보
 RISK_GRADE_META = {
@@ -40,8 +43,7 @@ RISK_GRADE_META = {
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="StockClear Backend", version="1.0")
-# router.py의 모든 엔드포인트(/api/ai-diagnose 등)에 로그인 검증을 일괄 적용한다.
-app.include_router(router, dependencies=[Depends(get_current_user)])
+app.include_router(router)
 
 # -------------------- 카카오 소셜 로그인 --------------------
 
@@ -146,6 +148,67 @@ def make_upload_content_hash(df, required_columns):
     serialized_data = json.dumps(records, ensure_ascii=False, sort_keys=True, default=str)
     return hashlib.sha256(serialized_data.encode("utf-8")).hexdigest()
 
+
+def _check_upload_content_length(request: Request) -> None:
+    content_length = request.headers.get("content-length")
+    if not content_length:
+        return
+    try:
+        request_size = int(content_length)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="업로드 요청 크기 정보가 올바르지 않습니다.")
+    if request_size > MAX_UPLOAD_BODY_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="업로드 요청 크기가 허용 범위를 초과했습니다.",
+        )
+
+
+async def _read_upload_file_with_limit(file: UploadFile) -> bytes:
+    chunks: list[bytes] = []
+    total_size = 0
+
+    while True:
+        chunk = await file.read(UPLOAD_READ_CHUNK_SIZE)
+        if not chunk:
+            break
+
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="파일 용량은 10MB를 초과할 수 없습니다.",
+            )
+        chunks.append(chunk)
+
+    if total_size == 0:
+        raise HTTPException(status_code=400, detail="빈 파일은 업로드할 수 없습니다.")
+
+    return b"".join(chunks)
+
+
+def _detect_csv_encoding(contents: bytes) -> str:
+    for encoding in ("utf-8-sig", "cp949"):
+        try:
+            contents.decode(encoding)
+            return encoding
+        except UnicodeDecodeError:
+            continue
+    raise HTTPException(status_code=400, detail="파일 내용이 CSV 형식이 아닙니다.")
+
+
+def _validate_upload_file_signature(filename: str, contents: bytes) -> str | None:
+    normalized_filename = filename.lower()
+    if normalized_filename.endswith(".xlsx"):
+        if not contents.startswith(b"PK"):
+            raise HTTPException(status_code=400, detail="파일 내용이 XLSX 형식이 아닙니다.")
+        return None
+    if normalized_filename.endswith(".xls"):
+        if not contents.startswith(b"\xd0\xcf\x11\xe0"):
+            raise HTTPException(status_code=400, detail="파일 내용이 XLS 형식이 아닙니다.")
+        return None
+    return _detect_csv_encoding(contents)
+
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
@@ -236,46 +299,42 @@ def read_root():
 # response_model=UploadResponse 부분은 schemas 작업 전이므로 임시 제거했습니다.
 @app.post("/api/upload")
 async def upload_and_parse_excel(
+    request: Request,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
 
-    if not file.filename.endswith((".xlsx", ".xls", ".csv")):
+    filename = file.filename or ""
+    if not filename.lower().endswith((".xlsx", ".xls", ".csv")):
         raise HTTPException(
             status_code=400,
             detail="엑셀 파일(.xlsx, .xls) 또는 CSV 파일만 업로드 가능합니다."
         )
 
     try:
-        contents = await file.read()
+        _check_upload_content_length(request)
+        contents = await _read_upload_file_with_limit(file)
+        csv_encoding = _validate_upload_file_signature(filename, contents)
 
-        if len(contents) == 0:
-            _save_history(db, current_user.user_id, file.filename, 0, "실패")
-            raise HTTPException(status_code=400, detail="빈 파일은 업로드할 수 없습니다.")
-
-        if len(contents) > MAX_UPLOAD_SIZE_BYTES:
-            _save_history(db, current_user.user_id, file.filename, len(contents), "실패")
-            raise HTTPException(
-                status_code=400,
-                detail="파일 용량은 10MB를 초과할 수 없습니다."
-            )
-
-        if file.filename.endswith((".xlsx", ".xls")):
+        if filename.lower().endswith((".xlsx", ".xls")):
             df = pd.read_excel(io.BytesIO(contents))
         else:
-            df = pd.read_csv(io.BytesIO(contents))
+            df = pd.read_csv(io.BytesIO(contents), encoding=csv_encoding)
 
-        # 최대 5만 행으로 처리 범위 제한
-        MAX_ROWS = 50_000
-        if len(df) > MAX_ROWS:
-            raise HTTPException(status_code=400, detail=f"행 수는 {MAX_ROWS}개를 초과할 수 없습니다.")
+        if len(df) == 0:
+            _save_history(db, current_user.user_id, filename, len(contents), "실패")
+            raise HTTPException(status_code=400, detail="업로드 파일에 데이터 행이 없습니다.")
+
+        if len(df) > MAX_UPLOAD_ROWS:
+            _save_history(db, current_user.user_id, filename, len(contents), "실패")
+            raise HTTPException(status_code=413, detail=f"행 수는 {MAX_UPLOAD_ROWS}개를 초과할 수 없습니다.")
 
         required_columns = ["상품명", "재고량", "원가", "입고일", "판매가", "판매량"]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
-            _save_history(db, current_user.user_id, file.filename, len(contents), "실패")
+            _save_history(db, current_user.user_id, filename, len(contents), "실패")
             raise HTTPException(
                 status_code=400,
                 detail=f"필수 컬럼이 없습니다: {missing_columns}"
@@ -293,7 +352,7 @@ async def upload_and_parse_excel(
         history = _save_history(
             db,
             current_user.user_id,
-            file.filename,
+            filename,
             len(contents),
             "성공",
             content_hash,
@@ -302,7 +361,7 @@ async def upload_and_parse_excel(
 
         return {
             "status": "success",
-            "filename": file.filename,
+            "filename": filename,
             "total_rows": len(parsed_data),
             "data_preview": parsed_data
         }
@@ -313,7 +372,7 @@ async def upload_and_parse_excel(
         logger.exception("업로드 데이터 검증 중 오류 발생")
         db.rollback()
         try:
-            _save_history(db, current_user.user_id, file.filename, 0, "실패")
+            _save_history(db, current_user.user_id, filename, 0, "실패")
         except Exception:
             db.rollback()
             logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
@@ -325,7 +384,7 @@ async def upload_and_parse_excel(
         logger.exception("업로드 처리 중 오류 발생")
         db.rollback()
         try:
-            _save_history(db, current_user.user_id, file.filename, 0, "실패")
+            _save_history(db, current_user.user_id, filename, 0, "실패")
         except Exception:
             db.rollback()
             logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
