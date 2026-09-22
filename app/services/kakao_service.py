@@ -54,7 +54,11 @@ def get_or_create_kakao_user(code: str, db: Session) -> User:
     )
     access_token = token_json.get("access_token")
     if not access_token:
-        logger.warning("Kakao token issuance failed: %s", token_json.get("error_description", token_json))
+        # token_json 전체를 로그로 남기면 향후 응답 형식이 바뀔 때 민감정보가 섞여 들어갈 수 있어 특정 키만 남긴다
+        logger.warning(
+            "Kakao token issuance failed: %s",
+            token_json.get("error_description") or token_json.get("error") or "unknown_error",
+        )
         raise KakaoLoginError("카카오 로그인에 실패했습니다.")
 
     user_info = _request_kakao_json(
