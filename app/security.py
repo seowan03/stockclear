@@ -1,31 +1,26 @@
-import os
-import secrets
-
-from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, Request, Response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import ENV, SESSION_SECRET_KEY
 from app.models import User
-
-load_dotenv()
 
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7  # 7일
 
 # 쿠키 변조를 막기 위한 서명 키. 운영 환경에서는 반드시 .env에 강력한 값을 설정해야 한다.
-SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+SECRET_KEY = SESSION_SECRET_KEY
 if not SECRET_KEY:
-    if os.getenv("ENV", "development") == "production":
+    if ENV == "production":
         raise RuntimeError("SESSION_SECRET_KEY 환경 변수가 설정되지 않았습니다.")
     SECRET_KEY = "dev-only-insecure-secret-key"
 
 session_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="session-cookie")
 
 # HTTPS 배포 환경(ENV=production)에서는 secure 쿠키를 강제한다.
-IS_PRODUCTION = os.getenv("ENV", "development") == "production"
+IS_PRODUCTION = ENV == "production"
 
 # -------------------- OAuth state (CSRF 방지) --------------------
 OAUTH_STATE_COOKIE_NAME = "kakao_oauth_state"

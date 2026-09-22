@@ -1,25 +1,14 @@
 import os
 from urllib.parse import quote_plus
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# .env 파일에서 환경 변수 로드
-load_dotenv()
-
-# .env 파일의 개별 변수 추출
-DB_HOST = os.getenv("DB_HOST")
-DB_USER = os.getenv("DB_USER", "avnadmin")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME = os.getenv("DB_NAME", "defaultdb")
-DB_PORT = os.getenv("DB_PORT", "21018")
-DB_CHARSET = os.getenv("DB_CHARSET", "utf8mb4")
+from app.config import DATABASE_URL, DB_CHARSET, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 # 패스워드 특수문자 URL 인코딩 처리
 ENCODED_PASSWORD = quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
 
-# DATABASE_URL이 지정되어 있다면 우선 사용하고, 없을 경우 .env 변수들로 동적 생성
-DATABASE_URL = os.getenv("DATABASE_URL")
+# DATABASE_URL이 지정되어 있다면 우선 사용하고, 없을 경우 설정값으로 동적 생성
 if not DATABASE_URL:
     DATABASE_URL = (
         f"mysql+pymysql://{DB_USER}:{ENCODED_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
