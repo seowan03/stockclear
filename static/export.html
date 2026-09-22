@@ -94,13 +94,29 @@
 
 <script src="../js/stockclear.js"></script>
 <script>
-    const inventory = StockClear.getInventory();
-    document.getElementById('reportCount').textContent = `총 ${inventory.length.toLocaleString('ko-KR')}개 항목 선택됨`;
-    document.getElementById('reportBody').innerHTML = inventory.map((item) => {
-        const status = StockClear.classify(item);
-        const action = status === '처분 권장' ? '재고 처분 검토' : status === '장기 체류' ? '할인 프로모션' : '현 상태 유지';
-        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${item.product_name || '-'}</td><td class="py-3 px-4 font-semibold text-white">${item.product_name || '-'}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${status}</td><td class="py-3 px-4">${action}</td></tr>`;
-    }).join('');
+        async function loadExportData() {
+            const response = await fetch('/api/export', { credentials: 'include' });
+            if (response.status === 401) {
+                window.location.href = 'signin.html';
+                return;
+            }
+            if (!response.ok) throw new Error('내보내기 데이터를 불러오지 못했습니다.');
+            const report = await response.json();
+            const items = Array.isArray(report.items) ? report.items : [];
+            document.getElementById('reportCount').textContent = `총 ${items.length.toLocaleString('ko-KR')}개 항목 선택됨`;
+            document.getElementById('reportBody').innerHTML = items.length
+                ? items.map((item) => {
+                    const status = item.risk_grade || '정상';
+                    const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
+                    return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${item.item_id || '-'}</td><td class="py-3 px-4 font-semibold text-white">${item.product_name || '-'}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${status}</td><td class="py-3 px-4">${action}</td></tr>`;
+                }).join('')
+                : '<tr><td colspan="6" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+        }
+
+        loadExportData().catch((error) => {
+            console.error('내보내기 데이터 로딩 실패:', error);
+            document.getElementById('reportBody').innerHTML = '<tr><td colspan="6" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
+        });
 
   // 1. Excel (.xlsx) 파일 다운로드 함수
   function exportToExcel() {

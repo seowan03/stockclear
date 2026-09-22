@@ -38,7 +38,21 @@ def list_inventory(search: str = "", status: str = "", db: Session = Depends(get
     if status:
         query = query.filter(AnalysisResult.risk_grade == status)
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
-    return {"items": [{"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "days_to_sell": analysis.days_to_sell, "risk_grade": analysis.risk_grade, "action_plans": analysis.action_plans} for analysis, item in rows]}
+    return {"items": [{
+        "item_id": item.item_id,
+        "product_name": item.product_name,
+        "stock_qty": item.stock_qty,
+        "purchase_price": float(item.purchase_price or 0),
+        "selling_price": float(item.market_price or 0),
+        "received_date": item.inbound_date.isoformat() if item.inbound_date else None,
+        "sales_speed": float(analysis.sales_velocity or 0),
+        "storage_days": analysis.aging_days,
+        "days_to_sell": analysis.days_to_sell,
+        "depreciation_rate": float(analysis.fluctuation_rate or 0),
+        "inventory_value": float(analysis.inventory_amount or 0),
+        "risk_grade": analysis.risk_grade,
+        "action_plans": analysis.action_plans,
+    } for analysis, item in rows]}
 
 
 @router.get("/api/inventory/{item_id}")
