@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+numpy
 pandas
 python-dotenv
 pymysql
