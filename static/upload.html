@@ -128,6 +128,7 @@
             <i class="fa-solid fa-paper-plane"></i>
             <span>서버로 데이터 전송 및 분석 시작</span>
           </button>
+          <p id="upload-status" class="hidden rounded-xl px-4 py-3 text-sm" role="status"></p>
         </form>
 
         <!-- SAMPLE DATA BUTTON -->
@@ -157,6 +158,8 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const fileNameDisplay = document.getElementById('file-name-display');
+    const uploadForm = document.getElementById('upload-form');
+    const uploadStatus = document.getElementById('upload-status');
 
     // 드래그 존 클릭 시 파일 선택창 열기
     dropZone.addEventListener('click', () => fileInput.click());
@@ -201,8 +204,46 @@
     }
 
     function updateFileName(name) {
-      fileNameDisplay.innerHTML = `<span class="text-blue-400 font-bold">'${name}'</span> 파일이 선택되었습니다.`;
+      fileNameDisplay.textContent = `'${name}' 파일이 선택되었습니다.`;
+      fileNameDisplay.classList.add('text-blue-400');
     }
+
+    function showUploadStatus(message, isError = false) {
+      uploadStatus.textContent = message;
+      uploadStatus.className = `rounded-xl px-4 py-3 text-sm ${isError ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'}`;
+    }
+
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submitButton = uploadForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      submitButton.classList.add('opacity-60', 'cursor-not-allowed');
+      showUploadStatus('재고 파일을 분석하는 중입니다.');
+
+      try {
+        const response = await fetch(uploadForm.action, {
+          method: uploadForm.method,
+          body: new FormData(uploadForm),
+          credentials: 'include'
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(result.detail || '업로드 처리 중 오류가 발생했습니다.');
+        }
+
+        showUploadStatus('분석이 완료되었습니다. 대시보드로 이동합니다.');
+        window.location.href = 'dashboard.html';
+      } catch (error) {
+        showUploadStatus(error.message || '서버에 연결할 수 없습니다.', true);
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
 
     // 샘플 데이터 테스트용 함수
     function loadSampleAndAnalyze() {
