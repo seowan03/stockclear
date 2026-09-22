@@ -4,9 +4,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+ENV = os.getenv("ENV", "development")
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER", "avnadmin")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME = os.getenv("DB_NAME", "defaultdb")
+DB_PORT = os.getenv("DB_PORT", "21018")
+DB_CHARSET = os.getenv("DB_CHARSET", "utf8mb4")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI", "http://127.0.0.1:8000/api/auth/kakao/callback")
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
 MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024
 MAX_UPLOAD_BODY_SIZE_BYTES = MAX_UPLOAD_SIZE_BYTES + (1024 * 1024)
 MAX_UPLOAD_ROWS = 50_000
