@@ -8,7 +8,6 @@ from app.database import Base, engine, ensure_upload_files_user_id_column
 from app.routers import ai, auth, history, inventory, kakao, upload
 
 app = FastAPI(title="StockClear Backend", version="1.0")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,

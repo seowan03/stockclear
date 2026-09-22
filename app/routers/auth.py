@@ -7,7 +7,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.database import get_db
 from app.models import User
-from app.security import SESSION_COOKIE_NAME, get_current_user, set_session_cookie, verify_session_token
+from app.security import SESSION_COOKIE_NAME, set_session_cookie, verify_session_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -27,13 +27,7 @@ class LoginRequest(BaseModel):
 def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
-
-    user = User(
-        username=data.username,
-        email=data.email,
-        password_hash=generate_password_hash(data.password),
-        created_at=datetime.utcnow(),
-    )
+    user = User(username=data.username, email=data.email, password_hash=generate_password_hash(data.password), created_at=datetime.utcnow())
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -46,7 +40,6 @@ def login(data: LoginRequest, response: Response, db: Session = Depends(get_db))
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not user.password_hash or not check_password_hash(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
-
     set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}
 

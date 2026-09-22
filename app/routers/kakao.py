@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -15,12 +15,11 @@ def kakao_login():
 
 
 @router.get("/callback")
-def kakao_callback(code: str, response: Response, db: Session = Depends(get_db)):
+def kakao_callback(code: str, db: Session = Depends(get_db)):
     try:
         user = get_or_create_kakao_user(code, db)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    redirect_response = RedirectResponse(url="/dashboard.html")
-    set_session_cookie(redirect_response, user.user_id)
-    return redirect_response
+    response = RedirectResponse(url="/dashboard.html")
+    set_session_cookie(response, user.user_id)
+    return response
