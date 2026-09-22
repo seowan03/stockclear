@@ -20,7 +20,8 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+<body class="dashboard-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+
 
   <!-- NAVIGATION HEADER -->
   <header class="bg-[#0b1120] border-b border-gray-800 text-white sticky top-0 z-50">
@@ -75,7 +76,7 @@
             <i class="fa-solid fa-boxes-stacked text-sm"></i>
           </div>
         </div>
-        <div class="text-2xl font-extrabold text-gray-900">1,248 <span class="text-xs font-normal text-gray-500">개</span></div>
+        <div id="totalSku" class="text-2xl font-extrabold text-gray-900">0 <span class="text-xs font-normal text-gray-500">개</span></div>
         <p class="text-xs text-emerald-600 font-medium mt-2 flex items-center">
           <i class="fa-solid fa-arrow-up mr-1"></i> 전월 대비 +12개 증가
         </p>
@@ -88,7 +89,7 @@
             <i class="fa-solid fa-won-sign text-sm"></i>
           </div>
         </div>
-        <div class="text-2xl font-extrabold text-gray-900">₩ 84,520,000</div>
+        <div id="inventoryValue" class="text-2xl font-extrabold text-gray-900">₩ 0</div>
         <p class="text-xs text-emerald-600 font-medium mt-2 flex items-center">
           <i class="fa-solid fa-arrow-up mr-1"></i> 자산 건전성 양호
         </p>
@@ -101,7 +102,7 @@
             <i class="fa-solid fa-triangle-exclamation text-sm"></i>
           </div>
         </div>
-        <div class="text-2xl font-extrabold text-rose-600">14 <span class="text-xs font-normal text-gray-500">개 품목</span></div>
+        <div id="deficitCount" class="text-2xl font-extrabold text-rose-600">0 <span class="text-xs font-normal text-gray-500">개 품목</span></div>
         <p class="text-xs text-rose-600 font-medium mt-2 flex items-center">
           <i class="fa-solid fa-circle-exclamation mr-1"></i> 즉시 발주 필요
         </p>
@@ -114,7 +115,7 @@
             <i class="fa-solid fa-warehouse text-sm"></i>
           </div>
         </div>
-        <div class="text-2xl font-extrabold text-amber-600">8 <span class="text-xs font-normal text-gray-500">개 품목</span></div>
+        <div id="staleCount" class="text-2xl font-extrabold text-amber-600">0 <span class="text-xs font-normal text-gray-500">개 품목</span></div>
         <p class="text-xs text-amber-600 font-medium mt-2 flex items-center">
           <i class="fa-solid fa-clock-rotate-left mr-1"></i> 할인 프로모션 권장
         </p>
@@ -155,20 +156,20 @@
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-1">
-          <div class="text-blue-300 font-semibold flex items-center">
+          <div id="urgentInsightTitle" class="text-blue-300 font-semibold flex items-center">
             <i class="fa-solid fa-cart-plus mr-2"></i> 긴급 발주 제안 (14건)
           </div>
-          <p class="text-gray-300 text-xs leading-relaxed">
-            <strong>[노트북 파우치 15인치]</strong>의 현재 재고가 3개로 안전 재고 기준(10개) 미달입니다. 향후 3일 내 품절이 예상됩니다.
+          <p id="urgentInsightText" class="text-gray-300 text-xs leading-relaxed">
+            서버 분석 결과를 불러오는 중입니다.
           </p>
         </div>
 
         <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-1">
-          <div class="text-amber-300 font-semibold flex items-center">
+          <div id="staleInsightTitle" class="text-amber-300 font-semibold flex items-center">
             <i class="fa-solid fa-tags mr-2"></i> 과다 재고 소진 제안 (8건)
           </div>
-          <p class="text-gray-300 text-xs leading-relaxed">
-            <strong>[C타입 고속케이블 2M]</strong> 재고 보유 기간이 90일을 초과했습니다. 15% 번들 할인 프로모션을 권장합니다.
+          <p id="staleInsightText" class="text-gray-300 text-xs leading-relaxed">
+            서버 분석 결과를 불러오는 중입니다.
           </p>
         </div>
       </div>
@@ -203,97 +204,13 @@
             </tr>
           </thead>
           <tbody id="inventory-table-body" class="divide-y divide-gray-100 font-medium">
-            <tr class="hover:bg-gray-50/80 transition-colors">
-              <td class="py-4 px-6 text-gray-400">SKU-1001</td>
-              <td class="py-4 px-6 text-gray-900 font-bold">무선 블루투스 마우스 A1</td>
-              <td class="py-4 px-6">전자기기</td>
-              <td class="py-4 px-6 text-right font-semibold text-gray-800">45 개</td>
-              <td class="py-4 px-6 text-right text-gray-500">15 개</td>
-              <td class="py-4 px-6 text-right">₩ 25,000</td>
-              <td class="py-4 px-6 text-center">
-                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full font-semibold">정상</span>
-              </td>
-            </tr>
-            <tr class="hover:bg-gray-50/80 transition-colors">
-              <td class="py-4 px-6 text-gray-400">SKU-1002</td>
-              <td class="py-4 px-6 text-gray-900 font-bold">노트북 파우치 15인치</td>
-              <td class="py-4 px-6">액세서리</td>
-              <td class="py-4 px-6 text-right font-bold text-rose-600">3 개</td>
-              <td class="py-4 px-6 text-right text-gray-500">10 개</td>
-              <td class="py-4 px-6 text-right">₩ 18,000</td>
-              <td class="py-4 px-6 text-center">
-                <span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full font-semibold">부족</span>
-              </td>
-            </tr>
-            <tr class="hover:bg-gray-50/80 transition-colors">
-              <td class="py-4 px-6 text-gray-400">SKU-1003</td>
-              <td class="py-4 px-6 text-gray-900 font-bold">C타입 고속케이블 2M</td>
-              <td class="py-4 px-6">액세서리</td>
-              <td class="py-4 px-6 text-right font-bold text-amber-600">210 개</td>
-              <td class="py-4 px-6 text-right text-gray-500">50 개</td>
-              <td class="py-4 px-6 text-right">₩ 5,500</td>
-              <td class="py-4 px-6 text-center">
-                <span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full font-semibold">과다</span>
-              </td>
-            </tr>
+            <tr><td colspan="7" class="py-8 px-6 text-center text-gray-400">서버 데이터를 불러오는 중...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
   </main>
-
-  <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      const ctxTrend = document.getElementById('trendChart').getContext('2d');
-      new Chart(ctxTrend, {
-        type: 'line',
-        data: {
-          labels: ['4월', '5월', '6월', '7월', '8월', '9월'],
-          datasets: [
-            {
-              label: '입고 수량',
-              data: [1200, 1900, 1500, 2100, 1800, 2400],
-              borderColor: '#3b82f6',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              fill: true,
-              tension: 0.4
-            },
-            {
-              label: '출고 수량',
-              data: [1000, 1700, 1600, 1900, 1750, 2200],
-              borderColor: '#10b981',
-              backgroundColor: 'transparent',
-              borderDash: [5, 5],
-              tension: 0.4
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } }
-        }
-      });
-
-      const ctxCat = document.getElementById('categoryChart').getContext('2d');
-      new Chart(ctxCat, {
-        type: 'doughnut',
-        data: {
-          labels: ['전자기기', '액세서리', '생활용품', '기타'],
-          datasets: [{
-            data: [45, 30, 15, 10],
-            backgroundColor: ['#3b82f6', '#6366f1', '#f59e0b', '#9ca3af']
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } }
-        }
-      });
-    });
-  </script>
 
   <script src="../js/stockclear.js"></script>
   <script src="../js/dashboard.js"></script>

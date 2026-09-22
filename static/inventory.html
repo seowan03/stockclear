@@ -399,8 +399,10 @@ function switchTab(tabName) {
     }
 
 
-    const sourceInventory = StockClear.getInventory();
-    let inventoryData = sourceInventory.map((item, index) => {
+    let inventoryData = [];
+
+    function setInventoryData(sourceInventory) {
+      inventoryData = sourceInventory.map((item, index) => {
       const statusText = StockClear.classify(item);
       return {
         id: index + 1,
@@ -424,7 +426,8 @@ function switchTab(tabName) {
         recDiscount: statusText === '장기 체류' ? '10 %' : '0 %',
         recPrice: `${StockClear.formatNumber(item.selling_price)} 원`
       };
-    });
+      });
+    }
 
     let trashData = [];
 
@@ -621,8 +624,30 @@ function switchTab(tabName) {
       XLSX.writeFile(wb, "StockClear_재고목록.xlsx");
     }
 
-    // 초기 실행
-    renderTable();  
+    async function loadInventoryData() {
+      const tbody = document.getElementById('inventoryBody');
+      tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
+      try {
+        const response = await fetch('/api/inventory', { credentials: 'include' });
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
+        const payload = await response.json();
+        setInventoryData(Array.isArray(payload.items) ? payload.items : []);
+        if (!inventoryData.length) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
+          return;
+        }
+        renderTable();
+      } catch (error) {
+        console.error('재고 데이터 로딩 실패:', error);
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
+      }
+    }
+
+    loadInventoryData();
   </script>
 </body>
 </html><!DOCTYPE html>
