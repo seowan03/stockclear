@@ -46,8 +46,10 @@ async def upload_and_parse_excel(
             "selling_price": "판매가",
             "sales_qty": "판매량",
         }))
+        # 같은 사용자의 동일 내용 성공 업로드는 저장 전에 차단한다.
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 
+        # 원본 재고, 분석 결과, 업로드 이력은 하나의 트랜잭션으로 함께 확정한다.
         save_inventory_analysis(db, current_user.user_id, content_hash, df)
         history = save_upload_history(
             db,
@@ -57,21 +59,26 @@ async def upload_and_parse_excel(
             "성공",
             content_hash,
         )
+        history_id = history.id
+        db.commit()
         parsed_data = df.to_dict(orient="records")
         return {
             "status": "success",
             "filename": filename,
             "total_rows": len(parsed_data),
             "data_preview": parsed_data,
-            "history_id": history.id,
+            "history_id": history_id,
         }
     except HTTPException:
+        db.rollback()
         raise
     except ValueError:
         logger.exception("업로드 데이터 검증 중 오류 발생")
         db.rollback()
         try:
+            # 실패 이력은 본 처리 rollback 이후 별도 트랜잭션으로 남긴다.
             save_upload_history(db, current_user.user_id, filename, 0, "실패")
+            db.commit()
         except Exception:
             db.rollback()
             logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
@@ -80,7 +87,9 @@ async def upload_and_parse_excel(
         logger.exception("업로드 처리 중 오류 발생")
         db.rollback()
         try:
+            # 실패 이력은 본 처리 rollback 이후 별도 트랜잭션으로 남긴다.
             save_upload_history(db, current_user.user_id, filename, 0, "실패")
+            db.commit()
         except Exception:
             db.rollback()
             logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")

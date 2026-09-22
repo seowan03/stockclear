@@ -30,6 +30,7 @@ def save_inventory_analysis(
     db.add_all(raw_rows)
     db.flush()
 
+    # Commit은 업로드 라우터에서 이력 저장까지 끝난 뒤 한 번만 수행한다.
     db.add_all(
         [
             AnalysisResult(
@@ -46,7 +47,6 @@ def save_inventory_analysis(
             for raw_row, (_, row) in zip(raw_rows, df.iterrows())
         ]
     )
-    db.commit()
 
 
 def save_upload_history(
@@ -65,8 +65,8 @@ def save_upload_history(
         content_hash=content_hash,
     )
     db.add(history)
-    db.commit()
-    db.refresh(history)
+    # 호출자가 같은 트랜잭션 안에서 다른 저장 작업과 함께 commit한다.
+    db.flush()
     return history
 
 
