@@ -8,6 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css?v=20260922-navfix">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Google Fonts -->
@@ -31,26 +32,13 @@
         <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
       </a>
 
-      <!-- Navigation Tabs (3개 통합 메뉴) -->
-      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-        <a href="upload.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-cloud-arrow-up mr-2"></i>데이터 업로드
-        </a>
-        <a href="dashboard.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg bg-blue-600 text-white shadow-md">
-          <i class="fa-solid fa-chart-pie mr-2"></i>분석 대시보드
-        </a>
-        <a href="inventory.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-boxes-stacked mr-2"></i>전체 재고 목록
-        </a>
-      </nav>
+      <nav class="site-navigation" aria-label="주요 메뉴"></nav>
+      <script src="js/site-navigation.js?v=20260922-navfix"></script>
+      <script src="js/session-header.js?v=20260922-auth"></script>
 
-      <div class="flex items-center space-x-4">
-        <div class="flex items-center space-x-2 bg-gray-900 px-3 py-1.5 rounded-full border border-gray-800">
-          <div class="w-7 h-7 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs">
-            <i class="fa-solid fa-user"></i>
-          </div>
-          <span class="text-xs font-medium text-gray-300">Store Manager</span>
-        </div>
+      <div class="flex items-center space-x-3">
+        <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
+        <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
       </div>
     </div>
   </header>
@@ -309,7 +297,5 @@
 
   <script src="../js/stockclear.js"></script>
   <script src="../js/dashboard.js"></script>
-<script src="js/session-header.js"></script>
-
 </body>
 </html>

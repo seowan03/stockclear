@@ -8,7 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20260922-navfix">
 </head>
 <body class="history-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -19,14 +19,9 @@
     <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
     <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
     </a>
-    <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-    <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
-    <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
-    <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
-    <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
-    <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
-    <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
-    </nav>
+    <nav class="site-navigation" aria-label="주요 메뉴"></nav>
+    <script src="js/site-navigation.js?v=20260922-navfix"></script>
+    <script src="js/session-header.js?v=20260922-auth"></script>
     <div class="flex items-center space-x-3">
     <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
     <a href="signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
@@ -122,7 +117,15 @@
   async function loadHistory() {
     const tbody = document.getElementById('historyTableBody');
     try {
-      const res = await fetch('/api/history');
+      const sessionResponse = await fetch('/api/auth/me', { credentials: 'include' });
+      const session = await sessionResponse.json();
+      if (!sessionResponse.ok || !session.logged_in) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">로그인 후 이용 가능합니다. <a href="signin.html" class="text-blue-400 hover:underline">로그인하기</a></td></tr>`;
+        updateCount();
+        return;
+      }
+
+      const res = await fetch('/api/history', { credentials: 'include' });
       if (res.status === 401) {
         tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">로그인 후 이용 가능합니다. <a href="signin.html" class="text-blue-400 hover:underline">로그인하기</a></td></tr>`;
         updateCount();
@@ -157,7 +160,7 @@
   async function deleteRow(button, historyId) {
     if (!confirm("이 업로드 기록을 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch(`/api/history/${historyId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/history/${historyId}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('삭제 실패');
       button.closest('tr').remove();
       updateCount();
@@ -170,7 +173,7 @@
   async function clearHistory() {
     if (!confirm("모든 업로드 기록을 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch('/api/history', { method: 'DELETE' });
+      const res = await fetch('/api/history', { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error('삭제 실패');
       document.getElementById('historyTableBody').innerHTML = `
         <tr>
@@ -205,6 +208,5 @@
 
   loadHistory();
 </script>
-<script src="js/session-header.js"></script>
 </body>   
 </html>

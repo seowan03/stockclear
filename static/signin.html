@@ -131,7 +131,6 @@
           return;
         }
 
-        localStorage.setItem('stockclear-account-name', email.split('@')[0]);
         window.location.href = 'dashboard.html';
       } catch (err) {
         errorBox.innerText = '서버에 연결할 수 없습니다.';

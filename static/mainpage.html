@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- 분리된 외부 스타일시트 연결 -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260922-navfix">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
 
@@ -25,15 +25,9 @@
         <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
       </a>
       
-      <!-- 네비게이션 링크 (메인 Home 활성화) -->
-      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-        <a href="mainpage.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white shadow-md"><i class="fa-solid fa-house mr-1.5"></i>메인 Home</a>
-        <a href="upload.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>업로드</a>
-        <a href="history.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>업로드 기록</a>
-        <a href="dashboard.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-chart-pie mr-1.5"></i>대시보드</a>
-        <a href="inventory.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-boxes-stacked mr-1.5"></i>재고 목록</a>
-        <a href="export.html" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-gray-400 hover:text-white transition-colors"><i class="fa-solid fa-file-export mr-1.5"></i>내보내기</a>
-      </nav>
+      <nav class="site-navigation" aria-label="주요 메뉴"></nav>
+      <script src="js/site-navigation.js?v=20260922-navfix"></script>
+      <script src="js/session-header.js?v=20260922-auth"></script>
 
       <div class="flex items-center space-x-3">
         <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
@@ -163,7 +157,6 @@
       <p>© 2026 StockClear. All rights reserved.</p>
     </div>
   </footer>
-
-<script src="js/session-header.js"></script>
+<script src="js/session-header.js?v=20260922-auth"></script>
 </body>
 </html>
