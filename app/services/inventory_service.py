@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 from app.models import AnalysisResult, RawInventory, UploadHistory
 
 
-def save_inventory_analysis(db: Session, user_id: int, upload_batch_id: str, df: pd.DataFrame) -> None:
+def save_inventory_analysis(
+    db: Session,
+    user_id: int,
+    upload_batch_id: str,
+    df: pd.DataFrame,
+) -> None:
     now = datetime.utcnow()
     raw_rows = [
         RawInventory(
@@ -24,32 +29,50 @@ def save_inventory_analysis(db: Session, user_id: int, upload_batch_id: str, df:
     ]
     db.add_all(raw_rows)
     db.flush()
-    db.add_all([
-        AnalysisResult(
-            item_id=raw_item.item_id,
-            sales_velocity=row["sales_speed"],
-            aging_days=int(row["storage_days"]),
-            days_to_sell=int(min(row["days_to_sell"], 9999)),
-            risk_grade=row["risk_grade"],
-            inventory_amount=row["inventory_value"],
-            final_score=row["final_score"],
-            fluctuation_rate=row["depreciation_rate"],
-            updated_at=now,
-        )
-        for raw_item, (_, row) in zip(raw_rows, df.iterrows())
-    ])
-    db.commit()
+
+    # Commit은 업로드 라우터에서 이력 저장까지 끝난 뒤 한 번만 수행한다.
+    db.add_all(
+        [
+            AnalysisResult(
+                item_id=raw_row.item_id,
+                sales_velocity=row["sales_speed"],
+                aging_days=int(row["storage_days"]),
+                days_to_sell=int(min(row["days_to_sell"], 9999)),
+                risk_grade=row["risk_grade"],
+                inventory_amount=row["inventory_value"],
+                final_score=row["final_score"],
+                fluctuation_rate=row["depreciation_rate"],
+                updated_at=now,
+            )
+            for raw_row, (_, row) in zip(raw_rows, df.iterrows())
+        ]
+    )
 
 
-def save_upload_history(db: Session, user_id: int, filename: str, file_size: int, status: str, content_hash: str | None = None) -> UploadHistory:
-    history = UploadHistory(user_id=user_id, file_name=filename, size=file_size, status=status, content_hash=content_hash)
+def save_upload_history(
+    db: Session,
+    user_id: int,
+    filename: str,
+    file_size: int,
+    status: str,
+    content_hash: str | None = None,
+) -> UploadHistory:
+    history = UploadHistory(
+        user_id=user_id,
+        file_name=filename,
+        size=file_size,
+        status=status,
+        content_hash=content_hash,
+    )
     db.add(history)
-    db.commit()
-    db.refresh(history)
+    # 호출자가 같은 트랜잭션 안에서 다른 저장 작업과 함께 commit한다.
+    db.flush()
     return history
 
 
 def query_user_analysis(db: Session, user_id: int):
-    return db.query(AnalysisResult, RawInventory).join(
-        RawInventory, AnalysisResult.item_id == RawInventory.item_id
-    ).filter(RawInventory.user_id == user_id)
+    return (
+        db.query(AnalysisResult, RawInventory)
+        .join(RawInventory, AnalysisResult.item_id == RawInventory.item_id)
+        .filter(RawInventory.user_id == user_id)
+    )
