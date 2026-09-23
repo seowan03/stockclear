@@ -1,11 +1,13 @@
 import json
 import logging
+import os
 from typing import Any
 
 from openai import OpenAI
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
 
-from app.config import OPENAI_API_KEY
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +19,10 @@ class AIStrategy(BaseModel):
 
 
 def _get_client() -> OpenAI:
-    if not OPENAI_API_KEY:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
         raise RuntimeError("OPENAI_API_KEY is not configured")
-    return OpenAI(api_key=OPENAI_API_KEY, timeout=20.0, max_retries=1)
+    return OpenAI(api_key=api_key, timeout=20.0, max_retries=1)
 
 
 def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
