@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import CORS_ORIGINS
 from app.database import Base, engine, ensure_upload_files_user_id_column
 from app.routers import ai, auth, history, inventory, kakao, upload
+from app.security import no_store_api_responses
 
 app = FastAPI(title="StockClear Backend", version="1.0")
 app.add_middleware(
@@ -15,6 +16,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+app.middleware("http")(no_store_api_responses)
 
 app.include_router(auth.router)
 app.include_router(kakao.router)
