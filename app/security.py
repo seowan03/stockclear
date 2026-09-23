@@ -1,6 +1,3 @@
-import os
-
-from dotenv import load_dotenv
 import secrets
 
 from fastapi import Depends, HTTPException, Request, Response
@@ -8,25 +5,61 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.config import ENV, SESSION_SECRET_KEY
 from app.models import User
-
-load_dotenv()
 
 # -------------------- 세션 관련 --------------------
 SESSION_COOKIE_NAME = "session_user"
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7  # 7일
 
 # 쿠키 변조를 막기 위한 서명 키. 운영 환경에서는 반드시 .env에 강력한 값을 설정해야 한다.
-SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+SECRET_KEY = SESSION_SECRET_KEY
 if not SECRET_KEY:
-    if os.getenv("ENV", "development") == "production":
+    if ENV == "production":
         raise RuntimeError("SESSION_SECRET_KEY 환경 변수가 설정되지 않았습니다.")
     SECRET_KEY = "dev-only-insecure-secret-key"
 
 session_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="session-cookie")
 
 # HTTPS 배포 환경(ENV=production)에서는 secure 쿠키를 강제한다.
-IS_PRODUCTION = os.getenv("ENV", "development") == "production"
+IS_PRODUCTION = ENV == "production"
+
+# -------------------- OAuth state (CSRF 방지) --------------------
+OAUTH_STATE_COOKIE_NAME = "kakao_oauth_state"
+OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10  # 10분 (로그인 왕복 시간이면 충분)
+
+oauth_state_serializer = URLSafeTimedSerializer(SECRET_KEY, salt="kakao-oauth-state")
+
+
+def create_oauth_state() -> str:
+    """로그인 CSRF 방지를 위한 예측 불가능한 state 값을 생성한다."""
+    return secrets.token_urlsafe(24)
+
+
+def set_oauth_state_cookie(response: Response, state: str) -> None:
+    response.set_cookie(
+        OAUTH_STATE_COOKIE_NAME,
+        oauth_state_serializer.dumps(state),
+        httponly=True,
+        samesite="lax",
+        secure=IS_PRODUCTION,
+        max_age=OAUTH_STATE_MAX_AGE_SECONDS,
+    )
+
+
+def pop_oauth_state_cookie(request: Request) -> str | None:
+    """서명 쿠키에 저장된 state 값을 검증한다. 위조/만료/누락 시 None을 반환한다."""
+    token = request.cookies.get(OAUTH_STATE_COOKIE_NAME)
+    if not token:
+        return None
+    try:
+        return oauth_state_serializer.loads(token, max_age=OAUTH_STATE_MAX_AGE_SECONDS)
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def clear_oauth_state_cookie(response: Response) -> None:
+    response.delete_cookie(OAUTH_STATE_COOKIE_NAME)
 
 
 def create_session_token(user_id: int) -> str:
