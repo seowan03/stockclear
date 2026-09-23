@@ -11,12 +11,14 @@ def save_inventory_analysis(
     user_id: int,
     upload_batch_id: str,
     df: pd.DataFrame,
+    upload_file_id: int | None = None,
 ) -> None:
     now = datetime.utcnow()
     raw_rows = [
         RawInventory(
             user_id=user_id,
             upload_batch_id=str(upload_batch_id),
+            upload_file_id=upload_file_id,
             product_name=row["product_name"],
             stock_qty=int(row["stock_qty"]),
             purchase_price=row["purchase_price"],

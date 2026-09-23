@@ -50,7 +50,7 @@ async def upload_and_parse_excel(
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 
         # 원본 재고, 분석 결과, 업로드 이력은 하나의 트랜잭션으로 함께 확정한다.
-        save_inventory_analysis(db, current_user.user_id, content_hash, df)
+        # upload_files를 먼저 저장해 id를 확보해야 raw_inventory에 FK로 연결할 수 있다.
         history = save_upload_history(
             db,
             current_user.user_id,
@@ -59,6 +59,7 @@ async def upload_and_parse_excel(
             "성공",
             content_hash,
         )
+        save_inventory_analysis(db, current_user.user_id, content_hash, df, upload_file_id=history.id)
         history_id = history.id
         db.commit()
         parsed_data = df.to_dict(orient="records")
