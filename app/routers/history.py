@@ -19,6 +19,7 @@ def delete_history(history_id: int, db: Session = Depends(get_db), current_user:
     row = db.query(UploadHistory).filter(UploadHistory.id == history_id, UploadHistory.user_id == current_user.user_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="해당 기록을 찾을 수 없습니다.")
+    # raw_inventory/analysis_results는 DB의 FK ON DELETE CASCADE로 함께 삭제된다.
     db.delete(row)
     db.commit()
     return {"status": "success"}

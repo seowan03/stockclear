@@ -30,6 +30,7 @@ class RawInventory(Base):
   item_id = Column(Integer, primary_key=True, autoincrement=True)
   user_id = Column(Integer, ForeignKey("users.user_id"))
   upload_batch_id = Column(String(255))
+  upload_file_id = Column(Integer, ForeignKey("upload_files.id"), nullable=True)
   product_name = Column(String(255))
   stock_qty = Column(Integer)
   purchase_price = Column(Numeric(12, 2))
