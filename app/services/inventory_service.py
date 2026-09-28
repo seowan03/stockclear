@@ -1,30 +1,10 @@
-from datetime import date, datetime
+from datetime import datetime
 
 import pandas as pd
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisResult, RawInventory, UploadHistory
-from app.analysis import analyze_inventory
-
-
-def analyze_inventory_values(
-    product_name: str,
-    stock_qty: int,
-    purchase_price: float,
-    received_date: date,
-    selling_price: float,
-    sales_qty: int,
-) -> dict:
-    source = pd.DataFrame([{
-        "상품명": product_name,
-        "재고량": stock_qty,
-        "원가": purchase_price,
-        "입고일": received_date,
-        "판매가": selling_price,
-        "판매량": sales_qty,
-    }])
-    return analyze_inventory(source).iloc[0].to_dict()
 
 
 def save_inventory_analysis(

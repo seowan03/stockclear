@@ -8,46 +8,10 @@ from sqlalchemy.orm import Session
 from app.config import RISK_GRADE_META
 from app.database import get_db
 from app.models import AnalysisResult, RawInventory, StrategyAction, UploadHistory, User
-from app.schemas import InventoryInput
 from app.security import get_current_user
-from app.services.inventory_service import analyze_inventory_values, query_user_analysis
+from app.services.inventory_service import query_user_analysis
 
 router = APIRouter(tags=["inventory"])
-
-
-def _create_analysis_row(item_id: int, calculated: dict) -> AnalysisResult:
-    return AnalysisResult(
-        item_id=item_id,
-        sales_velocity=float(calculated["sales_speed"]),
-        aging_days=int(calculated["storage_days"]),
-        days_to_sell=int(min(calculated["days_to_sell"], 9999)),
-        risk_grade=calculated["risk_grade"],
-        inventory_amount=calculated["inventory_value"],
-        final_score=float(calculated["final_score"]),
-        fluctuation_rate=float(calculated["depreciation_rate"]),
-        updated_at=datetime.now(timezone.utc),
-    )
-
-
-@router.post("/api/inventory", status_code=201)
-def create_inventory_item(data: InventoryInput, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    calculated = analyze_inventory_values(**data.model_dump())
-    item = RawInventory(
-        user_id=current_user.user_id,
-        upload_batch_id="manual",
-        product_name=data.product_name,
-        stock_qty=data.stock_qty,
-        purchase_price=data.purchase_price,
-        market_price=data.selling_price,
-        inbound_date=data.received_date,
-        created_at=datetime.now(timezone.utc),
-        sales_qty=data.sales_qty,
-    )
-    db.add(item)
-    db.flush()
-    db.add(_create_analysis_row(item.item_id, calculated))
-    db.commit()
-    return {"status": "created", "item_id": item.item_id}
 
 
 @router.get("/api/dashboard")
