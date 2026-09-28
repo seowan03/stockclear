@@ -3,6 +3,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Boolean,
     Float,
     ForeignKey,
     Integer,
@@ -38,6 +39,7 @@ class RawInventory(Base):
   inbound_date = Column(Date)
   created_at = Column(DateTime)
   sales_qty = Column(Integer)
+  is_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
 
 
 class AnalysisResult(Base):
@@ -67,3 +69,14 @@ class UploadHistory(Base):
   size = Column(Integer)  # bytes
   status = Column(String(50))  # 성공 / 실패 / 보관됨
   content_hash = Column(String(64), nullable=True)
+
+
+class StrategyAction(Base):
+  __tablename__ = "strategy_actions"
+
+  action_id = Column(Integer, primary_key=True, autoincrement=True)
+  user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+  action_type = Column(String(30), nullable=False)
+  status = Column(String(30), nullable=False, default="기록됨")
+  item_ids = Column(Text, nullable=False)
+  created_at = Column(DateTime, server_default=func.now())

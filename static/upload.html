@@ -119,7 +119,7 @@
             </span>
 
             <p class="text-xs text-gray-500 mt-4 pointer-events-none">
-              지원 형식: .xlsx, .xls, .csv (최대 50MB)
+              지원 형식: .xlsx, .xls, .csv (최대 10MB)
             </p>
           </div>
 
@@ -245,10 +245,38 @@
       }
     });
 
-    // 샘플 데이터 테스트용 함수
-    function loadSampleAndAnalyze() {
-      alert("샘플 엑셀 데이터 분석 리포트로 이동합니다.");
-      window.location.href = "dashboard.html";
+    async function loadSampleAndAnalyze() {
+      const sampleCsv = [
+        '\ufeff상품명,재고량,원가,입고일,판매가,판매량',
+        '샘플 무선 마우스,80,18000,2025-01-10,15000,12',
+        '샘플 키보드,35,42000,2025-06-15,39900,24',
+        '샘플 USB 허브,16,12000,2026-02-01,10900,8'
+      ].join('\r\n');
+      const formData = new FormData();
+      formData.append('file', new File([sampleCsv], 'stockclear_sample.csv', { type: 'text/csv' }));
+      showUploadStatus('샘플 재고를 분석하는 중입니다.');
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (response.status === 409) {
+          showUploadStatus('샘플 데이터는 이미 등록되어 있습니다. 대시보드로 이동합니다.');
+          window.location.href = 'dashboard.html';
+          return;
+        }
+        if (!response.ok) throw new Error(result.detail || '샘플 분석에 실패했습니다.');
+        window.location.href = 'dashboard.html';
+      } catch (error) {
+        showUploadStatus(error.message || '샘플 분석에 실패했습니다.', true);
+      }
     }
   </script>
 </body>

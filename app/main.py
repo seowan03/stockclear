@@ -4,7 +4,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import CORS_ORIGINS
-from app.database import Base, engine, ensure_upload_files_user_id_column
+from app.database import (
+    Base,
+    engine,
+    ensure_raw_inventory_is_deleted_column,
+    ensure_upload_files_user_id_column,
+)
 from app.routers import ai, auth, history, inventory, kakao, upload
 from app.security import no_store_api_responses
 
@@ -30,6 +35,7 @@ app.include_router(ai.router)
 def on_startup():
     Base.metadata.create_all(bind=engine)
     ensure_upload_files_user_id_column()
+    ensure_raw_inventory_is_deleted_column()
 
 
 @app.get("/")

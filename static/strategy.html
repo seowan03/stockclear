@@ -47,8 +47,8 @@
         <h1 class="text-2xl md:text-3xl font-extrabold text-white">AI 최적화 전략 수립</h1>
         <p class="text-gray-400 text-xs md:text-sm mt-1">알고리즘 기반 긴급 발주 제안 및 체류 재고 소진 솔루션</p>
       </div>
-      <button onclick="alert('전략이 적용되었습니다.')" class="action-btn px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30">
-        전체 적용
+      <button onclick="createRecommendedActions()" class="action-btn px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-600/30">
+        추천 대상 기록
       </button>
     </div>
 
@@ -58,9 +58,9 @@
         <h3 class="text-lg font-bold text-white flex items-center">
           <i class="fa-solid fa-cart-plus text-rose-400 mr-2"></i>긴급 발주 추천 (<span id="urgentCount">0</span>건)
         </h3>
-        <p class="text-xs text-gray-400">안전재고 미달 품목 자동 발주 생성</p>
-        <button onclick="alert('발주서 생성 완료')" class="action-btn w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/20">
-          긴급 발주서 생성
+        <p class="text-xs text-gray-400">위험 등급 재고를 발주 검토 목록으로 기록합니다.</p>
+        <button onclick="createStrategyAction('order')" class="action-btn w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/20">
+          발주 검토 기록
         </button>
       </div>
 
@@ -69,12 +69,18 @@
         <h3 class="text-lg font-bold text-white flex items-center">
           <i class="fa-solid fa-tags text-amber-400 mr-2"></i>소진 프로모션 제안 (<span id="promotionCount">0</span>건)
         </h3>
-        <p class="text-xs text-gray-400">60일 이상 장기 체류 재고 할인 적용</p>
-        <button onclick="alert('프로모션 등록 완료')" class="action-btn w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-600/20">
-          프로모션 등록
+        <p class="text-xs text-gray-400">60일 이상 체류한 재고를 프로모션 검토 목록으로 기록합니다.</p>
+        <button onclick="createStrategyAction('promotion')" class="action-btn w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-600/20">
+          프로모션 검토 기록
         </button>
       </div>
     </div>
+
+    <section class="border-t border-gray-800 pt-6 space-y-3" aria-labelledby="actionHistoryTitle">
+      <h2 id="actionHistoryTitle" class="text-base font-bold text-white">내 작업 기록</h2>
+      <p class="text-xs text-gray-400">내부 검토 기록이며 외부 발주·프로모션 서비스에 등록되지는 않습니다.</p>
+      <div id="actionHistory" class="divide-y divide-gray-800 text-sm text-gray-300"></div>
+    </section>
   </main>
 
   <!-- FOOTER -->
@@ -97,12 +103,76 @@
         return;
       }
       if (!response.ok) throw new Error('전략 데이터를 불러오지 못했습니다.');
-      const groups = (await response.json()).groups || [];
-      const countFor = (types) => groups
-        .filter((group) => types.includes(group.type))
-        .reduce((total, group) => total + Number(group.count || 0), 0);
-      document.getElementById('urgentCount').textContent = countFor(['위험', '처분 권장']);
-      document.getElementById('promotionCount').textContent = countFor(['주의']);
+      const strategy = await response.json();
+      document.getElementById('urgentCount').textContent = Number(strategy.order_count || 0);
+      document.getElementById('promotionCount').textContent = Number(strategy.promotion_count || 0);
+      await loadStrategyActions();
+    }
+
+    async function loadStrategyActions() {
+      const response = await fetch('/api/strategy/actions', { credentials: 'include' });
+      if (!response.ok) throw new Error('작업 기록을 불러오지 못했습니다.');
+      const payload = await response.json();
+      const container = document.getElementById('actionHistory');
+      container.replaceChildren();
+      const labels = { order: '발주 검토', promotion: '프로모션 검토' };
+      (payload.actions || []).forEach((action) => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-wrap justify-between gap-2 py-3';
+        const title = document.createElement('span');
+        title.textContent = `${labels[action.action_type] || action.action_type} · ${action.item_count}개 품목`;
+        const status = document.createElement('span');
+        status.className = 'text-gray-500';
+        status.textContent = `${action.status} · ${action.created_at ? new Date(action.created_at).toLocaleString('ko-KR') : ''}`;
+        row.append(title, status);
+        container.appendChild(row);
+      });
+      if (!container.childElementCount) {
+        const empty = document.createElement('p');
+        empty.className = 'py-3 text-gray-500';
+        empty.textContent = '저장된 작업 기록이 없습니다.';
+        container.appendChild(empty);
+      }
+    }
+
+    async function createStrategyAction(actionType) {
+      const response = await fetch(`/api/strategy/actions?action_type=${encodeURIComponent(actionType)}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      const result = await response.json();
+      if (response.status === 401) {
+        window.location.href = 'signin.html';
+        return;
+      }
+      if (!response.ok) {
+        alert(result.detail || '작업 기록을 저장하지 못했습니다.');
+        return;
+      }
+      await loadStrategyActions();
+      alert(`${result.item_count}개 품목의 내부 검토 기록을 저장했습니다. 외부 작업은 실행되지 않았습니다.`);
+    }
+
+    async function createRecommendedActions() {
+      const recorded = [];
+      const skipped = [];
+      for (const actionType of ['order', 'promotion']) {
+        const response = await fetch(`/api/strategy/actions?action_type=${actionType}`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        const result = await response.json();
+        if (response.ok) recorded.push(result);
+        else if (response.status === 409) skipped.push(actionType);
+        else throw new Error(result.detail || '작업 기록을 저장하지 못했습니다.');
+      }
+      await loadStrategyActions();
+      const total = recorded.reduce((sum, action) => sum + action.item_count, 0);
+      alert(`${recorded.length}개 작업 기록, ${total}개 품목을 저장했습니다. 대상이 없는 작업 ${skipped.length}개는 건너뛰었습니다. 외부 작업은 실행되지 않았습니다.`);
     }
 
     loadStrategyData().catch((error) => {

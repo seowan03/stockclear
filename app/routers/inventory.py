@@ -1,10 +1,12 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import RISK_GRADE_META
 from app.database import get_db
-from app.models import AnalysisResult, RawInventory, User
+from app.models import AnalysisResult, RawInventory, StrategyAction, User
 from app.security import get_current_user
 from app.services.inventory_service import query_user_analysis
 
@@ -46,13 +48,85 @@ def list_inventory(search: str = "", status: str = "", db: Session = Depends(get
         "selling_price": float(item.market_price or 0),
         "received_date": item.inbound_date.isoformat() if item.inbound_date else None,
         "sales_speed": float(analysis.sales_velocity or 0),
+        "sales_qty": item.sales_qty,
         "storage_days": analysis.aging_days,
         "days_to_sell": analysis.days_to_sell,
+        "final_score": float(analysis.final_score or 0),
         "depreciation_rate": float(analysis.fluctuation_rate or 0),
         "inventory_value": float(analysis.inventory_amount or 0),
         "risk_grade": analysis.risk_grade,
         "action_plans": analysis.action_plans,
+        "ai_diagnosis": analysis.ai_diagnosis,
     } for analysis, item in rows]}
+
+
+@router.get("/api/inventory/trash")
+def list_deleted_inventory(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rows = query_user_analysis(db, current_user.user_id, include_deleted=True).filter(
+        RawInventory.is_deleted.is_(True)
+    ).order_by(AnalysisResult.final_score.desc()).all()
+    return {"items": [{
+        "item_id": item.item_id,
+        "product_name": item.product_name,
+        "stock_qty": item.stock_qty,
+        "risk_grade": analysis.risk_grade,
+    } for analysis, item in rows]}
+
+
+@router.delete("/api/inventory/{item_id}")
+def move_inventory_to_trash(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item = db.query(RawInventory).filter(
+        RawInventory.item_id == item_id,
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(False),
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
+    item.is_deleted = True
+    db.commit()
+    return {"status": "deleted", "item_id": item_id}
+
+
+@router.post("/api/inventory/{item_id}/restore")
+def restore_inventory(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item = db.query(RawInventory).filter(
+        RawInventory.item_id == item_id,
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(True),
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="휴지통에서 재고를 찾을 수 없습니다.")
+    item.is_deleted = False
+    db.commit()
+    return {"status": "restored", "item_id": item_id}
+
+
+@router.delete("/api/inventory/{item_id}/permanent")
+def permanently_delete_inventory(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item = db.query(RawInventory).filter(
+        RawInventory.item_id == item_id,
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(True),
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="휴지통에서 재고를 찾을 수 없습니다.")
+    db.query(AnalysisResult).filter(AnalysisResult.item_id == item_id).delete()
+    db.delete(item)
+    db.commit()
+    return {"status": "permanently_deleted", "item_id": item_id}
+
+
+@router.delete("/api/inventory/trash/empty")
+def empty_inventory_trash(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    deleted_ids = [row.item_id for row in db.query(RawInventory.item_id).filter(
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(True),
+    ).all()]
+    if deleted_ids:
+        db.query(AnalysisResult).filter(AnalysisResult.item_id.in_(deleted_ids)).delete(synchronize_session=False)
+        db.query(RawInventory).filter(RawInventory.item_id.in_(deleted_ids)).delete(synchronize_session=False)
+        db.commit()
+    return {"status": "emptied", "deleted_count": len(deleted_ids)}
 
 
 @router.get("/api/inventory/{item_id}")
@@ -66,12 +140,58 @@ def get_inventory_item(item_id: int, db: Session = Depends(get_db), current_user
 
 @router.get("/api/strategy")
 def get_strategy(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = db.query(AnalysisResult.risk_grade, func.count(AnalysisResult.result_id)).join(RawInventory, AnalysisResult.item_id == RawInventory.item_id).filter(RawInventory.user_id == current_user.user_id).group_by(AnalysisResult.risk_grade).all()
-    return {"groups": [{"type": grade, "title": RISK_GRADE_META.get(grade, {}).get("title", grade), "summary": RISK_GRADE_META.get(grade, {}).get("summary", ""), "count": count} for grade, count in rows]}
+    rows = db.query(AnalysisResult.risk_grade, func.count(AnalysisResult.result_id)).join(RawInventory, AnalysisResult.item_id == RawInventory.item_id).filter(RawInventory.user_id == current_user.user_id, RawInventory.is_deleted.is_(False)).group_by(AnalysisResult.risk_grade).all()
+    active_items = query_user_analysis(db, current_user.user_id)
+    order_count = active_items.filter(AnalysisResult.risk_grade.in_(("위험", "처분 권장"))).count()
+    promotion_count = active_items.filter(AnalysisResult.aging_days >= 60).count()
+    return {
+        "groups": [{"type": grade, "title": RISK_GRADE_META.get(grade, {}).get("title", grade), "summary": RISK_GRADE_META.get(grade, {}).get("summary", ""), "count": count} for grade, count in rows],
+        "order_count": order_count,
+        "promotion_count": promotion_count,
+    }
+
+
+@router.get("/api/strategy/actions")
+def list_strategy_actions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    actions = db.query(StrategyAction).filter(
+        StrategyAction.user_id == current_user.user_id
+    ).order_by(StrategyAction.created_at.desc()).all()
+    return {"actions": [{
+        "action_id": action.action_id,
+        "action_type": action.action_type,
+        "status": action.status,
+        "item_count": len(json.loads(action.item_ids)),
+        "created_at": action.created_at.isoformat() if action.created_at else None,
+    } for action in actions]}
+
+
+@router.post("/api/strategy/actions")
+def create_strategy_action(action_type: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if action_type not in ("order", "promotion"):
+        raise HTTPException(status_code=422, detail="지원하지 않는 전략 작업입니다.")
+    query = query_user_analysis(db, current_user.user_id)
+    if action_type == "order":
+        query = query.filter(AnalysisResult.risk_grade.in_(("위험", "처분 권장")))
+    else:
+        query = query.filter(RawInventory.is_deleted.is_(False), AnalysisResult.aging_days >= 60)
+    item_ids = [item.item_id for _, item in query.all()]
+    if not item_ids:
+        raise HTTPException(status_code=409, detail="처리할 대상 재고가 없습니다.")
+    action = StrategyAction(
+        user_id=current_user.user_id,
+        action_type=action_type,
+        item_ids=json.dumps(item_ids),
+    )
+    db.add(action)
+    db.commit()
+    db.refresh(action)
+    return {"action_id": action.action_id, "action_type": action.action_type, "status": action.status, "item_count": len(item_ids)}
 
 
 @router.get("/api/export")
 def get_export(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = query_user_analysis(db, current_user.user_id).order_by(AnalysisResult.final_score.desc()).all()
-    items = [{"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "risk_grade": analysis.risk_grade, "action_plans": analysis.action_plans} for analysis, item in rows]
-    return {"summary": f"총 {len(items)}개 품목의 재고 분석 리포트입니다.", "items": items}
+    risk_count = sum(analysis.risk_grade in ("위험", "처분 권장") for analysis, _ in rows)
+    aging_count = sum(analysis.aging_days >= 60 for analysis, _ in rows)
+    items = [{"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "risk_grade": analysis.risk_grade, "action_plans": analysis.action_plans, "ai_diagnosis": analysis.ai_diagnosis} for analysis, item in rows]
+    return {"summary": {"total_count": len(items), "risk_count": risk_count, "aging_count": aging_count}, "items": items}
