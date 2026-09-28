@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   try {
-    const response = await fetch('/api/dashboard', { credentials: 'include' });
+    const params = new URLSearchParams(window.location.search);
+    const uploadId = params.get('upload_id');
+    const dashboardUrl = uploadId ? `/api/dashboard?upload_id=${encodeURIComponent(uploadId)}` : '/api/dashboard';
+    const response = await fetch(dashboardUrl, { credentials: 'include' });
     if (response.status === 401) {
       window.location.href = 'signin.html';
       return;
@@ -16,8 +19,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!response.ok) throw new Error('대시보드 데이터를 불러오지 못했습니다.');
 
     const dashboard = await response.json();
+    const title = document.getElementById('dashboardTitle');
+    if (title && dashboard.upload_file_name) {
+      title.textContent = `${dashboard.upload_file_name} 분석 결과`;
+    }
+    const updatedAt = document.getElementById('dashboardUpdatedAt');
+    if (updatedAt && dashboard.generated_at) {
+      updatedAt.textContent = `${new Date(dashboard.generated_at).toLocaleString('ko-KR')} 기준`;
+    }
     document.getElementById('totalSku').textContent = `${Number(dashboard.total_sku || 0).toLocaleString('ko-KR')} 개`;
-    document.getElementById('inventoryValue').textContent = `₩ ${Number(dashboard.monthly_saving || 0).toLocaleString('ko-KR')}`;
+    document.getElementById('inventoryValue').textContent = `₩ ${Number(dashboard.inventory_value || 0).toLocaleString('ko-KR')}`;
     document.getElementById('deficitCount').textContent = `${Number(dashboard.risk_count || 0).toLocaleString('ko-KR')} 개 품목`;
     document.getElementById('staleCount').textContent = `${Number(dashboard.aging_count || 0).toLocaleString('ko-KR')} 개 품목`;
 
