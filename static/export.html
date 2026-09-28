@@ -52,10 +52,7 @@
 
 <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-3xl space-y-4">
     <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-brain text-blue-400 mr-2"></i>StockClear AI 종합 진단 요약</h3>
-    <p class="text-xs text-gray-300 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">
-    • 현재 결품 위험 항목은 총 23개로 24시간 내 추가 발주 생성이 필요합니다.<br>
-    • 60일 이상 장기 체류 중인 재고 45개 품목에 대해 15% 프로모션 진행을 추천합니다.
-    </p>
+    <p id="reportSummary" class="text-xs text-gray-300 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">분석 요약을 불러오는 중입니다.</p>
 </div>
 
 <!-- 내보내기 대상 데이터 미리보기 테이블 -->
@@ -94,6 +91,12 @@
 
 <script src="../js/stockclear.js"></script>
 <script>
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
+
         async function loadExportData() {
             const response = await fetch('/api/export', { credentials: 'include' });
             if (response.status === 401) {
@@ -103,12 +106,15 @@
             if (!response.ok) throw new Error('내보내기 데이터를 불러오지 못했습니다.');
             const report = await response.json();
             const items = Array.isArray(report.items) ? report.items : [];
+            const summary = report.summary || {};
+            document.getElementById('reportSummary').textContent =
+                `총 ${Number(summary.total_count || 0).toLocaleString('ko-KR')}개 품목 중 위험 재고 ${Number(summary.risk_count || 0).toLocaleString('ko-KR')}개, 60일 이상 장기 체류 재고 ${Number(summary.aging_count || 0).toLocaleString('ko-KR')}개입니다.`;
             document.getElementById('reportCount').textContent = `총 ${items.length.toLocaleString('ko-KR')}개 항목 선택됨`;
             document.getElementById('reportBody').innerHTML = items.length
                 ? items.map((item) => {
                     const status = item.risk_grade || '정상';
                     const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
-                    return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${item.item_id || '-'}</td><td class="py-3 px-4 font-semibold text-white">${item.product_name || '-'}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${status}</td><td class="py-3 px-4">${action}</td></tr>`;
+                    return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${escapeHtml(item.item_id || '-')}</td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
                 }).join('')
                 : '<tr><td colspan="6" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
         }

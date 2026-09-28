@@ -71,9 +71,10 @@
       <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="SKU 코드 또는 품목명 검색..." onkeyup="filterItems()">
       <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
         <option value="ALL">전체 상태 보기</option>
-        <option value="DEFICIT">결품 위험</option>
-        <option value="OVERSTOCK">과다 재고</option>
-        <option value="NORMAL">적정</option>
+        <option value="정상">정상</option>
+        <option value="주의">주의</option>
+        <option value="위험">위험</option>
+        <option value="처분 권장">처분 권장</option>
       </select>
     </div>
 
@@ -139,23 +140,23 @@
             <div class="space-y-3 text-xs">
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">카테고리</span>
-                <span class="text-gray-200 font-medium" id="modalCategory">전자기기</span>
+                <span class="text-gray-200 font-medium" id="modalCategory">-</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">모델명(SKU)</span>
-                <span class="text-blue-400 font-mono font-medium" id="modalSku">SKU-8801</span>
+                <span class="text-blue-400 font-mono font-medium" id="modalSku">-</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">입고일</span>
-                <span class="text-gray-200 font-medium" id="modalDate">2026-01-10</span>
+                <span class="text-gray-200 font-medium" id="modalDate">-</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">권장 소비자가</span>
-                <span class="text-gray-200 font-medium" id="modalOrigPrice">35,000 원</span>
+                <span class="text-gray-200 font-medium" id="modalOrigPrice">-</span>
               </div>
               <div class="flex justify-between py-1.5">
                 <span class="text-gray-400">현재 시장가</span>
-                <span class="text-gray-200 font-medium" id="modalCurrPrice">29,000 원</span>
+                <span class="text-gray-200 font-medium" id="modalCurrPrice">-</span>
               </div>
             </div>
           </div>
@@ -167,61 +168,22 @@
             <div id="tabContentDetail" class="hidden space-y-6">
               <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
                 <h3 class="text-sm font-bold text-white flex items-center">
-                  <i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>기본 마스터 & 물류 정보
+                  <i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>업로드 재고 정보
                 </h3>
                 <div class="grid grid-cols-2 gap-4 text-xs">
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">바코드 (EAN)</span>
-                    <span class="text-gray-200 font-mono">8809123456789</span>
+                    <span class="text-gray-400">현재 수량</span>
+                    <span class="text-gray-200 font-mono" id="detailStockQty">-</span>
                   </div>
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">창고 위치</span>
-                    <span class="text-blue-400 font-bold">A구역-3번 렉</span>
+                    <span class="text-gray-400">업로드 판매량</span>
+                    <span class="text-gray-200 font-mono" id="detailSalesQty">-</span>
                   </div>
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">입고 단가(원가)</span>
-                    <span class="text-gray-200 font-medium">18,500 원</span>
-                  </div>
-                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">안전 재고 수량</span>
-                    <span class="text-amber-400 font-bold">25 개</span>
-                  </div>
-                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">규격 / 크기</span>
-                    <span class="text-gray-200">120 x 65 x 38 mm</span>
-                  </div>
-                  <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">중량</span>
-                    <span class="text-gray-200">85g</span>
+                    <span class="text-gray-400">재고 금액</span>
+                    <span class="text-gray-200 font-medium" id="detailInventoryValue">-</span>
                   </div>
                 </div>
-              </div>
-
-              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
-                <h3 class="text-sm font-bold text-white flex items-center">
-                  <i class="fa-solid fa-truck-field text-emerald-400 mr-2"></i>공급처 정보
-                </h3>
-                <div class="space-y-3 text-xs">
-                  <div class="flex justify-between py-1.5 border-b border-gray-800/50">
-                    <span class="text-gray-400">공급업체</span>
-                    <span class="text-gray-200 font-medium">(주)테크로직스</span>
-                  </div>
-                  <div class="flex justify-between py-1.5 border-b border-gray-800/50">
-                    <span class="text-gray-400">담당자 연락처</span>
-                    <span class="text-gray-200">010-1234-5678 (김철수 팀장)</span>
-                  </div>
-                  <div class="flex justify-between py-1.5">
-                    <span class="text-gray-400">발주 리드타임</span>
-                    <span class="text-emerald-400 font-semibold">평균 3일 소요</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-2">
-                <h3 class="text-sm font-bold text-white flex items-center">
-                  <i class="fa-solid fa-note-sticky text-amber-400 mr-2"></i>재고 특이사항 메모
-                </h3>
-                <textarea class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-xs text-gray-200 focus:outline-none focus:border-blue-500 resize-none" rows="2" placeholder="재고 특이사항 입력">박스 외관 스크래치 상품 1개 포함. 100개 단위 발주 시 무료배송 적용.</textarea>
               </div>
             </div>
 
@@ -232,49 +194,21 @@
                   <i class="fa-solid fa-chart-line text-blue-500 mr-2"></i>위험도 분석 결과
                 </h3>
                 
-                <div class="space-y-3">
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-gray-400 w-24">예상 소진 기간</span>
-                    <span class="text-gray-200 font-semibold w-16" id="valExhaust">0.5 개월</span>
-                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
-                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
-                    </div>
-                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
-                  </div>
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-gray-400 w-24">감가율</span>
-                    <span class="text-gray-200 font-semibold w-16" id="valDepreciation">10 %</span>
-                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
-                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
-                    </div>
-                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
-                  </div>
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-gray-400 w-24">보관 기간</span>
-                    <span class="text-gray-200 font-semibold w-16" id="valStorage">45 일</span>
-                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
-                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
-                    </div>
-                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
-                  </div>
-                  <div class="flex items-center justify-between text-xs">
-                    <span class="text-gray-400 w-24">재고 금액 비중</span>
-                    <span class="text-gray-200 font-semibold w-16" id="valRatio">2 %</span>
-                    <div class="flex-1 mx-4 bg-gray-800 rounded-full h-2 overflow-hidden">
-                      <div class="bg-red-500 h-full rounded-full" style="width: 70%"></div>
-                    </div>
-                    <span class="text-red-400 font-bold w-12 text-right">70/100</span>
-                  </div>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                  <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">예상 소진 기간</span><span class="text-gray-200 font-semibold" id="valExhaust">-</span></div>
+                  <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">감가율</span><span class="text-gray-200 font-semibold" id="valDepreciation">-</span></div>
+                  <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">보관 기간</span><span class="text-gray-200 font-semibold" id="valStorage">-</span></div>
+                  <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">재고 금액</span><span class="text-gray-200 font-semibold" id="valRatio">-</span></div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800/80 mt-4 text-center">
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800">
                     <span class="text-[11px] text-gray-400 block mb-1">최종 위험도</span>
-                    <span class="text-xl font-extrabold text-red-400" id="finalRiskScore">85 / 100</span>
+                    <span class="text-xl font-extrabold text-red-400" id="finalRiskScore">-</span>
                   </div>
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800">
                     <span class="text-[11px] text-gray-400 block mb-1">등급</span>
-                    <span class="text-xl font-extrabold text-red-500" id="finalRiskGrade">결품 위험</span>
+                    <span class="text-xl font-extrabold text-red-500" id="finalRiskGrade">-</span>
                   </div>
                 </div>
               </div>
@@ -286,14 +220,16 @@
                 
                 <div class="grid grid-cols-2 gap-4">
                   <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
-                    <span class="text-xs text-gray-400">추천 할인율</span>
-                    <span class="text-base font-bold text-emerald-400" id="recDiscount">0 % (발주 필요)</span>
+                    <span class="text-xs text-gray-400">저장된 추천 조치</span>
+                    <span class="text-base font-bold text-emerald-400" id="recDiscount">-</span>
                   </div>
                   <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
-                    <span class="text-xs text-gray-400">추천 판매가</span>
-                    <span class="text-lg font-bold text-blue-400" id="recPrice">29,000 원</span>
+                    <span class="text-xs text-gray-400">현재 판매가</span>
+                    <span class="text-lg font-bold text-blue-400" id="recPrice">-</span>
                   </div>
                 </div>
+                <p id="aiDiagnosis" class="text-xs text-gray-300" role="status">AI 진단 결과가 없습니다.</p>
+                <button id="diagnoseButton" type="button" onclick="diagnoseInventory()" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg">AI 진단 실행</button>
               </div>
             </div>
 
@@ -301,24 +237,9 @@
             <div id="tabContentHistory" class="hidden space-y-4">
               <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6">
                 <h3 class="text-sm font-bold text-white mb-4 flex items-center">
-                  <i class="fa-solid fa-clock-rotate-left text-purple-400 mr-2"></i>최근 3개월 판매 내역
+                  <i class="fa-solid fa-chart-line text-purple-400 mr-2"></i>업로드 판매량
                 </h3>
-                <div class="space-y-3 text-xs">
-                  <div class="flex justify-between items-center p-3 bg-gray-900/60 rounded-xl border border-gray-800">
-                    <div>
-                      <span class="text-gray-200 font-medium block">2026-03-10</span>
-                      <span class="text-gray-500 text-[11px]">스마트스토어 출고</span>
-                    </div>
-                    <span class="text-emerald-400 font-bold">+ 12개 판매</span>
-                  </div>
-                  <div class="flex justify-between items-center p-3 bg-gray-900/60 rounded-xl border border-gray-800">
-                    <div>
-                      <span class="text-gray-200 font-medium block">2026-02-25</span>
-                      <span class="text-gray-500 text-[11px]">쿠팡 로켓배송 입고</span>
-                    </div>
-                    <span class="text-emerald-400 font-bold">+ 35개 판매</span>
-                  </div>
-                </div>
+                <p class="text-sm text-gray-300">업로드 파일 기준 판매량: <span id="historySalesQty">-</span>개</p>
               </div>
             </div>
 
@@ -400,30 +321,42 @@ function switchTab(tabName) {
 
 
     let inventoryData = [];
+    let selectedInventoryId = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[character]);
+    }
 
     function setInventoryData(sourceInventory) {
-      inventoryData = sourceInventory.map((item, index) => {
-      const statusText = StockClear.classify(item);
+      inventoryData = sourceInventory.map((item) => {
+      const statusText = item.risk_grade || '정상';
       return {
-        id: index + 1,
-        sku: item.sku || `ROW-${index + 1}`,
+        id: Number(item.item_id),
+        sku: String(item.item_id),
         name: item.product_name || '이름 없음',
-        category: item.category || '-',
+        category: '-',
         currentQty: StockClear.number(item.stock_qty),
-        targetQty: StockClear.number(item.reorder_point),
-        status: statusText === '처분 권장' ? 'DEFICIT' : statusText === '정상' ? 'NORMAL' : 'OVERSTOCK',
+        targetQty: '-',
+        status: statusText,
         statusText,
         icon: 'fa-box-open',
         date: item.received_date || '-',
+        salesQty: StockClear.number(item.sales_qty),
+        inventoryValue: StockClear.number(item.inventory_value),
+        finalScore: StockClear.number(item.final_score),
+        aiDiagnosis: item.ai_diagnosis || '',
+        actionPlans: item.action_plans || '',
         origPrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
         currPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
         exhaust: `${StockClear.formatNumber(item.days_to_sell)} 일`,
         depreciation: `${StockClear.number(item.depreciation_rate).toFixed(1)} %`,
         storage: `${StockClear.formatNumber(item.storage_days)} 일`,
         ratio: '-',
-        riskScore: `${Math.min(100, Math.round(StockClear.number(item.storage_days) / 1.2 + StockClear.number(item.depreciation_rate)))} / 100`,
+        riskScore: `${Math.round(StockClear.number(item.final_score))} / 100`,
         riskGrade: statusText,
-        recDiscount: statusText === '장기 체류' ? '10 %' : '0 %',
+        recDiscount: item.action_plans || '-',
         recPrice: `${StockClear.formatNumber(item.selling_price)} 원`
       };
       });
@@ -439,10 +372,10 @@ function switchTab(tabName) {
         let qtyClass = 'text-emerald-400 font-semibold';
         let badgeClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
 
-        if (item.status === 'DEFICIT') {
+        if (item.status === '위험' || item.status === '처분 권장') {
           qtyClass = 'text-red-400 font-semibold';
           badgeClass = 'bg-red-500/10 text-red-400 border border-red-500/20';
-        } else if (item.status === 'OVERSTOCK') {
+        } else if (item.status === '주의') {
           qtyClass = 'text-amber-400 font-semibold';
           badgeClass = 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
         }
@@ -455,13 +388,13 @@ function switchTab(tabName) {
             <button onclick="openDetailModal(${item.id})" class="text-blue-400 hover:text-blue-300 hover:underline text-left">${item.sku}</button>
           </td>
           <td class="py-4 px-6 font-medium">
-            <button onclick="openDetailModal(${item.id})" class="text-white hover:text-blue-400 hover:underline text-left">${item.name}</button>
+            <button onclick="openDetailModal(${item.id})" class="text-white hover:text-blue-400 hover:underline text-left">${escapeHtml(item.name)}</button>
           </td>
-          <td class="py-4 px-6 text-gray-400">${item.category}</td>
+          <td class="py-4 px-6 text-gray-400">${escapeHtml(item.category)}</td>
           <td class="py-4 px-6 ${qtyClass}">${item.currentQty} 개</td>
-          <td class="py-4 px-6 text-gray-400">${item.targetQty} 개</td>
+          <td class="py-4 px-6 text-gray-400">${item.targetQty}</td>
           <td class="py-4 px-6">
-            <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${badgeClass}">${item.statusText}</span>
+            <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${badgeClass}">${escapeHtml(item.statusText)}</span>
           </td>
           <td class="py-4 px-6 text-right">
             <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
@@ -484,9 +417,9 @@ function switchTab(tabName) {
       document.getElementById('modalItemBadge').innerText = item.statusText;
       
       const badge = document.getElementById('modalItemBadge');
-      if (item.status === 'DEFICIT') {
+      if (item.status === '위험' || item.status === '처분 권장') {
         badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-red-500/10 text-red-400 border border-red-500/20";
-      } else if (item.status === 'OVERSTOCK') {
+      } else if (item.status === '주의') {
         badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20";
       } else {
         badge.className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
@@ -495,20 +428,26 @@ function switchTab(tabName) {
       document.getElementById('modalItemIcon').className = `fa-solid ${item.icon || 'fa-box-open'} text-6xl text-gray-700`;
       document.getElementById('modalCategory').innerText = item.category;
       document.getElementById('modalSku').innerText = item.sku;
-      document.getElementById('modalDate').innerText = item.date || '2026-01-01';
+      document.getElementById('modalDate').innerText = item.date || '-';
       document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
       document.getElementById('modalCurrPrice').innerText = item.currPrice || '-';
+      document.getElementById('detailStockQty').innerText = `${StockClear.formatNumber(item.currentQty)} 개`;
+      document.getElementById('detailSalesQty').innerText = `${StockClear.formatNumber(item.salesQty)} 개`;
+      document.getElementById('detailInventoryValue').innerText = `₩ ${StockClear.formatNumber(item.inventoryValue)}`;
+      document.getElementById('historySalesQty').innerText = StockClear.formatNumber(item.salesQty);
 
       document.getElementById('valExhaust').innerText = item.exhaust || '-';
       document.getElementById('valDepreciation').innerText = item.depreciation || '-';
       document.getElementById('valStorage').innerText = item.storage || '-';
-      document.getElementById('valRatio').innerText = item.ratio || '-';
+      document.getElementById('valRatio').innerText = `₩ ${StockClear.formatNumber(item.inventoryValue)}`;
 
       document.getElementById('finalRiskScore').innerText = item.riskScore || '-';
       document.getElementById('finalRiskGrade').innerText = item.riskGrade || item.statusText;
 
-      document.getElementById('recDiscount').innerText = item.recDiscount || '0%';
+      document.getElementById('recDiscount').innerText = item.actionPlans || '-';
       document.getElementById('recPrice').innerText = item.recPrice || '-';
+      document.getElementById('aiDiagnosis').innerText = item.aiDiagnosis || 'AI 진단 결과가 없습니다.';
+      selectedInventoryId = item.id;
 
       const modal = document.getElementById('detailModal');
       modal.classList.remove('hidden');
@@ -521,14 +460,57 @@ function switchTab(tabName) {
       modal.classList.add('hidden');
     }
 
-    function moveToTrash(id) {
-      const index = inventoryData.findIndex(item => item.id === id);
-      if (index !== -1) {
-        const item = inventoryData.splice(index, 1)[0];
-        trashData.push(item);
-        renderTable();
-        renderTrash();
+    async function diagnoseInventory() {
+      if (!selectedInventoryId) return;
+      const button = document.getElementById('diagnoseButton');
+      const diagnosis = document.getElementById('aiDiagnosis');
+      button.disabled = true;
+      diagnosis.innerText = 'AI 진단 중입니다.';
+      try {
+        const response = await fetch(`/api/inventory/${selectedInventoryId}/ai-diagnose`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+        const result = await response.json();
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (!response.ok) throw new Error(result.detail || 'AI 진단에 실패했습니다.');
+        diagnosis.innerText = result.judgment || '-';
+        document.getElementById('recDiscount').innerText = result.action_plans || '-';
+        const item = inventoryData.find((row) => row.id === selectedInventoryId);
+        if (item) {
+          item.aiDiagnosis = result.judgment || '';
+          item.actionPlans = result.action_plans || '';
+        }
+      } catch (error) {
+        diagnosis.innerText = error.message || 'AI 진단에 실패했습니다.';
+      } finally {
+        button.disabled = false;
       }
+    }
+
+    async function moveToTrash(id) {
+      const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (response.status === 401) return window.location.href = 'signin.html';
+      if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
+      await loadInventoryData();
+      await loadTrashData();
+    }
+
+    async function loadTrashData() {
+      const response = await fetch('/api/inventory/trash', { credentials: 'include' });
+      if (!response.ok) throw new Error('휴지통 데이터를 불러오지 못했습니다.');
+      const payload = await response.json();
+      trashData = (payload.items || []).map((item) => ({
+        id: Number(item.item_id),
+        sku: String(item.item_id),
+        name: item.product_name || '이름 없음',
+        currentQty: StockClear.number(item.stock_qty),
+      }));
+      document.getElementById('trashCount').innerText = trashData.length;
+      renderTrash();
     }
 
     function renderTrash() {
@@ -545,7 +527,7 @@ function switchTab(tabName) {
           tr.className = 'hover:bg-gray-800/30 transition-colors';
           tr.innerHTML = `
             <td class="py-3 font-mono text-blue-400">${item.sku}</td>
-            <td class="py-3 text-gray-200">${item.name}</td>
+            <td class="py-3 text-gray-200">${escapeHtml(item.name)}</td>
             <td class="py-3 text-gray-400">${item.currentQty} 개</td>
             <td class="py-3 text-right space-x-2">
               <button class="px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-md hover:bg-blue-600/30 transition-colors" onclick="restoreItem(${item.id})">복원</button>
@@ -558,36 +540,38 @@ function switchTab(tabName) {
       document.getElementById('trashCount').innerText = trashData.length;
     }
 
-    function restoreItem(id) {
-      const index = trashData.findIndex(item => item.id === id);
-      if (index !== -1) {
-        const item = trashData.splice(index, 1)[0];
-        inventoryData.push(item);
-        renderTable();
-        renderTrash();
-      }
+    async function restoreItem(id) {
+      const response = await fetch(`/api/inventory/${id}/restore`, { method: 'POST', credentials: 'include' });
+      if (response.status === 401) return window.location.href = 'signin.html';
+      if (!response.ok) return alert('재고를 복원하지 못했습니다.');
+      await loadInventoryData();
+      await loadTrashData();
     }
 
     // 영구 삭제
-    function deletePermanently(id) {
+    async function deletePermanently(id) {
       if (confirm('완전히 삭제하시겠습니까?')) {
-        trashData = trashData.filter(item => item.id !== id);
-        renderTrash();
+        const response = await fetch(`/api/inventory/${id}/permanent`, { method: 'DELETE', credentials: 'include' });
+        if (response.status === 401) return window.location.href = 'signin.html';
+        if (!response.ok) return alert('재고를 영구 삭제하지 못했습니다.');
+        await loadTrashData();
       }
     }
 
     // 휴지통 비우기
-    function emptyTrashAll() {
+    async function emptyTrashAll() {
       if (trashData.length === 0) return;
       if (confirm('휴지통을 완전히 비우시겠습니까?')) {
-        trashData = [];
-        renderTrash();
+        const response = await fetch('/api/inventory/trash/empty', { method: 'DELETE', credentials: 'include' });
+        if (response.status === 401) return window.location.href = 'signin.html';
+        if (!response.ok) return alert('휴지통을 비우지 못했습니다.');
+        await loadTrashData();
       }
     }
 
     // 모달 제어
-    function openTrashModal() {
-      renderTrash();
+    async function openTrashModal() {
+      await loadTrashData();
       document.getElementById('trashModal').classList.add('active');
     }
 
@@ -636,6 +620,7 @@ function switchTab(tabName) {
         if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
         const payload = await response.json();
         setInventoryData(Array.isArray(payload.items) ? payload.items : []);
+        await loadTrashData();
         if (!inventoryData.length) {
           tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
           return;

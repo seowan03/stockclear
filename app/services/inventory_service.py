@@ -72,9 +72,12 @@ def save_upload_history(
     return history
 
 
-def query_user_analysis(db: Session, user_id: int):
-    return (
+def query_user_analysis(db: Session, user_id: int, include_deleted: bool = False):
+    query = (
         db.query(AnalysisResult, RawInventory)
         .join(RawInventory, AnalysisResult.item_id == RawInventory.item_id)
         .filter(RawInventory.user_id == user_id)
     )
+    if not include_deleted:
+        query = query.filter(RawInventory.is_deleted.is_(False))
+    return query
