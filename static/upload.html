@@ -104,7 +104,7 @@
           <div id="drop-zone" class="border-2 border-dashed border-gray-700 hover:border-blue-500 bg-gray-950/60 hover:bg-blue-500/10 rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 group relative">
             
             <!-- 실제 파일이 선택되는 숨겨진 input 태그 -->
-            <input type="file" name="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelect(event)" required>
+            <input type="file" name="file" id="file-input" accept=".xlsx, .csv" class="hidden" onchange="handleFileSelect(event)" required>
             
             <div class="flex justify-center mb-4 pointer-events-none">
               <div class="relative">
@@ -128,7 +128,7 @@
             </span>
 
             <p class="text-xs text-gray-500 mt-4 pointer-events-none">
-              지원 형식: .xlsx, .xls, .csv (최대 10MB)
+              지원 형식: .xlsx, .csv (최대 10MB)
             </p>
           </div>
 
