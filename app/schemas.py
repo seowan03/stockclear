@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from datetime import date
+
+from pydantic import BaseModel, Field
 
 
 # /api/ai-diagnose 요청 body를 검증하는 Pydantic 데이터 규격
@@ -15,3 +17,12 @@ class InventoryItem(BaseModel):
     sales_speed: float
     days_to_sell: float
     depreciation_rate: float
+
+
+class InventoryInput(BaseModel):
+    product_name: str = Field(min_length=1, max_length=255)
+    stock_qty: int = Field(ge=0)
+    purchase_price: float = Field(ge=0)
+    received_date: date
+    selling_price: float = Field(ge=0)
+    sales_qty: int = Field(ge=0)

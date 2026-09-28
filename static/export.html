@@ -34,7 +34,7 @@
 <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8 space-y-8">
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6">
     <div>
-    <h1 class="text-2xl md:text-3xl font-extrabold text-white">상세 분석 리포트 & 내보내기</h1>
+    <h1 id="exportTitle" class="text-2xl md:text-3xl font-extrabold text-white">상세 분석 리포트 & 내보내기</h1>
     <p class="text-gray-400 text-xs md:text-sm mt-1">심층 진단 데이터 보고서 저장 및 인쇄</p>
     </div>
     <div class="flex space-x-2 no-print">
@@ -98,7 +98,10 @@
         }
 
         async function loadExportData() {
-            const response = await fetch('/api/export', { credentials: 'include' });
+            const params = new URLSearchParams(window.location.search);
+            const uploadId = params.get('upload_id');
+            const endpoint = uploadId ? `/api/export?upload_id=${encodeURIComponent(uploadId)}` : '/api/export';
+            const response = await fetch(endpoint, { credentials: 'include' });
             if (response.status === 401) {
                 window.location.href = 'signin.html';
                 return;
@@ -106,6 +109,9 @@
             if (!response.ok) throw new Error('내보내기 데이터를 불러오지 못했습니다.');
             const report = await response.json();
             const items = Array.isArray(report.items) ? report.items : [];
+            if (report.upload_file_name) {
+                document.getElementById('exportTitle').textContent = `${report.upload_file_name} 분석 리포트`;
+            }
             const summary = report.summary || {};
             document.getElementById('reportSummary').textContent =
                 `총 ${Number(summary.total_count || 0).toLocaleString('ko-KR')}개 품목 중 위험 재고 ${Number(summary.risk_count || 0).toLocaleString('ko-KR')}개, 60일 이상 장기 체류 재고 ${Number(summary.aging_count || 0).toLocaleString('ko-KR')}개입니다.`;

@@ -1,9 +1,30 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pandas as pd
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisResult, RawInventory, UploadHistory
+from app.analysis import analyze_inventory
+
+
+def analyze_inventory_values(
+    product_name: str,
+    stock_qty: int,
+    purchase_price: float,
+    received_date: date,
+    selling_price: float,
+    sales_qty: int,
+) -> dict:
+    source = pd.DataFrame([{
+        "상품명": product_name,
+        "재고량": stock_qty,
+        "원가": purchase_price,
+        "입고일": received_date,
+        "판매가": selling_price,
+        "판매량": sales_qty,
+    }])
+    return analyze_inventory(source).iloc[0].to_dict()
 
 
 def save_inventory_analysis(
@@ -72,7 +93,13 @@ def save_upload_history(
     return history
 
 
-def query_user_analysis(db: Session, user_id: int, include_deleted: bool = False):
+def query_user_analysis(
+    db: Session,
+    user_id: int,
+    include_deleted: bool = False,
+    upload_file_id: int | None = None,
+    upload_content_hash: str | None = None,
+):
     query = (
         db.query(AnalysisResult, RawInventory)
         .join(RawInventory, AnalysisResult.item_id == RawInventory.item_id)
@@ -80,4 +107,15 @@ def query_user_analysis(db: Session, user_id: int, include_deleted: bool = False
     )
     if not include_deleted:
         query = query.filter(RawInventory.is_deleted.is_(False))
+    if upload_file_id is not None:
+        upload_filter = RawInventory.upload_file_id == upload_file_id
+        if upload_content_hash:
+            upload_filter = or_(
+                upload_filter,
+                and_(
+                    RawInventory.upload_file_id.is_(None),
+                    RawInventory.upload_batch_id == upload_content_hash,
+                ),
+            )
+        query = query.filter(upload_filter)
     return query
