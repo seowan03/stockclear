@@ -52,7 +52,9 @@
 
 <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-3xl space-y-4">
     <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-brain text-blue-400 mr-2"></i>StockClear AI 종합 진단 요약</h3>
-    <p id="reportSummary" class="text-xs text-gray-300 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">분석 요약을 불러오는 중입니다.</p>
+    <p id="reportSummary" class="text-sm text-gray-200 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">AI 진단 결과를 불러오는 중입니다.</p>
+    <p id="reportMetrics" class="text-xs text-gray-400"></p>
+    <p id="reportScopeNote" class="text-xs text-gray-500"></p>
 </div>
 
 <!-- 내보내기 대상 데이터 미리보기 테이블 -->
@@ -113,8 +115,18 @@
                 document.getElementById('exportTitle').textContent = `${report.upload_file_name} 분석 리포트`;
             }
             const summary = report.summary || {};
-            document.getElementById('reportSummary').textContent =
-                `총 ${Number(summary.total_count || 0).toLocaleString('ko-KR')}개 품목 중 위험 재고 ${Number(summary.risk_count || 0).toLocaleString('ko-KR')}개, 60일 이상 장기 체류 재고 ${Number(summary.aging_count || 0).toLocaleString('ko-KR')}개입니다.`;
+            document.getElementById('reportSummary').textContent = summary.ai_summary
+                || '저장된 품목별 AI 진단이 없습니다. 재고 목록에서 AI 진단을 실행하면 이 요약에 반영됩니다.';
+            const scopeLabels = {
+                account_active_inventory: '업로드 시점의 전체 누적 재고',
+                current_account: '현재 전체 재고',
+                selected_upload: '선택한 파일',
+            };
+            document.getElementById('reportMetrics').textContent =
+                `기준: ${scopeLabels[summary.scope] || '확인 중'}${summary.as_of ? ` (${new Date(summary.as_of).toLocaleString('ko-KR')})` : ''} · 상태: ${{ complete: '완료', failed: '생성 실패', stale: '재고 변경으로 갱신 필요', legacy: '이전 진단 종합', unavailable: '요약 없음', select_upload: '업로드 선택 필요' }[summary.ai_summary_status] || '확인 불가'} · 전체 ${Number(summary.total_count || 0).toLocaleString('ko-KR')}개 · 위험 재고 ${Number(summary.risk_count || 0).toLocaleString('ko-KR')}개 · 60일 이상 장기 체류 ${Number(summary.aging_count || 0).toLocaleString('ko-KR')}개 · 품목별 진단 ${Number(summary.ai_diagnosis_count || 0).toLocaleString('ko-KR')}개`;
+            document.getElementById('reportScopeNote').textContent = report.upload_file_name && summary.scope === 'account_active_inventory'
+                ? 'AI 종합진단은 이 업로드 시점의 전체 활성 재고 누적 기준입니다. 아래 표는 선택한 파일에 포함된 품목만 보여줍니다.'
+                : '';
             document.getElementById('reportCount').textContent = `총 ${items.length.toLocaleString('ko-KR')}개 항목 선택됨`;
             document.getElementById('reportBody').innerHTML = items.length
                 ? items.map((item) => {

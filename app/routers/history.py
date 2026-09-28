@@ -3,8 +3,9 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import AnalysisResult, RawInventory, UploadHistory, User
+from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory, User
 from app.security import get_current_user
+from app.services.inventory_service import mark_latest_upload_summary_stale
 
 router = APIRouter(prefix="/api/history", tags=["history"])
 
@@ -26,10 +27,16 @@ def _delete_uploads_with_inventory(db: Session, user_id: int, uploads: list[Uplo
     if item_ids:
         db.query(AnalysisResult).filter(AnalysisResult.item_id.in_(item_ids)).delete(synchronize_session=False)
         db.query(RawInventory).filter(RawInventory.item_id.in_(item_ids)).delete(synchronize_session=False)
+    db.query(UploadAnalysisSummary).filter(
+        UploadAnalysisSummary.user_id == user_id,
+        UploadAnalysisSummary.upload_id.in_(upload_ids),
+    ).delete(synchronize_session=False)
     db.query(UploadHistory).filter(
         UploadHistory.user_id == user_id,
         UploadHistory.id.in_(upload_ids),
     ).delete(synchronize_session=False)
+    if item_ids or any(upload.status == "성공" for upload in uploads):
+        mark_latest_upload_summary_stale(db, user_id)
     return len(item_ids)
 
 

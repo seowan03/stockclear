@@ -1,12 +1,15 @@
+import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
+from app.llm import get_upload_diagnosis_summary
+from app.models import UploadAnalysisSummary, User
 from app.security import get_current_user
-from app.services.inventory_service import save_inventory_analysis, save_upload_history
+from app.services.inventory_service import make_user_summary_input, save_inventory_analysis, save_upload_history
 from app.services.upload_service import (
     make_upload_content_hash,
     parse_and_analyze_upload,
@@ -19,6 +22,46 @@ from app.utils.file_validation import (
 )
 router = APIRouter(tags=["upload"])
 logger = logging.getLogger(__name__)
+UPLOAD_SUMMARY_TIMEOUT_SECONDS = 15
+
+
+async def _generate_and_save_upload_summary(
+    db: Session,
+    upload_id: int,
+    user_id: int,
+) -> str:
+    summary_text = None
+    summary_data = None
+    status = "failed"
+    try:
+        summary_input = make_user_summary_input(db, user_id)
+        summary_scope = summary_input.pop("scope", "account_active_inventory")
+        summary_data = json.dumps(
+            {"scope": summary_scope, "metrics": summary_input},
+            ensure_ascii=False,
+        )
+        summary_text = await asyncio.wait_for(
+            asyncio.to_thread(get_upload_diagnosis_summary, summary_input),
+            timeout=UPLOAD_SUMMARY_TIMEOUT_SECONDS,
+        )
+        status = "complete"
+    except Exception:
+        logger.exception("Upload AI summary generation failed", extra={"upload_id": upload_id})
+
+    try:
+        db.add(UploadAnalysisSummary(
+            upload_id=upload_id,
+            user_id=user_id,
+            status=status,
+            summary_text=summary_text,
+            summary_data=summary_data,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Upload AI summary persistence failed", extra={"upload_id": upload_id})
+        return "failed"
+    return status
 
 
 @router.post("/api/upload")
@@ -62,6 +105,11 @@ async def upload_and_parse_excel(
         save_inventory_analysis(db, current_user.user_id, content_hash, df, upload_file_id=history.id)
         history_id = history.id
         db.commit()
+        ai_summary_status = await _generate_and_save_upload_summary(
+            db,
+            history_id,
+            current_user.user_id,
+        )
         parsed_data = df.to_dict(orient="records")
         return {
             "status": "success",
@@ -69,6 +117,7 @@ async def upload_and_parse_excel(
             "total_rows": len(parsed_data),
             "data_preview": parsed_data,
             "history_id": history_id,
+            "ai_summary_status": ai_summary_status,
         }
     except HTTPException:
         db.rollback()

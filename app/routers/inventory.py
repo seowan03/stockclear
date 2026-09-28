@@ -7,9 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.config import RISK_GRADE_META
 from app.database import get_db
-from app.models import AnalysisResult, RawInventory, StrategyAction, UploadHistory, User
+from app.models import AnalysisResult, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
 from app.security import get_current_user
-from app.services.inventory_service import query_user_analysis
+from app.services.inventory_service import (
+    make_user_summary_input,
+    mark_latest_upload_summary_stale,
+    query_user_analysis,
+)
 
 router = APIRouter(tags=["inventory"])
 
@@ -127,6 +131,7 @@ def move_inventory_to_trash(item_id: int, db: Session = Depends(get_db), current
     if not item:
         raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
     item.is_deleted = True
+    mark_latest_upload_summary_stale(db, current_user.user_id)
     db.commit()
     return {"status": "deleted", "item_id": item_id}
 
@@ -141,6 +146,7 @@ def restore_inventory(item_id: int, db: Session = Depends(get_db), current_user:
     if not item:
         raise HTTPException(status_code=404, detail="휴지통에서 재고를 찾을 수 없습니다.")
     item.is_deleted = False
+    mark_latest_upload_summary_stale(db, current_user.user_id)
     db.commit()
     return {"status": "restored", "item_id": item_id}
 
@@ -156,6 +162,7 @@ def permanently_delete_inventory(item_id: int, db: Session = Depends(get_db), cu
         raise HTTPException(status_code=404, detail="휴지통에서 재고를 찾을 수 없습니다.")
     db.query(AnalysisResult).filter(AnalysisResult.item_id == item_id).delete()
     db.delete(item)
+    mark_latest_upload_summary_stale(db, current_user.user_id)
     db.commit()
     return {"status": "permanently_deleted", "item_id": item_id}
 
@@ -169,6 +176,7 @@ def empty_inventory_trash(db: Session = Depends(get_db), current_user: User = De
     if deleted_ids:
         db.query(AnalysisResult).filter(AnalysisResult.item_id.in_(deleted_ids)).delete(synchronize_session=False)
         db.query(RawInventory).filter(RawInventory.item_id.in_(deleted_ids)).delete(synchronize_session=False)
+        mark_latest_upload_summary_stale(db, current_user.user_id)
         db.commit()
     return {"status": "emptied", "deleted_count": len(deleted_ids)}
 
@@ -250,9 +258,88 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
     ).order_by(AnalysisResult.final_score.desc()).all()
     risk_count = sum(analysis.risk_grade in ("위험", "처분 권장") for analysis, _ in rows)
     aging_count = sum(analysis.aging_days >= 60 for analysis, _ in rows)
+    diagnosed_rows = [
+        (analysis, item)
+        for analysis, item in rows
+        if analysis.ai_diagnosis or analysis.action_plans
+    ]
+    ai_summary_row = None
+    summary_snapshot = None
+    summary_scope = "current_account" if upload is None else "selected_upload"
+    summary_as_of = None
+    if upload:
+        ai_summary_row = db.query(UploadAnalysisSummary).filter(
+            UploadAnalysisSummary.upload_id == upload.id,
+            UploadAnalysisSummary.user_id == current_user.user_id,
+        ).first()
+        if ai_summary_row:
+            summary_as_of = ai_summary_row.generated_at.isoformat() if ai_summary_row.generated_at else None
+            if ai_summary_row.summary_data:
+                try:
+                    stored_summary_data = json.loads(ai_summary_row.summary_data)
+                    if isinstance(stored_summary_data, dict) and isinstance(stored_summary_data.get("metrics"), dict):
+                        summary_scope = stored_summary_data.get("scope", "selected_upload")
+                        summary_snapshot = stored_summary_data["metrics"]
+                    elif isinstance(stored_summary_data, dict):
+                        summary_scope = "account_active_inventory" if "diagnosed_count" in stored_summary_data else "selected_upload"
+                        summary_snapshot = stored_summary_data
+                except (json.JSONDecodeError, TypeError):
+                    summary_snapshot = None
+
+    if summary_snapshot is None:
+        if upload is None:
+            summary_snapshot = make_user_summary_input(db, current_user.user_id)
+        else:
+            summary_snapshot = {
+                "total_count": len(rows),
+                "inventory_value": round(sum(float(item.stock_qty or 0) * float(item.purchase_price or 0) for _, item in rows)),
+                "risk_count": risk_count,
+                "aging_count": aging_count,
+                "diagnosed_count": len(diagnosed_rows),
+            }
+
+    if not upload:
+        ai_summary_status = "select_upload"
+        ai_summary = "파일별 AI 종합진단을 보려면 업로드 기록에서 해당 파일의 AI 요약을 선택하세요."
+    elif ai_summary_row and ai_summary_row.status == "complete" and ai_summary_row.summary_text:
+        ai_summary_status = "complete"
+        ai_summary = ai_summary_row.summary_text
+    elif ai_summary_row and ai_summary_row.status == "failed":
+        ai_summary_status = "failed"
+        ai_summary = "파일 업로드와 재고 분석은 완료됐지만 AI 종합진단을 생성하지 못했습니다. 잠시 후 다시 시도해주세요."
+    elif ai_summary_row and ai_summary_row.status == "stale":
+        ai_summary_status = "stale"
+        ai_summary = (
+            "이 누적 진단은 생성 후 재고가 변경되어 최신 상태가 아닙니다. "
+            "다음 업로드 후 새 누적 진단이 생성됩니다. "
+            f"이전 진단: {ai_summary_row.summary_text or '내용 없음'}"
+        )
+    elif diagnosed_rows:
+        ai_summary_status = "legacy"
+        priorities = [
+            f"{item.product_name} ({analysis.risk_grade}): {analysis.action_plans or analysis.ai_diagnosis}"
+            for analysis, item in diagnosed_rows[:3]
+        ]
+        ai_summary = (
+            f"이전 품목별 진단 {len(diagnosed_rows)}건을 요약했습니다. "
+            f"우선 검토할 품목은 {'; '.join(priorities)}입니다."
+        )
+    else:
+        ai_summary_status = "unavailable"
+        ai_summary = "이 업로드에는 저장된 AI 종합진단이 없습니다. 신규 업로드부터 파일별 요약이 생성됩니다."
     items = [{"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "risk_grade": analysis.risk_grade, "action_plans": analysis.action_plans, "ai_diagnosis": analysis.ai_diagnosis} for analysis, item in rows]
     return {
-        "summary": {"total_count": len(items), "risk_count": risk_count, "aging_count": aging_count},
+        "summary": {
+            "total_count": int(summary_snapshot.get("total_count", len(items))),
+            "inventory_value": int(summary_snapshot.get("inventory_value", 0)),
+            "risk_count": int(summary_snapshot.get("risk_count", risk_count)),
+            "aging_count": int(summary_snapshot.get("aging_count", aging_count)),
+            "ai_diagnosis_count": int(summary_snapshot.get("diagnosed_count", len(diagnosed_rows))),
+            "ai_summary": ai_summary,
+            "ai_summary_status": ai_summary_status,
+            "scope": summary_scope,
+            "as_of": summary_as_of,
+        },
         "upload_file_name": upload.file_name if upload else None,
         "items": items,
     }

@@ -8,6 +8,7 @@ from app.database import (
     Base,
     engine,
     ensure_raw_inventory_is_deleted_column,
+    ensure_upload_analysis_summary_data_column,
     ensure_upload_files_user_id_column,
 )
 from app.routers import ai, auth, history, inventory, kakao, upload
@@ -36,6 +37,7 @@ def on_startup():
     Base.metadata.create_all(bind=engine)
     ensure_upload_files_user_id_column()
     ensure_raw_inventory_is_deleted_column()
+    ensure_upload_analysis_summary_data_column()
 
 
 @app.get("/")
