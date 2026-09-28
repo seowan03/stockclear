@@ -45,10 +45,11 @@
     <!-- 메인 헤더 & 버튼 영역 -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-white">전체 재고 관리 목록</h1>
+        <h1 class="text-2xl font-bold tracking-tight text-white" id="inventoryTitle">전체 재고 관리 목록</h1>
         <p class="text-sm text-gray-400 mt-1">SKU 코드 또는 품목명을 클릭하면 <strong class="text-blue-400">AI 상품 상세 분석</strong>을 확인하실 수 있습니다.</p>
       </div>
       <div class="flex items-center gap-3">
+        <a id="allInventoryLink" href="inventory.html" class="hidden px-4 py-2.5 text-xs font-semibold border border-gray-700 text-gray-300 rounded-xl">전체 재고 보기</a>
         <!-- 휴지통 버튼 -->
         <button class="relative p-2.5 bg-gray-900 border border-gray-800 rounded-xl hover:bg-gray-800 text-gray-300 hover:text-white transition-all" onclick="openTrashModal()" title="휴지통 보기">
           <i class="fa-solid fa-trash-can text-sm"></i>
@@ -59,8 +60,8 @@
           <i class="fa-solid fa-file-excel mr-2"></i>엑셀 다운로드
         </button>
         <!-- 재고 추가 업로드 버튼 -->
-        <a href="upload.html" class="px-4 py-2.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all flex items-center">
-          <i class="fa-solid fa-plus mr-2"></i>재고 추가 업로드
+        <a href="upload.html" class="px-4 py-2.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-all flex items-center">
+          <i class="fa-solid fa-cloud-arrow-up mr-2"></i>파일 업로드
         </a>
       </div>
     </div>
@@ -322,6 +323,7 @@ function switchTab(tabName) {
 
     let inventoryData = [];
     let selectedInventoryId = null;
+    const currentUploadId = new URLSearchParams(window.location.search).get('upload_id');
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -396,7 +398,7 @@ function switchTab(tabName) {
           <td class="py-4 px-6">
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${badgeClass}">${escapeHtml(item.statusText)}</span>
           </td>
-          <td class="py-4 px-6 text-right">
+          <td class="py-4 px-6 text-right whitespace-nowrap">
             <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
               <i class="fa-solid fa-trash-can"></i>
             </button>
@@ -612,7 +614,10 @@ function switchTab(tabName) {
       const tbody = document.getElementById('inventoryBody');
       tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
       try {
-        const response = await fetch('/api/inventory', { credentials: 'include' });
+        const inventoryUrl = currentUploadId
+          ? `/api/inventory?upload_id=${encodeURIComponent(currentUploadId)}`
+          : '/api/inventory';
+        const response = await fetch(inventoryUrl, { credentials: 'include' });
         if (response.status === 401) {
           window.location.href = 'signin.html';
           return;
@@ -620,6 +625,12 @@ function switchTab(tabName) {
         if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
         const payload = await response.json();
         setInventoryData(Array.isArray(payload.items) ? payload.items : []);
+        if (currentUploadId) {
+          document.getElementById('inventoryTitle').textContent = payload.upload_file_name
+            ? `${payload.upload_file_name} 재고`
+            : '선택한 업로드 파일의 재고';
+          document.getElementById('allInventoryLink').classList.remove('hidden');
+        }
         await loadTrashData();
         if (!inventoryData.length) {
           tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';

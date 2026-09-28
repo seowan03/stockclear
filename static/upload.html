@@ -88,6 +88,15 @@
           <p class="text-gray-400 text-sm mt-1">매장의 재고 엑셀 파일(.xlsx, .csv)을 업로드하여 분석 리포트를 확인해보세요.</p>
         </div>
 
+        <section class="mb-6 border-l-2 border-blue-500 pl-4 text-left" aria-labelledby="upload-columns-title">
+          <h3 id="upload-columns-title" class="text-sm font-semibold text-white">파일에 포함할 컬럼</h3>
+          <p class="mt-1 text-xs leading-6 text-gray-300">
+            <strong class="text-blue-300">필수 6개:</strong>
+            <code>상품명</code>, <code>재고량</code>, <code>원가</code>, <code>입고일</code>, <code>판매가</code>, <code>판매량</code>
+          </p>
+          <p class="text-xs text-gray-400">선택 컬럼은 없습니다. 첫 번째 행의 컬럼명을 위와 똑같이 입력해주세요.</p>
+        </section>
+
         <!-- 팀장님이 요청한 백엔드 전송용 멀티파트 폼 -->
         <form action="/api/upload" method="post" enctype="multipart/form-data" id="upload-form" class="space-y-6">
           

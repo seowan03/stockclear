@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
@@ -6,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import RISK_GRADE_META
 from app.database import get_db
-from app.models import AnalysisResult, RawInventory, StrategyAction, User
+from app.models import AnalysisResult, RawInventory, StrategyAction, UploadHistory, User
 from app.security import get_current_user
 from app.services.inventory_service import query_user_analysis
 
@@ -14,33 +15,76 @@ router = APIRouter(tags=["inventory"])
 
 
 @router.get("/api/dashboard")
-def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = query_user_analysis(db, current_user.user_id).all()
+def get_dashboard(upload_id: int | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    upload = None
+    if upload_id is not None:
+        upload = db.query(UploadHistory).filter(
+            UploadHistory.id == upload_id,
+            UploadHistory.user_id == current_user.user_id,
+        ).first()
+        if not upload:
+            raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+    rows = query_user_analysis(
+        db,
+        current_user.user_id,
+        upload_file_id=upload.id if upload else None,
+        upload_content_hash=upload.content_hash if upload else None,
+    ).all()
+    inventory_value = round(sum(float(item.stock_qty or 0) * float(item.purchase_price or 0) for _, item in rows))
     if not rows:
-        return {"total_sku": 0, "risk_count": 0, "aging_count": 0, "monthly_saving": 0, "grades": [], "risk_items": []}
+        return {
+            "total_sku": 0,
+            "risk_count": 0,
+            "aging_count": 0,
+            "inventory_value": 0,
+            "grades": [],
+            "risk_items": [],
+            "upload_file_name": upload.file_name if upload else None,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
     counts = {}
     risk_count = aging_count = 0
-    saving = 0.0
     for analysis, _ in rows:
         counts[analysis.risk_grade] = counts.get(analysis.risk_grade, 0) + 1
         if analysis.risk_grade in ("위험", "처분 권장"):
             risk_count += 1
-            saving += float(analysis.inventory_amount or 0) * 0.1
         if analysis.aging_days >= 60:
             aging_count += 1
     risk_items = sorted(({"product_name": item.product_name, "final_score": analysis.final_score} for analysis, item in rows), key=lambda value: value["final_score"], reverse=True)[:5]
-    return {"total_sku": len(rows), "risk_count": risk_count, "aging_count": aging_count, "monthly_saving": round(saving), "grades": [{"name": name, "count": count, "color": RISK_GRADE_META.get(name, {}).get("color", "#64748b")} for name, count in counts.items()], "risk_items": risk_items}
+    return {
+        "total_sku": len(rows),
+        "risk_count": risk_count,
+        "aging_count": aging_count,
+        "inventory_value": inventory_value,
+        "grades": [{"name": name, "count": count, "color": RISK_GRADE_META.get(name, {}).get("color", "#64748b")} for name, count in counts.items()],
+        "risk_items": risk_items,
+        "upload_file_name": upload.file_name if upload else None,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 @router.get("/api/inventory")
-def list_inventory(search: str = "", status: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = query_user_analysis(db, current_user.user_id)
+def list_inventory(search: str = "", status: str = "", upload_id: int | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    upload = None
+    if upload_id is not None:
+        upload = db.query(UploadHistory).filter(
+            UploadHistory.id == upload_id,
+            UploadHistory.user_id == current_user.user_id,
+        ).first()
+        if not upload:
+            raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+    query = query_user_analysis(
+        db,
+        current_user.user_id,
+        upload_file_id=upload.id if upload else None,
+        upload_content_hash=upload.content_hash if upload else None,
+    )
     if search:
         query = query.filter(RawInventory.product_name.contains(search))
     if status:
         query = query.filter(AnalysisResult.risk_grade == status)
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
-    return {"items": [{
+    return {"upload_file_name": upload.file_name if upload else None, "items": [{
         "item_id": item.item_id,
         "product_name": item.product_name,
         "stock_qty": item.stock_qty,
@@ -189,9 +233,26 @@ def create_strategy_action(action_type: str, db: Session = Depends(get_db), curr
 
 
 @router.get("/api/export")
-def get_export(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = query_user_analysis(db, current_user.user_id).order_by(AnalysisResult.final_score.desc()).all()
+def get_export(upload_id: int | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    upload = None
+    if upload_id is not None:
+        upload = db.query(UploadHistory).filter(
+            UploadHistory.id == upload_id,
+            UploadHistory.user_id == current_user.user_id,
+        ).first()
+        if not upload:
+            raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+    rows = query_user_analysis(
+        db,
+        current_user.user_id,
+        upload_file_id=upload.id if upload else None,
+        upload_content_hash=upload.content_hash if upload else None,
+    ).order_by(AnalysisResult.final_score.desc()).all()
     risk_count = sum(analysis.risk_grade in ("위험", "처분 권장") for analysis, _ in rows)
     aging_count = sum(analysis.aging_days >= 60 for analysis, _ in rows)
     items = [{"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "risk_grade": analysis.risk_grade, "action_plans": analysis.action_plans, "ai_diagnosis": analysis.ai_diagnosis} for analysis, item in rows]
-    return {"summary": {"total_count": len(items), "risk_count": risk_count, "aging_count": aging_count}, "items": items}
+    return {
+        "summary": {"total_count": len(items), "risk_count": risk_count, "aging_count": aging_count},
+        "upload_file_name": upload.file_name if upload else None,
+        "items": items,
+    }

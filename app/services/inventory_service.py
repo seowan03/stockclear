@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pandas as pd
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisResult, RawInventory, UploadHistory
@@ -72,7 +73,13 @@ def save_upload_history(
     return history
 
 
-def query_user_analysis(db: Session, user_id: int, include_deleted: bool = False):
+def query_user_analysis(
+    db: Session,
+    user_id: int,
+    include_deleted: bool = False,
+    upload_file_id: int | None = None,
+    upload_content_hash: str | None = None,
+):
     query = (
         db.query(AnalysisResult, RawInventory)
         .join(RawInventory, AnalysisResult.item_id == RawInventory.item_id)
@@ -80,4 +87,15 @@ def query_user_analysis(db: Session, user_id: int, include_deleted: bool = False
     )
     if not include_deleted:
         query = query.filter(RawInventory.is_deleted.is_(False))
+    if upload_file_id is not None:
+        upload_filter = RawInventory.upload_file_id == upload_file_id
+        if upload_content_hash:
+            upload_filter = or_(
+                upload_filter,
+                and_(
+                    RawInventory.upload_file_id.is_(None),
+                    RawInventory.upload_batch_id == upload_content_hash,
+                ),
+            )
+        query = query.filter(upload_filter)
     return query

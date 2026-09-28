@@ -9,11 +9,15 @@
   ];
 
   const currentPage = window.location.pathname.split('/').pop() || 'mainpage.html';
+  const uploadId = new URLSearchParams(window.location.search).get('upload_id');
 
   document.querySelectorAll('.site-navigation').forEach(navigation => {
     navigation.innerHTML = navigationItems.map(item => {
       const isActive = item.href === currentPage;
-      return `<a href="${item.href}" class="site-navigation__item${isActive ? ' is-active' : ''}" style="--navigation-item-width: ${item.width}"><i class="fa-solid ${item.icon}" aria-hidden="true"></i><span>${item.label}</span></a>`;
+      const scopedHref = uploadId && ['dashboard.html', 'inventory.html', 'export.html'].includes(item.href)
+        ? `${item.href}?upload_id=${encodeURIComponent(uploadId)}`
+        : item.href;
+      return `<a href="${scopedHref}" class="site-navigation__item${isActive ? ' is-active' : ''}" style="--navigation-item-width: ${item.width}"><i class="fa-solid ${item.icon}" aria-hidden="true"></i><span>${item.label}</span></a>`;
     }).join('');
   });
 })();
