@@ -250,6 +250,10 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         ).first()
         if not upload:
             raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+    summary_upload = upload or db.query(UploadHistory).filter(
+        UploadHistory.user_id == current_user.user_id,
+        UploadHistory.status == "성공",
+    ).order_by(UploadHistory.upload_date.desc(), UploadHistory.id.desc()).first()
     rows = query_user_analysis(
         db,
         current_user.user_id,
@@ -267,9 +271,9 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
     summary_snapshot = None
     summary_scope = "current_account" if upload is None else "selected_upload"
     summary_as_of = None
-    if upload:
+    if summary_upload:
         ai_summary_row = db.query(UploadAnalysisSummary).filter(
-            UploadAnalysisSummary.upload_id == upload.id,
+            UploadAnalysisSummary.upload_id == summary_upload.id,
             UploadAnalysisSummary.user_id == current_user.user_id,
         ).first()
         if ai_summary_row:
@@ -298,9 +302,9 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
                 "diagnosed_count": len(diagnosed_rows),
             }
 
-    if not upload:
-        ai_summary_status = "select_upload"
-        ai_summary = "파일별 AI 종합진단을 보려면 업로드 기록에서 해당 파일의 AI 요약을 선택하세요."
+    if not summary_upload:
+        ai_summary_status = "unavailable"
+        ai_summary = "성공한 업로드가 없어 AI 종합진단을 표시할 수 없습니다. 재고 파일을 업로드해주세요."
     elif ai_summary_row and ai_summary_row.status == "complete" and ai_summary_row.summary_text:
         ai_summary_status = "complete"
         ai_summary = ai_summary_row.summary_text
@@ -341,5 +345,6 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
             "as_of": summary_as_of,
         },
         "upload_file_name": upload.file_name if upload else None,
+        "summary_source_file_name": summary_upload.file_name if summary_upload else None,
         "items": items,
     }
