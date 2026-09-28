@@ -124,9 +124,17 @@
             };
             document.getElementById('reportMetrics').textContent =
                 `기준: ${scopeLabels[summary.scope] || '확인 중'}${summary.as_of ? ` (${new Date(summary.as_of).toLocaleString('ko-KR')})` : ''} · 상태: ${{ complete: '완료', failed: '생성 실패', stale: '재고 변경으로 갱신 필요', legacy: '이전 진단 종합', unavailable: '요약 없음', select_upload: '업로드 선택 필요' }[summary.ai_summary_status] || '확인 불가'} · 전체 ${Number(summary.total_count || 0).toLocaleString('ko-KR')}개 · 위험 재고 ${Number(summary.risk_count || 0).toLocaleString('ko-KR')}개 · 60일 이상 장기 체류 ${Number(summary.aging_count || 0).toLocaleString('ko-KR')}개 · 품목별 진단 ${Number(summary.ai_diagnosis_count || 0).toLocaleString('ko-KR')}개`;
-            document.getElementById('reportScopeNote').textContent = report.upload_file_name && summary.scope === 'account_active_inventory'
-                ? 'AI 종합진단은 이 업로드 시점의 전체 활성 재고 누적 기준입니다. 아래 표는 선택한 파일에 포함된 품목만 보여줍니다.'
-                : '';
+            const reportScopeNote = document.getElementById('reportScopeNote');
+            if (summary.scope === 'account_active_inventory') {
+                const sourceName = report.summary_source_file_name || '최근 업로드';
+                reportScopeNote.textContent = report.upload_file_name
+                    ? `AI 종합진단은 ${sourceName} 업로드 시점의 전체 활성 재고 누적 기준입니다. 아래 표는 선택한 파일의 품목만 보여줍니다.`
+                    : `AI 종합진단은 ${sourceName} 시점의 전체 활성 재고 누적 기준입니다. 아래 표는 현재 전체 활성 재고입니다.`;
+            } else if (summary.scope === 'selected_upload' && report.upload_file_name) {
+                reportScopeNote.textContent = '이전 업로드의 저장 요약입니다. 아래 표는 선택한 파일의 품목만 보여줍니다.';
+            } else {
+                reportScopeNote.textContent = '';
+            }
             document.getElementById('reportCount').textContent = `총 ${items.length.toLocaleString('ko-KR')}개 항목 선택됨`;
             document.getElementById('reportBody').innerHTML = items.length
                 ? items.map((item) => {
