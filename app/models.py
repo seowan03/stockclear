@@ -71,6 +71,18 @@ class UploadHistory(Base):
   content_hash = Column(String(64), nullable=True)
 
 
+class UploadAnalysisSummary(Base):
+  __tablename__ = "upload_analysis_summaries"
+
+  summary_id = Column(Integer, primary_key=True, autoincrement=True)
+  upload_id = Column(Integer, ForeignKey("upload_files.id"), nullable=False, unique=True)
+  user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+  status = Column(String(20), nullable=False)
+  summary_text = Column(Text)
+  summary_data = Column(Text)
+  generated_at = Column(DateTime, server_default=func.now())
+
+
 class StrategyAction(Base):
   __tablename__ = "strategy_actions"
 

@@ -71,6 +71,16 @@ def ensure_raw_inventory_is_deleted_column():
             conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
 
 
+def ensure_upload_analysis_summary_data_column():
+    inspector = inspect(engine)
+    if "upload_analysis_summaries" not in inspector.get_table_names():
+        return
+    columns = [col["name"] for col in inspector.get_columns("upload_analysis_summaries")]
+    if "summary_data" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE upload_analysis_summaries ADD COLUMN summary_data TEXT NULL"))
+
+
 
 
 

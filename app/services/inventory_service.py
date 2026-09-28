@@ -4,7 +4,7 @@ import pandas as pd
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisResult, RawInventory, UploadHistory
+from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory
 
 
 def save_inventory_analysis(
@@ -99,3 +99,57 @@ def query_user_analysis(
             )
         query = query.filter(upload_filter)
     return query
+
+
+def make_user_summary_input(db: Session, user_id: int) -> dict:
+    rows = query_user_analysis(db, user_id).all()
+    risk_grade_counts: dict[str, int] = {}
+    risk_count = aging_count = diagnosed_count = 0
+    inventory_value = 0.0
+
+    for analysis, _ in rows:
+        grade = analysis.risk_grade or "미분류"
+        risk_grade_counts[grade] = risk_grade_counts.get(grade, 0) + 1
+        if grade in ("위험", "처분 권장"):
+            risk_count += 1
+        if (analysis.aging_days or 0) >= 60:
+            aging_count += 1
+        if analysis.ai_diagnosis or analysis.action_plans:
+            diagnosed_count += 1
+        inventory_value += float(analysis.inventory_amount or 0)
+
+    top_rows = sorted(
+        rows,
+        key=lambda pair: float(pair[0].final_score or 0),
+        reverse=True,
+    )[:3]
+    return {
+        "scope": "account_active_inventory",
+        "total_count": len(rows),
+        "inventory_value": round(inventory_value),
+        "risk_count": risk_count,
+        "aging_count": aging_count,
+        "risk_grade_counts": risk_grade_counts,
+        "diagnosed_count": diagnosed_count,
+        "top_risk_items": [
+            {
+                "risk_grade": analysis.risk_grade or "미분류",
+                "risk_score": round(float(analysis.final_score or 0), 1),
+                "storage_days": analysis.aging_days or 0,
+                "days_to_sell": analysis.days_to_sell or 0,
+                "depreciation_rate": round(float(analysis.fluctuation_rate or 0), 1),
+            }
+            for analysis, _ in top_rows
+        ],
+    }
+
+
+def mark_latest_upload_summary_stale(db: Session, user_id: int) -> None:
+    latest = db.query(UploadAnalysisSummary).filter(
+        UploadAnalysisSummary.user_id == user_id
+    ).order_by(
+        UploadAnalysisSummary.generated_at.desc(),
+        UploadAnalysisSummary.summary_id.desc(),
+    ).first()
+    if latest and latest.status == "complete":
+        latest.status = "stale"
