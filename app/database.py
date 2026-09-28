@@ -70,3 +70,12 @@ def ensure_raw_inventory_is_deleted_column():
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
 
+
+
+
+
+
+
+
+
+

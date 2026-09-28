@@ -34,7 +34,7 @@ def make_upload_content_hash(df: pd.DataFrame) -> str:
 
 
 def parse_and_analyze_upload(contents: bytes, filename: str, csv_encoding: str | None) -> pd.DataFrame:
-    if filename.lower().endswith((".xlsx", ".xls")):
+    if filename.lower().endswith(".xlsx"):
         df = pd.read_excel(io.BytesIO(contents))
     else:
         df = pd.read_csv(io.BytesIO(contents), encoding=csv_encoding)

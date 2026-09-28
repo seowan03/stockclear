@@ -29,8 +29,8 @@ async def upload_and_parse_excel(
     current_user: User = Depends(get_current_user),
 ):
     filename = file.filename or ""
-    if not filename.lower().endswith((".xlsx", ".xls", ".csv")):
-        raise HTTPException(status_code=400, detail="엑셀 파일(.xlsx, .xls) 또는 CSV 파일만 업로드 가능합니다.")
+    if not filename.lower().endswith((".xlsx", ".csv")):
+        raise HTTPException(status_code=400, detail="엑셀 파일(.xlsx) 또는 CSV 파일만 업로드 가능합니다.")
 
     try:
         check_upload_content_length(request)

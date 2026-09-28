@@ -47,8 +47,4 @@ def validate_upload_file_signature(filename: str, contents: bytes) -> str | None
         if not contents.startswith(b"PK"):
             raise HTTPException(status_code=400, detail="파일 내용이 XLSX 형식이 아닙니다.")
         return None
-    if normalized_filename.endswith(".xls"):
-        if not contents.startswith(b"\xd0\xcf\x11\xe0"):
-            raise HTTPException(status_code=400, detail="파일 내용이 XLS 형식이 아닙니다.")
-        return None
     return detect_csv_encoding(contents)
