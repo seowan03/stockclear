@@ -14,7 +14,7 @@ from app.database import (
     ensure_raw_inventory_mock_market_price_column,
 )
 from app.models import AnalysisResult, RawInventory, User
-from app.routers.ai import _apply_price_floors, diagnose_saved_inventory
+from app.routers.ai import _apply_price_floors, _format_action_plan, diagnose_saved_inventory
 from app.routers.inventory import get_export, list_inventory, refresh_inventory_market_price
 from app.services.inventory_service import save_inventory_analysis
 from app.services.mock_market_price import generate_mock_market_price
@@ -29,7 +29,7 @@ class MockMarketPriceTests(unittest.TestCase):
 
         self.assertEqual(result["recommended_discount"], 0)
         self.assertEqual(result["recommended_price"], 1400)
-        self.assertIn("할인율을 0%로 조정", result["comment"])
+        self.assertIn("할인율을 0%로 조정", result["price_limit_notice"])
 
     def test_discount_ending_exactly_at_market_price_is_allowed(self):
         result = _apply_price_floors(
@@ -57,6 +57,24 @@ class MockMarketPriceTests(unittest.TestCase):
 
         self.assertEqual(result["recommended_discount"], 0)
         self.assertEqual(result["recommended_price"], 1400)
+
+    def test_action_plan_uses_readable_lines_and_sentence_ending(self):
+        action_plan = _format_action_plan(
+            0,
+            13100.0,
+            "보관 기간이 길어 회전율이 낮으므로 30% 일괄 할인을 권장합니다",
+            "할인 적용가가 시세보다 낮아 할인율을 0%로 조정했습니다",
+        )
+
+        self.assertEqual(
+            action_plan.splitlines(),
+            [
+                "할인율 0%.",
+                "권장 판매가 13,100원.",
+                "AI 진단: 보관 기간이 길어 회전율이 낮으므로 30% 일괄 할인을 권장합니다.",
+                "조정 사유: 할인 적용가가 시세보다 낮아 할인율을 0%로 조정했습니다.",
+            ],
+        )
 
     def test_generated_prices_stay_in_range_and_use_hundred_won_steps_when_possible(self):
         rng = np.random.default_rng(42)

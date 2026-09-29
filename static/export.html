@@ -52,11 +52,17 @@
 </div>
 
 <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-3xl space-y-4">
-    <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-brain text-blue-400 mr-2"></i>StockClear AI 종합 진단 요약</h3>
-    <p class="text-xs text-gray-300 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">
-    • 현재 결품 위험 항목은 총 23개로 24시간 내 추가 발주 생성이 필요합니다.<br>
-    • 60일 이상 장기 체류 중인 재고 45개 품목에 대해 15% 프로모션 진행을 추천합니다.
-    </p>
+    <h3 class="text-lg font-bold text-white">재고 상태 요약</h3>
+    <div class="space-y-2">
+        <p id="reportOverview" class="text-sm text-gray-100 leading-relaxed">재고 현황을 불러오는 중입니다.</p>
+        <p id="reportAdvice" class="text-sm text-gray-300 leading-relaxed"></p>
+    </div>
+    <p id="reportMetrics" class="text-xs leading-relaxed text-gray-400"></p>
+    <p id="reportScopeNote" class="text-xs text-gray-500"></p>
+    <details class="border-t border-gray-800 pt-3">
+        <summary class="cursor-pointer text-sm font-medium text-blue-300 hover:text-blue-200">AI 종합진단 전문 보기</summary>
+        <p id="reportSummary" class="mt-3 whitespace-pre-line break-words text-sm leading-relaxed text-gray-300">AI 진단 요약을 불러오는 중입니다.</p>
+    </details>
 </div>
 
 <!-- 내보내기 대상 데이터 미리보기 테이블 -->
@@ -114,6 +120,13 @@
             .replace(/'/g, '&#039;');
     }
 
+    function formatRecommendationText(value) {
+        return String(value ?? '').replace(/(\d[\d,]*)(?:\.0)?(?=원)/g, (match, digits) => {
+            const price = Number(digits.replace(/,/g, ''));
+            return Number.isFinite(price) ? price.toLocaleString('ko-KR') : match;
+        });
+    }
+
     function formatNumber(num) {
         if (typeof StockClear !== 'undefined' && StockClear.formatNumber) {
             return StockClear.formatNumber(num);
@@ -144,10 +157,40 @@
                 loadedItems = Array.isArray(report.items) ? report.items : [];
                 document.getElementById('reportCount').textContent = `총 ${loadedItems.length.toLocaleString('ko-KR')}개 항목 선택됨`;
 
+                const summary = report.summary || {};
+                document.getElementById('reportSummary').textContent = summary.ai_summary
+                    || '저장된 AI 종합진단이 없습니다. 재고목록에서 품목별 진단을 실행해주세요.';
+                const riskCount = loadedItems.filter((item) => ['위험', '처분 권장'].includes(item.risk_grade)).length;
+                const agingCount = loadedItems.filter((item) => Number(item.aging_days) >= 60).length;
+                const itemCount = loadedItems.length;
+                const inventoryValue = loadedItems.reduce(
+                    (total, item) => total + Number(item.stock_qty || 0) * Number(item.purchase_price || 0),
+                    0,
+                );
+                document.getElementById('reportOverview').textContent =
+                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 ${riskCount.toLocaleString('ko-KR')}개가 위험·처분 권장 상태이며, ${agingCount.toLocaleString('ko-KR')}개는 60일 이상 보관 중입니다.`;
+                document.getElementById('reportAdvice').textContent = riskCount
+                    ? '위험 품목의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
+                    : agingCount
+                        ? '장기 보관 품목의 판매 흐름을 확인하고 재고 회전 개선을 검토하세요.'
+                        : '현재 분류 기준에서 우선 조치가 필요한 품목은 없습니다.';
+                document.getElementById('reportMetrics').textContent =
+                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  위험 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 체류 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
+                const reportScopeNote = document.getElementById('reportScopeNote');
+                if (summary.scope === 'account_active_inventory' && report.upload_file_name) {
+                    reportScopeNote.textContent = `AI 종합진단은 ${report.summary_source_file_name || '업로드 당시'}의 전체 누적 재고 기준이고, 위 집계와 표는 선택한 파일 기준입니다.`;
+                } else if (summary.scope === 'account_active_inventory' || summary.scope === 'current_account') {
+                    reportScopeNote.textContent = 'AI 종합진단은 전체 활성 재고 누적 기준입니다. 위 집계는 현재 표에 표시된 품목 기준입니다.';
+                } else if (summary.scope === 'selected_upload') {
+                    reportScopeNote.textContent = 'AI 종합진단과 표는 선택한 업로드 기준입니다.';
+                } else {
+                    reportScopeNote.textContent = '';
+                }
+
                 tbody.innerHTML = loadedItems.length
                     ? loadedItems.map((item, index) => {
                         const status = item.risk_grade || '정상';
-                        const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
+                        const action = formatRecommendationText(item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지'));
                         const mockMarketPrice = item.mock_market_price == null
                             ? '-'
                             : `${StockClear.formatNumber(item.mock_market_price)}원`;
@@ -155,7 +198,7 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 whitespace-pre-line break-words leading-relaxed">${escapeHtml(action)}</td></tr>`;
                     }).join('')
                     : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
