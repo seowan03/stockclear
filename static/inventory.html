@@ -46,7 +46,7 @@
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-white" id="inventoryTitle">전체 재고 관리 목록</h1>
-        <p class="text-sm text-gray-400 mt-1">SKU 코드 또는 품목명을 클릭하면 <strong class="text-blue-400">AI 상품 상세 분석</strong>을 확인하실 수 있습니다.</p>
+        <p class="text-sm text-gray-400 mt-1">내부 품목 코드 또는 품목명을 클릭하면 <strong class="text-blue-400">AI 상품 상세 분석</strong>을 확인하실 수 있습니다.</p>
       </div>
       <div class="flex items-center gap-3">
         <a id="allInventoryLink" href="inventory.html" class="hidden px-4 py-2.5 text-xs font-semibold border border-gray-700 text-gray-300 rounded-xl">전체 재고 보기</a>
@@ -69,7 +69,7 @@
 
     <!-- 검색 및 필터 -->
     <div class="bg-gray-900/60 border border-gray-800/80 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row gap-3">
-      <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="SKU 코드 또는 품목명 검색..." onkeyup="filterItems()">
+      <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="내부 품목 코드 또는 품목명 검색..." onkeyup="filterItems()">
       <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
         <option value="ALL">전체 상태 보기</option>
         <option value="정상">정상</option>
@@ -84,13 +84,13 @@
       <table class="w-full text-left border-collapse" id="inventoryTable">
         <thead>
           <tr class="border-b border-gray-800 bg-gray-950/50 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            <th class="py-3.5 px-6">SKU 코드</th>
+            <th class="py-3.5 px-6">내부 품목 코드</th>
             <th class="py-3.5 px-6">품목명</th>
             <th class="py-3.5 px-6">카테고리</th>
             <th class="py-3.5 px-6">현재 수량</th>
             <th class="py-3.5 px-6">적정 수량</th>
             <th class="py-3.5 px-6">상태</th>
-            <th class="py-3.5 px-6 text-right">삭제</th>
+            <th class="py-3.5 px-6 text-right">관리</th>
           </tr>
         </thead>
         <tbody id="inventoryBody" class="divide-y divide-gray-800/50 text-sm">
@@ -144,19 +144,19 @@
                 <span class="text-gray-200 font-medium" id="modalCategory">-</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
-                <span class="text-gray-400">모델명(SKU)</span>
-                <span class="text-blue-400 font-mono font-medium" id="modalSku">-</span>
+                <span class="text-gray-400">내부 품목 코드</span>
+                <span class="text-blue-400 font-mono font-medium" id="modalItemCode">-</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">입고일</span>
                 <span class="text-gray-200 font-medium" id="modalDate">-</span>
               </div>
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
-                <span class="text-gray-400">권장 소비자가</span>
+                <span class="text-gray-400">원가</span>
                 <span class="text-gray-200 font-medium" id="modalOrigPrice">-</span>
               </div>
               <div class="flex justify-between py-1.5">
-                <span class="text-gray-400">현재 시장가</span>
+                <span class="text-gray-400">판매가</span>
                 <span class="text-gray-200 font-medium" id="modalCurrPrice">-</span>
               </div>
             </div>
@@ -262,7 +262,7 @@
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-gray-800 text-xs font-semibold text-gray-400">
-              <th class="pb-3">SKU 코드</th>
+              <th class="pb-3">내부 품목 코드</th>
               <th class="pb-3">품목명</th>
               <th class="pb-3">현재 수량</th>
               <th class="pb-3 text-right">관리</th>
@@ -336,7 +336,7 @@ function switchTab(tabName) {
       const statusText = item.risk_grade || '정상';
       return {
         id: Number(item.item_id),
-        sku: String(item.item_id),
+        internalCode: String(item.item_id),
         name: item.product_name || '이름 없음',
         category: '-',
         currentQty: StockClear.number(item.stock_qty),
@@ -387,7 +387,7 @@ function switchTab(tabName) {
         tr.setAttribute('data-id', item.id);
         tr.innerHTML = `
           <td class="py-4 px-6 font-mono font-medium">
-            <button onclick="openDetailModal(${item.id})" class="text-blue-400 hover:text-blue-300 hover:underline text-left">${item.sku}</button>
+            <button onclick="openDetailModal(${item.id})" class="text-blue-400 hover:text-blue-300 hover:underline text-left">${item.internalCode}</button>
           </td>
           <td class="py-4 px-6 font-medium">
             <button onclick="openDetailModal(${item.id})" class="text-white hover:text-blue-400 hover:underline text-left">${escapeHtml(item.name)}</button>
@@ -398,7 +398,10 @@ function switchTab(tabName) {
           <td class="py-4 px-6">
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${badgeClass}">${escapeHtml(item.statusText)}</span>
           </td>
-          <td class="py-4 px-6 text-right whitespace-nowrap">
+          <td class="py-4 px-6 text-right whitespace-nowrap space-x-2">
+            <button class="px-2.5 py-1.5 text-xs text-blue-300 hover:text-blue-200 hover:bg-blue-500/10 rounded-md transition-colors" onclick="diagnoseInventoryForItem(${item.id})" title="이 품목 AI 진단">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1" aria-hidden="true"></i>AI 진단
+            </button>
             <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
               <i class="fa-solid fa-trash-can"></i>
             </button>
@@ -429,7 +432,7 @@ function switchTab(tabName) {
 
       document.getElementById('modalItemIcon').className = `fa-solid ${item.icon || 'fa-box-open'} text-6xl text-gray-700`;
       document.getElementById('modalCategory').innerText = item.category;
-      document.getElementById('modalSku').innerText = item.sku;
+      document.getElementById('modalItemCode').innerText = item.internalCode;
       document.getElementById('modalDate').innerText = item.date || '-';
       document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
       document.getElementById('modalCurrPrice').innerText = item.currPrice || '-';
@@ -493,6 +496,12 @@ function switchTab(tabName) {
       }
     }
 
+    async function diagnoseInventoryForItem(id) {
+      openDetailModal(id);
+      switchTab('analysis');
+      await diagnoseInventory();
+    }
+
     async function moveToTrash(id) {
       const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
       if (response.status === 401) return window.location.href = 'signin.html';
@@ -507,7 +516,7 @@ function switchTab(tabName) {
       const payload = await response.json();
       trashData = (payload.items || []).map((item) => ({
         id: Number(item.item_id),
-        sku: String(item.item_id),
+        internalCode: String(item.item_id),
         name: item.product_name || '이름 없음',
         currentQty: StockClear.number(item.stock_qty),
       }));
@@ -528,7 +537,7 @@ function switchTab(tabName) {
           const tr = document.createElement('tr');
           tr.className = 'hover:bg-gray-800/30 transition-colors';
           tr.innerHTML = `
-            <td class="py-3 font-mono text-blue-400">${item.sku}</td>
+            <td class="py-3 font-mono text-blue-400">${item.internalCode}</td>
             <td class="py-3 text-gray-200">${escapeHtml(item.name)}</td>
             <td class="py-3 text-gray-400">${item.currentQty} 개</td>
             <td class="py-3 text-right space-x-2">
@@ -592,7 +601,7 @@ function switchTab(tabName) {
         const item = inventoryData.find(i => i.id === id);
         if (!item) return;
 
-        const matchSearch = item.sku.toLowerCase().includes(searchVal) || item.name.toLowerCase().includes(searchVal);
+        const matchSearch = item.internalCode.toLowerCase().includes(searchVal) || item.name.toLowerCase().includes(searchVal);
         const matchStatus = statusVal === 'ALL' || item.status === statusVal;
 
         if (matchSearch && matchStatus) {
