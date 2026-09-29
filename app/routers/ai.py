@@ -115,13 +115,8 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
         recommended_discount = Decimal("0")
     requested_discount = min(max(recommended_discount, Decimal("0")), Decimal("100"))
     proposed_price = selling_price * (Decimal("1") - requested_discount / Decimal("100"))
-    price_floor = max(market_price, purchase_price)
 
-    if proposed_price < market_price:
-        applied_discount = Decimal("0")
-        recommended_price = price_floor
-        notice = f"할인 적용가가 시세보다 낮아 할인율을 0%로 조정하고 {recommended_price:,.0f}원 판매를 권장합니다."
-    elif proposed_price < purchase_price:
+    if proposed_price < purchase_price:
         if selling_price <= purchase_price:
             maximum_discount = Decimal("0")
         else:
@@ -132,12 +127,12 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
         applied_discount = min(requested_discount, maximum_discount)
         recommended_price = max(
             selling_price * (Decimal("1") - applied_discount / Decimal("100")),
-            price_floor,
+            purchase_price,
         )
         notice = f"원가 이하로 내려가지 않도록 할인율을 {applied_discount:g}%로 제한했습니다."
     else:
         applied_discount = requested_discount
-        recommended_price = max(proposed_price, price_floor)
+        recommended_price = proposed_price
         notice = ""
 
     guarded_result["recommended_discount"] = float(applied_discount)

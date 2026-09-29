@@ -21,15 +21,17 @@ from app.services.mock_market_price import generate_mock_market_price
 
 
 class MockMarketPriceTests(unittest.TestCase):
-    def test_discount_that_would_go_below_market_becomes_zero_and_recommends_market_price(self):
+    def test_discount_below_market_but_above_cost_is_allowed(self):
         result = _apply_price_floors(
             {"recommended_discount": 10, "comment": "할인 권장"},
             {"selling_price": 1500, "purchase_price": 1000, "current_market_price": 1400},
         )
 
-        self.assertEqual(result["recommended_discount"], 0)
-        self.assertEqual(result["recommended_price"], 1400)
-        self.assertIn("할인율을 0%로 조정", result["price_limit_notice"])
+        self.assertEqual(result["recommended_discount"], 10)
+        self.assertEqual(result["recommended_price"], 1350)
+        self.assertLess(result["recommended_price"], 1400)
+        self.assertGreaterEqual(result["recommended_price"], 1000)
+        self.assertIsNone(result["price_limit_notice"])
 
     def test_discount_ending_exactly_at_market_price_is_allowed(self):
         result = _apply_price_floors(
@@ -49,21 +51,21 @@ class MockMarketPriceTests(unittest.TestCase):
         self.assertEqual(result["recommended_discount"], 4.54)
         self.assertGreaterEqual(result["recommended_price"], 1050)
 
-    def test_no_discount_uses_market_price_when_original_price_is_below_market(self):
+    def test_no_discount_keeps_selling_price_even_when_market_is_higher(self):
         result = _apply_price_floors(
             {"recommended_discount": 0, "comment": "규칙 기반"},
             {"selling_price": 1300, "purchase_price": 1000, "current_market_price": 1400},
         )
 
         self.assertEqual(result["recommended_discount"], 0)
-        self.assertEqual(result["recommended_price"], 1400)
+        self.assertEqual(result["recommended_price"], 1300)
 
     def test_action_plan_uses_readable_lines_and_sentence_ending(self):
         action_plan = _format_action_plan(
             0,
             13100.0,
             "보관 기간이 길어 회전율이 낮으므로 30% 일괄 할인을 권장합니다",
-            "할인 적용가가 시세보다 낮아 할인율을 0%로 조정했습니다",
+            "원가 이하로 내려가지 않도록 할인율을 0%로 제한했습니다",
         )
 
         self.assertEqual(
@@ -72,7 +74,7 @@ class MockMarketPriceTests(unittest.TestCase):
                 "할인율 0%.",
                 "권장 판매가 13,100원.",
                 "AI 진단: 보관 기간이 길어 회전율이 낮으므로 30% 일괄 할인을 권장합니다.",
-                "조정 사유: 할인 적용가가 시세보다 낮아 할인율을 0%로 조정했습니다.",
+                "조정 사유: 원가 이하로 내려가지 않도록 할인율을 0%로 제한했습니다.",
             ],
         )
 
