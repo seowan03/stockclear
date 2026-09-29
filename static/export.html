@@ -130,60 +130,39 @@
         return 'text-emerald-400';
     }
 
-    async function loadExportData() {
-        const tbody = document.getElementById('reportBody');
-        try {
-            const response = await fetch('/api/export', { credentials: 'include' });
-            if (response.status === 401) {
-                window.location.href = 'signin.html';
-                return;
-            }
-            if (!response.ok) throw new Error('데이터 응답 상태 이상');
-            
-            const report = await response.json();
-            
-            // API 응답이 배열 혹은 { items: [] } 구조 모두 대응
-            if (Array.isArray(report)) {
-                loadedItems = report;
-            } else if (report && Array.isArray(report.items)) {
-                loadedItems = report.items;
-            } else {
-                loadedItems = [];
-            }
-            
-            document.getElementById('reportCount').textContent = `총 ${loadedItems.length.toLocaleString('ko-KR')}개 항목 선택됨`;
-            
-            if (loadedItems.length > 0) {
-                tbody.innerHTML = loadedItems.map((item, index) => {
-                    const status = item.risk_grade || item.status || '정상';
-                    const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
-                    const mockMarketPrice = (item.mock_market_price == null || item.mock_market_price === '')
-                        ? '-'
-                        : `${formatNumber(item.mock_market_price)}원`;
-                    const category = item.category || '-';
-                    const stockQty = item.stock_qty ?? item.quantity ?? 0;
+        async function loadExportData() {
+            const tbody = document.getElementById('reportBody');
+            try {
+                const response = await fetch('/api/export', { credentials: 'include' });
+                if (response.status === 401) {
+                    window.location.href = 'signin.html';
+                    return;
+                }
+                if (!response.ok) throw new Error('내보내기 데이터를 불러오지 못했습니다.');
 
-                    return `
-                    <tr class="hover:bg-gray-800/40">
-                        <td class="py-3 px-4 text-center">
-                            <input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}">
-                        </td>
-                        <td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || item.name || '-')}</td>
-                        <td class="py-3 px-4">${mockMarketPrice}</td>
-                        <td class="py-3 px-4">${escapeHtml(category)}</td>
-                        <td class="py-3 px-4">${formatNumber(stockQty)}개</td>
-                        <td class="py-3 px-4 ${getStatusClass(status)} font-bold">${escapeHtml(status)}</td>
-                        <td class="py-3 px-4">${escapeHtml(action)}</td>
-                    </tr>`;
-                }).join('');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+                const report = await response.json();
+                loadedItems = Array.isArray(report.items) ? report.items : [];
+                document.getElementById('reportCount').textContent = `총 ${loadedItems.length.toLocaleString('ko-KR')}개 항목 선택됨`;
+
+                tbody.innerHTML = loadedItems.length
+                    ? loadedItems.map((item, index) => {
+                        const status = item.risk_grade || '정상';
+                        const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
+                        const mockMarketPrice = item.mock_market_price == null
+                            ? '-'
+                            : `${StockClear.formatNumber(item.mock_market_price)}원`;
+                        const recommendedPrice = item.recommended_price == null
+                            ? '-'
+                            : `${StockClear.formatNumber(item.recommended_price)}원`;
+
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
+                    }).join('')
+                    : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+            } catch (error) {
+                console.error('내보내기 데이터 로딩 실패:', error);
+                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
             }
-        } catch (error) {
-            console.error('내보내기 데이터 로딩 실패:', error);
-            tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다. 서버 상태 및 연동을 확인하세요.</td></tr>';
         }
-    }
 
     // DOM 완성 후 안전하게 데이터 수신
     if (document.readyState === 'loading') {
