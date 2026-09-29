@@ -68,6 +68,7 @@
         <h3 class="text-base font-bold text-white"><i class="fa-solid fa-table-list text-blue-400 mr-2"></i>리포트 데이터 목록 미리보기</h3>
         <span class="text-xs text-gray-400" id="reportCount">총 0개 항목 선택됨</span>
     </div>
+    <p class="text-xs text-amber-300/80">더미 시세는 실제 시장 가격이 아닌 업로드 판매가를 기준으로 생성한 참고용 데모값입니다.</p>
     <div class="overflow-x-auto">
         <table id="reportTable" class="w-full text-left text-xs text-gray-300">
             <thead class="bg-gray-950 text-gray-400 border-b border-gray-800 uppercase">
@@ -76,6 +77,7 @@
                         <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     </th>
                     <th class="py-3 px-4">품목명</th>
+                    <th class="py-3 px-4">더미 시세(참고용)</th>
                     <th class="py-3 px-4">카테고리</th>
                     <th class="py-3 px-4">현재 수량</th>
                     <th class="py-3 px-4">재고 상태</th>
@@ -117,6 +119,10 @@
                 ? loadedItems.map((item, index) => {
                     const status = item.risk_grade || '정상';
                     const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
+                    const mockMarketPrice = item.mock_market_price == null
+                        ? '-'
+                        : `${StockClear.formatNumber(item.mock_market_price)}원`;
+                    return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${escapeHtml(item.item_id || '-')}</td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
                     return `
                     <tr class="hover:bg-gray-800/40">
                         <td class="py-3 px-4 text-center">
@@ -129,12 +135,12 @@
                         <td class="py-3 px-4">${action}</td>
                     </tr>`;
                 }).join('')
-                : '<tr><td colspan="6" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+                : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
         }
 
         loadExportData().catch((error) => {
             console.error('내보내기 데이터 로딩 실패:', error);
-            document.getElementById('reportBody').innerHTML = '<tr><td colspan="6" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
+            document.getElementById('reportBody').innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
         });
 
   // 전체 선택/해제 기능

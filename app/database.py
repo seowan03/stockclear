@@ -1,9 +1,11 @@
 import os
 from urllib.parse import quote_plus
+import numpy as np
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import DATABASE_URL, DB_CHARSET, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from app.services.mock_market_price import generate_mock_market_price
 
 # 패스워드 특수문자 URL 인코딩 처리
 ENCODED_PASSWORD = quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
@@ -103,6 +105,38 @@ def ensure_raw_inventory_upload_file_id_column():
             )
 
 
+def ensure_raw_inventory_mock_market_price_column():
+    inspector = inspect(engine)
+    if "raw_inventory" not in inspector.get_table_names():
+        return
+    columns = [col["name"] for col in inspector.get_columns("raw_inventory")]
+    if "mock_market_price" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN mock_market_price NUMERIC(12, 2) NULL"))
+
+    with engine.begin() as conn:
+        rows = conn.execute(text(
+            "SELECT item_id, market_price FROM raw_inventory "
+            "WHERE mock_market_price IS NULL AND market_price > 0"
+        )).fetchall()
+        rng = np.random.default_rng()
+        updates = [
+            {
+                "item_id": row.item_id,
+                "mock_market_price": generate_mock_market_price(row.market_price, rng),
+            }
+            for row in rows
+        ]
+        if updates:
+            conn.execute(
+                text(
+                    "UPDATE raw_inventory SET mock_market_price = :mock_market_price "
+                    "WHERE item_id = :item_id AND mock_market_price IS NULL"
+                ),
+                updates,
+            )
+
+
 def init_db():
     """
     startup 시 호출할 통합 DB 초기화 함수.
@@ -113,3 +147,4 @@ def init_db():
     ensure_raw_inventory_is_deleted_column()
     ensure_upload_analysis_summary_data_column()
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
+    ensure_raw_inventory_mock_market_price_column()
