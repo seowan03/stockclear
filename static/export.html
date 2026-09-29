@@ -102,86 +102,103 @@
 
 <script src="../js/stockclear.js"></script>
 <script>
-        let loadedItems = []; // 불러온 전체 항목 저장
+    let loadedItems = []; // 불러온 전체 항목 저장
 
-        async function loadExportData() {
+    // HTML 특수문자 이스케이프 함수 (보안 및 출력 처리)
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    async function loadExportData() {
+        try {
             const response = await fetch('/api/export', { credentials: 'include' });
             if (response.status === 401) {
                 window.location.href = 'signin.html';
                 return;
             }
             if (!response.ok) throw new Error('내보내기 데이터를 불러오지 못했습니다.');
+            
             const report = await response.json();
             loadedItems = Array.isArray(report.items) ? report.items : [];
             
             document.getElementById('reportCount').textContent = `총 ${loadedItems.length.toLocaleString('ko-KR')}개 항목 선택됨`;
-            document.getElementById('reportBody').innerHTML = loadedItems.length
-                ? loadedItems.map((item, index) => {
+            
+            if (loadedItems.length > 0) {
+                document.getElementById('reportBody').innerHTML = loadedItems.map((item, index) => {
                     const status = item.risk_grade || '정상';
                     const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
                     const mockMarketPrice = item.mock_market_price == null
                         ? '-'
                         : `${StockClear.formatNumber(item.mock_market_price)}원`;
-                    return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${escapeHtml(item.item_id || '-')}</td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
+                    const category = item.category || '-';
+
                     return `
                     <tr class="hover:bg-gray-800/40">
                         <td class="py-3 px-4 text-center">
                             <input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}">
                         </td>
-                        <td class="py-3 px-4 font-semibold text-white">${item.product_name || '-'}</td>
-                        <td class="py-3 px-4">-</td>
+                        <td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td>
+                        <td class="py-3 px-4">${mockMarketPrice}</td>
+                        <td class="py-3 px-4">${escapeHtml(category)}</td>
                         <td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td>
-                        <td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${status}</td>
-                        <td class="py-3 px-4">${action}</td>
+                        <td class="py-3 px-4 ${typeof StockClear !== 'undefined' && StockClear.statusClass ? StockClear.statusClass(status) : ''} font-bold">${escapeHtml(status)}</td>
+                        <td class="py-3 px-4">${escapeHtml(action)}</td>
                     </tr>`;
-                }).join('')
-                : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
-        }
-
-        loadExportData().catch((error) => {
+                }).join('');
+            } else {
+                document.getElementById('reportBody').innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+            }
+        } catch (error) {
             console.error('내보내기 데이터 로딩 실패:', error);
             document.getElementById('reportBody').innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
-        });
-
-  // 전체 선택/해제 기능
-  function toggleSelectAll(selectAllCheckbox) {
-    const checkboxes = document.querySelectorAll('.item-checkbox');
-    checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
-  }
-
-  // 판매하기 버튼 동작 (선택된 상품 데이터를 localStorage에 넣고 페이지 이동)
-  function goToSellPage() {
-    const selectedCheckboxes = document.querySelectorAll('.item-checkbox:checked');
-    if (selectedCheckboxes.length === 0) {
-      alert('판매할 제품을 하나 이상 선택해 주세요.');
-      return;
+        }
     }
 
-    const selectedItems = Array.from(selectedCheckboxes).map(cb => {
-      const idx = cb.getAttribute('data-index');
-      return loadedItems[idx];
-    });
+    // 페이지 진입 시 데이터 로드 실행
+    loadExportData();
 
-    // 선택된 데이터 로컬스토리지에 전달
-    localStorage.setItem('selectedSellItems', JSON.stringify(selectedItems));
-    
-    // Sellpage.html로 이동
-    window.location.href = 'Sellpage.html#';
-  }
+    // 전체 선택/해제 기능
+    function toggleSelectAll(selectAllCheckbox) {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+    }
 
-  // 1. Excel (.xlsx) 파일 다운로드 함수
-  function exportToExcel() {
-    const table = document.getElementById('reportTable');
-    const wb = XLSX.utils.table_to_book(table, { sheet: "상세분석리포트" });
-    XLSX.writeFile(wb, "StockClear_상세분석리포트.xlsx");
-  }
+    // 판매하기 버튼 동작 (선택된 상품 데이터를 localStorage에 넣고 Sellpage.html로 이동)
+    function goToSellPage() {
+        const selectedCheckboxes = document.querySelectorAll('.item-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert('판매할 제품을 하나 이상 선택해 주세요.');
+            return;
+        }
 
-  // 2. CSV 파일 다운로드 함수
-  function exportToCSV() { 
-    const table = document.getElementById('reportTable');
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
-    XLSX.writeFile(wb, "StockClear_상세분석리포트.csv", { bookType: "csv" });
-  }
-</script>  
+        const selectedItems = Array.from(selectedCheckboxes).map(cb => {
+            const idx = cb.getAttribute('data-index');
+            return loadedItems[idx];
+        });
+
+        localStorage.setItem('selectedSellItems', JSON.stringify(selectedItems));
+        window.location.href = 'Sellpage.html#';
+    }
+
+    // 1. Excel (.xlsx) 파일 다운로드 함수
+    function exportToExcel() {
+        const table = document.getElementById('reportTable');
+        const wb = XLSX.utils.table_to_book(table, { sheet: "상세분석리포트" });
+        XLSX.writeFile(wb, "StockClear_상세분석리포트.xlsx");
+    }
+
+    // 2. CSV 파일 다운로드 함수
+    function exportToCSV() { 
+        const table = document.getElementById('reportTable');
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+        XLSX.writeFile(wb, "StockClear_상세분석리포트.csv", { bookType: "csv" });
+    }
+</script> 
 </body>
 </html>
