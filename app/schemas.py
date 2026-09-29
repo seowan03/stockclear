@@ -20,3 +20,4 @@ class InventoryItem(BaseModel):
     sales_speed: float
     days_to_sell: float
     depreciation_rate: float
+    mock_market_price: int | None = None
