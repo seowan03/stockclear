@@ -1,10 +1,12 @@
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory
+from app.services.mock_market_price import generate_mock_market_price
 
 
 def save_inventory_analysis(
@@ -13,8 +15,10 @@ def save_inventory_analysis(
     upload_batch_id: str,
     df: pd.DataFrame,
     upload_file_id: int | None = None,
+    rng: np.random.Generator | None = None,
 ) -> None:
     now = datetime.utcnow()
+    price_rng = rng if rng is not None else np.random.default_rng()
     raw_rows = [
         RawInventory(
             user_id=user_id,
@@ -24,6 +28,7 @@ def save_inventory_analysis(
             stock_qty=int(row["stock_qty"]),
             purchase_price=row["purchase_price"],
             market_price=row["selling_price"],
+            mock_market_price=generate_mock_market_price(row["selling_price"], price_rng),
             inbound_date=row["received_date"].date(),
             created_at=now,
             sales_qty=int(row["sales_qty"]),

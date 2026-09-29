@@ -34,10 +34,14 @@
 <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-8 space-y-8">
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-6">
     <div>
-    <h1 id="exportTitle" class="text-2xl md:text-3xl font-extrabold text-white">상세 분석 리포트 & 내보내기</h1>
+    <h1 class="text-2xl md:text-3xl font-extrabold text-white">상세 분석 리포트 & 내보내기</h1>
     <p class="text-gray-400 text-xs md:text-sm mt-1">심층 진단 데이터 보고서 저장 및 인쇄</p>
     </div>
     <div class="flex space-x-2 no-print">
+    <!-- 판매하기 버튼 (클릭 시 선택된 품목 전달) -->
+    <button onclick="goToSellPage()" class="px-3.5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-orange-600/30 transition-all cursor-pointer flex items-center">
+        <i class="fa-solid fa-store mr-1.5"></i>판매하기
+    </button>
     <button onclick="window.print()" class="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold rounded-xl border border-gray-700 transition-all cursor-pointer">
         <i class="fa-solid fa-print mr-1"></i>인쇄 / PDF
     </button>
@@ -52,9 +56,10 @@
 
 <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-3xl space-y-4">
     <h3 class="text-lg font-bold text-white"><i class="fa-solid fa-brain text-blue-400 mr-2"></i>StockClear AI 종합 진단 요약</h3>
-    <p id="reportSummary" class="text-sm text-gray-200 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">AI 진단 결과를 불러오는 중입니다.</p>
-    <p id="reportMetrics" class="text-xs text-gray-400"></p>
-    <p id="reportScopeNote" class="text-xs text-gray-500"></p>
+    <p class="text-xs text-gray-300 leading-relaxed bg-gray-950 p-4 rounded-2xl border border-gray-800">
+    • 현재 결품 위험 항목은 총 23개로 24시간 내 추가 발주 생성이 필요합니다.<br>
+    • 60일 이상 장기 체류 중인 재고 45개 품목에 대해 15% 프로모션 진행을 추천합니다.
+    </p>
 </div>
 
 <!-- 내보내기 대상 데이터 미리보기 테이블 -->
@@ -63,12 +68,16 @@
         <h3 class="text-base font-bold text-white"><i class="fa-solid fa-table-list text-blue-400 mr-2"></i>리포트 데이터 목록 미리보기</h3>
         <span class="text-xs text-gray-400" id="reportCount">총 0개 항목 선택됨</span>
     </div>
+    <p class="text-xs text-amber-300/80">더미 시세는 실제 시장 가격이 아닌 업로드 판매가를 기준으로 생성한 참고용 데모값입니다.</p>
     <div class="overflow-x-auto">
         <table id="reportTable" class="w-full text-left text-xs text-gray-300">
             <thead class="bg-gray-950 text-gray-400 border-b border-gray-800 uppercase">
                 <tr>
-                    <th class="py-3 px-4">내부 품목 코드</th>
+                    <th class="py-3 px-4 w-12 text-center">
+                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    </th>
                     <th class="py-3 px-4">품목명</th>
+                    <th class="py-3 px-4">더미 시세(참고용)</th>
                     <th class="py-3 px-4">카테고리</th>
                     <th class="py-3 px-4">현재 수량</th>
                     <th class="py-3 px-4">재고 상태</th>
@@ -93,76 +102,103 @@
 
 <script src="../js/stockclear.js"></script>
 <script>
-        function escapeHtml(value) {
-            return String(value ?? '').replace(/[&<>"']/g, (character) => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            })[character]);
-        }
+    let loadedItems = []; // 불러온 전체 항목 저장
 
-        async function loadExportData() {
-            const params = new URLSearchParams(window.location.search);
-            const uploadId = params.get('upload_id');
-            const endpoint = uploadId ? `/api/export?upload_id=${encodeURIComponent(uploadId)}` : '/api/export';
-            const response = await fetch(endpoint, { credentials: 'include' });
+    // HTML 특수문자 이스케이프 함수 (보안 및 출력 처리)
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    async function loadExportData() {
+        try {
+            const response = await fetch('/api/export', { credentials: 'include' });
             if (response.status === 401) {
                 window.location.href = 'signin.html';
                 return;
             }
             if (!response.ok) throw new Error('내보내기 데이터를 불러오지 못했습니다.');
+            
             const report = await response.json();
-            const items = Array.isArray(report.items) ? report.items : [];
-            if (report.upload_file_name) {
-                document.getElementById('exportTitle').textContent = `${report.upload_file_name} 분석 리포트`;
-            }
-            const summary = report.summary || {};
-            document.getElementById('reportSummary').textContent = summary.ai_summary
-                || '저장된 품목별 AI 진단이 없습니다. 재고 목록에서 AI 진단을 실행하면 이 요약에 반영됩니다.';
-            const scopeLabels = {
-                account_active_inventory: '업로드 시점의 전체 누적 재고',
-                current_account: '현재 전체 재고',
-                selected_upload: '선택한 파일',
-            };
-            document.getElementById('reportMetrics').textContent =
-                `기준: ${scopeLabels[summary.scope] || '확인 중'}${summary.as_of ? ` (${new Date(summary.as_of).toLocaleString('ko-KR')})` : ''} · 상태: ${{ complete: '완료', failed: '생성 실패', stale: '재고 변경으로 갱신 필요', legacy: '이전 진단 종합', unavailable: '요약 없음', select_upload: '업로드 선택 필요' }[summary.ai_summary_status] || '확인 불가'} · 전체 ${Number(summary.total_count || 0).toLocaleString('ko-KR')}개 · 위험 재고 ${Number(summary.risk_count || 0).toLocaleString('ko-KR')}개 · 60일 이상 장기 체류 ${Number(summary.aging_count || 0).toLocaleString('ko-KR')}개 · 품목별 진단 ${Number(summary.ai_diagnosis_count || 0).toLocaleString('ko-KR')}개`;
-            const reportScopeNote = document.getElementById('reportScopeNote');
-            if (summary.scope === 'account_active_inventory') {
-                const sourceName = report.summary_source_file_name || '최근 업로드';
-                reportScopeNote.textContent = report.upload_file_name
-                    ? `AI 종합진단은 ${sourceName} 업로드 시점의 전체 활성 재고 누적 기준입니다. 아래 표는 선택한 파일의 품목만 보여줍니다.`
-                    : `AI 종합진단은 ${sourceName} 시점의 전체 활성 재고 누적 기준입니다. 아래 표는 현재 전체 활성 재고입니다.`;
-            } else if (summary.scope === 'selected_upload' && report.upload_file_name) {
-                reportScopeNote.textContent = '이전 업로드의 저장 요약입니다. 아래 표는 선택한 파일의 품목만 보여줍니다.';
-            } else {
-                reportScopeNote.textContent = '';
-            }
-            document.getElementById('reportCount').textContent = `총 ${items.length.toLocaleString('ko-KR')}개 항목 선택됨`;
-            document.getElementById('reportBody').innerHTML = items.length
-                ? items.map((item) => {
+            loadedItems = Array.isArray(report.items) ? report.items : [];
+            
+            document.getElementById('reportCount').textContent = `총 ${loadedItems.length.toLocaleString('ko-KR')}개 항목 선택됨`;
+            
+            if (loadedItems.length > 0) {
+                document.getElementById('reportBody').innerHTML = loadedItems.map((item, index) => {
                     const status = item.risk_grade || '정상';
                     const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
-                    return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 font-mono text-gray-200">${escapeHtml(item.item_id || '-')}</td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">-</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
-                }).join('')
-                : '<tr><td colspan="6" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+                    const mockMarketPrice = item.mock_market_price == null
+                        ? '-'
+                        : `${StockClear.formatNumber(item.mock_market_price)}원`;
+                    const category = item.category || '-';
+
+                    return `
+                    <tr class="hover:bg-gray-800/40">
+                        <td class="py-3 px-4 text-center">
+                            <input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}">
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td>
+                        <td class="py-3 px-4">${mockMarketPrice}</td>
+                        <td class="py-3 px-4">${escapeHtml(category)}</td>
+                        <td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td>
+                        <td class="py-3 px-4 ${typeof StockClear !== 'undefined' && StockClear.statusClass ? StockClear.statusClass(status) : ''} font-bold">${escapeHtml(status)}</td>
+                        <td class="py-3 px-4">${escapeHtml(action)}</td>
+                    </tr>`;
+                }).join('');
+            } else {
+                document.getElementById('reportBody').innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+            }
+        } catch (error) {
+            console.error('내보내기 데이터 로딩 실패:', error);
+            document.getElementById('reportBody').innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
+        }
+    }
+
+    // 페이지 진입 시 데이터 로드 실행
+    loadExportData();
+
+    // 전체 선택/해제 기능
+    function toggleSelectAll(selectAllCheckbox) {
+        const checkboxes = document.querySelectorAll('.item-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+    }
+
+    // 판매하기 버튼 동작 (선택된 상품 데이터를 localStorage에 넣고 Sellpage.html로 이동)
+    function goToSellPage() {
+        const selectedCheckboxes = document.querySelectorAll('.item-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            alert('판매할 제품을 하나 이상 선택해 주세요.');
+            return;
         }
 
-        loadExportData().catch((error) => {
-            console.error('내보내기 데이터 로딩 실패:', error);
-            document.getElementById('reportBody').innerHTML = '<tr><td colspan="6" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
+        const selectedItems = Array.from(selectedCheckboxes).map(cb => {
+            const idx = cb.getAttribute('data-index');
+            return loadedItems[idx];
         });
 
-  // 1. Excel (.xlsx) 파일 다운로드 함수
-  function exportToExcel() {
-    const table = document.getElementById('reportTable');
-    const wb = XLSX.utils.table_to_book(table, { sheet: "상세분석리포트" });
-    XLSX.writeFile(wb, "StockClear_상세분석리포트.xlsx");
-  }
+        localStorage.setItem('selectedSellItems', JSON.stringify(selectedItems));
+        window.location.href = 'Sellpage.html#';
+    }
 
-  // 2. CSV 파일 다운로드 함수
-  function exportToCSV() { 
-    const table = document.getElementById('reportTable');
-    const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
-    XLSX.writeFile(wb, "StockClear_상세분석리포트.csv", { bookType: "csv" });
-  }
-</script>  
+    // 1. Excel (.xlsx) 파일 다운로드 함수
+    function exportToExcel() {
+        const table = document.getElementById('reportTable');
+        const wb = XLSX.utils.table_to_book(table, { sheet: "상세분석리포트" });
+        XLSX.writeFile(wb, "StockClear_상세분석리포트.xlsx");
+    }
+
+    // 2. CSV 파일 다운로드 함수
+    function exportToCSV() { 
+        const table = document.getElementById('reportTable');
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Sheet1" });
+        XLSX.writeFile(wb, "StockClear_상세분석리포트.csv", { bookType: "csv" });
+    }
+</script> 
 </body>
 </html>
