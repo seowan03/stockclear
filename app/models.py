@@ -39,6 +39,7 @@ class RawInventory(Base):
   inbound_date = Column(Date)
   created_at = Column(DateTime)
   sales_qty = Column(Integer)
+  is_selling = Column(Boolean, nullable=False, default=False, server_default="0")
   is_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
 
 

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import RISK_GRADE_META
 from app.database import get_db
 from app.models import AnalysisResult, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
+from app.schemas import InventorySellingUpdate
 from app.security import get_current_user
 from app.services.inventory_service import (
     make_user_summary_input,
@@ -97,6 +98,7 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
         "received_date": item.inbound_date.isoformat() if item.inbound_date else None,
         "sales_speed": float(analysis.sales_velocity or 0),
         "sales_qty": item.sales_qty,
+        "is_selling": item.is_selling,
         "storage_days": analysis.aging_days,
         "days_to_sell": analysis.days_to_sell,
         "final_score": float(analysis.final_score or 0),
@@ -187,7 +189,21 @@ def get_inventory_item(item_id: int, db: Session = Depends(get_db), current_user
     if not row:
         raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
     analysis, item = row
-    return {"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "days_to_sell": analysis.days_to_sell, "risk_grade": analysis.risk_grade, "ai_diagnosis": analysis.ai_diagnosis}
+    return {"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "is_selling": item.is_selling, "aging_days": analysis.aging_days, "days_to_sell": analysis.days_to_sell, "risk_grade": analysis.risk_grade, "ai_diagnosis": analysis.ai_diagnosis}
+
+
+@router.patch("/api/inventory/{item_id}/selling")
+def update_inventory_selling(item_id: int, payload: InventorySellingUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item = db.query(RawInventory).filter(
+        RawInventory.item_id == item_id,
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(False),
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
+    item.is_selling = payload.is_selling
+    db.commit()
+    return {"item_id": item_id, "is_selling": item.is_selling}
 
 
 @router.get("/api/strategy")
