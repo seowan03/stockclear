@@ -36,6 +36,7 @@ class RawInventory(Base):
   stock_qty = Column(Integer)
   purchase_price = Column(Numeric(12, 2))
   market_price = Column(Numeric(12, 2))
+  mock_market_price = Column(Numeric(12, 2), nullable=True)
   inbound_date = Column(Date)
   created_at = Column(DateTime)
   sales_qty = Column(Integer)

@@ -159,6 +159,11 @@
                 <span class="text-gray-400">판매가</span>
                 <span class="text-gray-200 font-medium" id="modalCurrPrice">-</span>
               </div>
+              <div class="flex justify-between py-1.5 border-t border-gray-800/50">
+                <span class="text-gray-400">더미 시세(참고용)</span>
+                <span class="text-gray-200 font-medium" id="modalMockMarketPrice">-</span>
+              </div>
+              <p class="text-[11px] leading-relaxed text-amber-300/80">실제 시세가 아닌 판매가 기준으로 생성한 데모값입니다.</p>
             </div>
           </div>
 
@@ -352,6 +357,9 @@ function switchTab(tabName) {
         actionPlans: item.action_plans || '',
         origPrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
         currPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
+        mockMarketPrice: item.mock_market_price == null
+          ? '-'
+          : `${StockClear.formatNumber(item.mock_market_price)} 원`,
         exhaust: `${StockClear.formatNumber(item.days_to_sell)} 일`,
         depreciation: `${StockClear.number(item.depreciation_rate).toFixed(1)} %`,
         storage: `${StockClear.formatNumber(item.storage_days)} 일`,
@@ -436,6 +444,7 @@ function switchTab(tabName) {
       document.getElementById('modalDate').innerText = item.date || '-';
       document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
       document.getElementById('modalCurrPrice').innerText = item.currPrice || '-';
+      document.getElementById('modalMockMarketPrice').innerText = item.mockMarketPrice;
       document.getElementById('detailStockQty').innerText = `${StockClear.formatNumber(item.currentQty)} 개`;
       document.getElementById('detailSalesQty').innerText = `${StockClear.formatNumber(item.salesQty)} 개`;
       document.getElementById('detailInventoryValue').innerText = `₩ ${StockClear.formatNumber(item.inventoryValue)}`;

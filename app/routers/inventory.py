@@ -95,6 +95,7 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
         "stock_qty": item.stock_qty,
         "purchase_price": float(item.purchase_price or 0),
         "selling_price": float(item.market_price or 0),
+        "mock_market_price": float(item.mock_market_price) if item.mock_market_price is not None else None,
         "received_date": item.inbound_date.isoformat() if item.inbound_date else None,
         "sales_speed": float(analysis.sales_velocity or 0),
         "sales_qty": item.sales_qty,
@@ -347,7 +348,18 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
     else:
         ai_summary_status = "unavailable"
         ai_summary = "이 업로드에는 저장된 AI 종합진단이 없습니다. 신규 업로드부터 파일별 요약이 생성됩니다."
-    items = [{"item_id": item.item_id, "product_name": item.product_name, "stock_qty": item.stock_qty, "aging_days": analysis.aging_days, "risk_grade": analysis.risk_grade, "action_plans": analysis.action_plans, "ai_diagnosis": analysis.ai_diagnosis} for analysis, item in rows]
+    items = [{
+        "item_id": item.item_id,
+        "product_name": item.product_name,
+        "stock_qty": item.stock_qty,
+        "purchase_price": float(item.purchase_price or 0),
+        "selling_price": float(item.market_price or 0),
+        "mock_market_price": float(item.mock_market_price) if item.mock_market_price is not None else None,
+        "aging_days": analysis.aging_days,
+        "risk_grade": analysis.risk_grade,
+        "action_plans": analysis.action_plans,
+        "ai_diagnosis": analysis.ai_diagnosis,
+    } for analysis, item in rows]
     return {
         "summary": {
             "total_count": int(summary_snapshot.get("total_count", len(items))),
