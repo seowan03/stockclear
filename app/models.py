@@ -58,6 +58,7 @@ class AnalysisResult(Base):
   fluctuation_rate = Column(Float)
   ai_diagnosis = Column(Text)
   action_plans = Column(Text)
+  recommended_price = Column(Numeric(12, 2), nullable=True)
   updated_at = Column(DateTime)
 
 
