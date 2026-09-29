@@ -144,7 +144,6 @@
             <td class="px-6 py-4 text-gray-400">${formatFileSize(row.size)}</td>
             <td class="px-6 py-4">${statusBadge(row.status)}</td>
             <td class="px-6 py-4 text-right space-x-1">
-                ${row.status === '성공' ? `<a href="dashboard.html?upload_id=${encodeURIComponent(row.id)}" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold rounded-lg text-[11px] inline-block transition-colors">이 파일 결과 보기</a><a href="export.html?upload_id=${encodeURIComponent(row.id)}" class="px-3 py-1.5 bg-blue-900/40 hover:bg-blue-900/70 text-blue-300 font-semibold rounded-lg text-[11px] inline-block transition-colors">AI 종합진단</a>` : '<span class="px-3 py-1.5 text-gray-500">결과 없음</span>'}
                 <button onclick="deleteRow(this, ${row.id})" class="px-2.5 py-1.5 bg-red-900/30 hover:bg-red-800/50 text-red-400 rounded-lg text-[11px] transition-colors"><i class="fa-solid fa-xmark"></i></button>
             </td>
           </tr>
