@@ -58,6 +58,31 @@ def _rule_based_strategy(data: dict[str, Any]) -> dict[str, Any]:
     return {"status": "양호", "recommended_discount": 0, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
 
 
+def _ensure_sentence_ending(value: str) -> str:
+    sentence = value.strip()
+    if sentence and sentence[-1] not in ".!?。！？":
+        return f"{sentence}."
+    return sentence
+
+
+def _format_action_plan(
+    discount: float,
+    recommended_price: float | None,
+    judgment: str,
+    price_limit_notice: str | None,
+) -> str:
+    lines = [f"할인율 {discount:g}%."]
+    if recommended_price is None:
+        lines.append("권장 판매가를 계산할 수 없습니다.")
+    else:
+        lines.append(f"권장 판매가 {recommended_price:,.0f}원.")
+    if judgment:
+        lines.append(f"AI 진단: {_ensure_sentence_ending(judgment)}")
+    if price_limit_notice:
+        lines.append(f"조정 사유: {_ensure_sentence_ending(price_limit_notice)}")
+    return "\n".join(lines)
+
+
 def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) -> dict[str, Any]:
     try:
         selling_price = Decimal(str(product_data["selling_price"]))
@@ -76,7 +101,6 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
         recommended_discount = Decimal("0")
 
     guarded_result = dict(result)
-    comment = str(guarded_result.get("comment") or "").strip()
     prices_are_valid = all(
         price.is_finite() and price >= 0
         for price in (selling_price, purchase_price, market_price)
@@ -84,7 +108,7 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
     if not prices_are_valid:
         guarded_result["recommended_discount"] = 0
         guarded_result["recommended_price"] = None
-        guarded_result["comment"] = f"{comment} 기준 가격을 확인할 수 없어 할인을 적용하지 않습니다.".strip()
+        guarded_result["price_limit_notice"] = "기준 가격을 확인할 수 없어 할인을 적용하지 않습니다."
         return guarded_result
 
     if not recommended_discount.is_finite():
@@ -96,7 +120,7 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
     if proposed_price < market_price:
         applied_discount = Decimal("0")
         recommended_price = price_floor
-        notice = f"할인 적용가가 시세보다 낮아 할인율을 0%로 조정하고 {recommended_price:g}원 판매를 권장합니다."
+        notice = f"할인 적용가가 시세보다 낮아 할인율을 0%로 조정하고 {recommended_price:,.0f}원 판매를 권장합니다."
     elif proposed_price < purchase_price:
         if selling_price <= purchase_price:
             maximum_discount = Decimal("0")
@@ -118,8 +142,7 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
 
     guarded_result["recommended_discount"] = float(applied_discount)
     guarded_result["recommended_price"] = float(recommended_price)
-    if notice:
-        guarded_result["comment"] = f"{comment} {notice}".strip()
+    guarded_result["price_limit_notice"] = notice or None
     return guarded_result
 
 
@@ -147,6 +170,7 @@ async def diagnose_inventory(item: InventoryItem, request: Request, current_user
         "recommended_discount": result.get("recommended_discount", 0),
         "recommended_price": result.get("recommended_price"),
         "judgment": result.get("comment"),
+        "price_limit_notice": result.get("price_limit_notice"),
     }
 
 
@@ -181,10 +205,19 @@ async def diagnose_saved_inventory(
     discount = float(result.get("recommended_discount") or 0)
     recommended_price = result.get("recommended_price")
     judgment = result.get("comment") or "진단 결과를 받지 못했습니다."
-    analysis.ai_diagnosis = judgment
+    price_limit_notice = result.get("price_limit_notice")
+    diagnosis_lines = [_ensure_sentence_ending(judgment)]
+    if price_limit_notice:
+        diagnosis_lines.append(f"조정 사유: {_ensure_sentence_ending(price_limit_notice)}")
+    diagnosis_text = "\n".join(diagnosis_lines)
+    analysis.ai_diagnosis = diagnosis_text
     analysis.recommended_price = recommended_price
-    sale_price_text = f"{recommended_price:,.0f}원 판매 권장" if recommended_price is not None else "권장 판매가 확인 필요"
-    analysis.action_plans = f"{discount:g}% 할인 권장, {sale_price_text}: {judgment}" if discount else f"할인율 0%, {sale_price_text}: {judgment}"
+    analysis.action_plans = _format_action_plan(
+        discount,
+        recommended_price,
+        judgment,
+        price_limit_notice,
+    )
     db.commit()
     return {
         "status": "success",
@@ -192,6 +225,7 @@ async def diagnose_saved_inventory(
         "stock_status": result.get("status"),
         "recommended_discount": discount,
         "recommended_price": recommended_price,
-        "judgment": judgment,
+        "judgment": diagnosis_text,
+        "price_limit_notice": price_limit_notice,
         "action_plans": analysis.action_plans,
     }
