@@ -231,7 +231,7 @@
                   </div>
                   <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 space-y-1">
                     <span class="text-xs text-gray-400">권장 판매가</span>
-                    <p class="text-2xl font-bold text-blue-400 break-words" id="recPrice">-</p>
+                    <p class="text-2xl font-bold text-blue-400 whitespace-nowrap tabular-nums" id="recPrice">-</p>
                   </div>
                 </div>
                 <p id="aiDiagnosis" class="rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-sm leading-relaxed text-gray-300 whitespace-pre-line break-words" role="status">AI 진단 결과가 없습니다.</p>
@@ -403,7 +403,7 @@ function switchTab(tabName) {
         recDiscount: formatRecommendationDiscount(item.action_plans),
         recPrice: item.recommended_price == null
           ? '-'
-          : `${StockClear.formatNumber(item.recommended_price)} 원`
+          : `${StockClear.formatNumber(item.recommended_price)}원`
       };
       });
     }
@@ -525,7 +525,7 @@ function switchTab(tabName) {
           : `${Number(result.recommended_discount).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}%`;
         document.getElementById('recDiscount').innerText = discountLabel;
         if (result.recommended_price != null) {
-          const recommendedPrice = `${StockClear.formatNumber(result.recommended_price)} 원`;
+          const recommendedPrice = `${StockClear.formatNumber(result.recommended_price)}원`;
           document.getElementById('recPrice').innerText = recommendedPrice;
           const item = inventoryData.find((row) => row.id === selectedInventoryId);
           if (item) item.recPrice = recommendedPrice;
