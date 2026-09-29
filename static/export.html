@@ -78,7 +78,7 @@
                     </th>
                     <th class="py-3 px-4">품목명</th>
                     <th class="py-3 px-4">더미 시세(참고용)</th>
-                    <th class="py-3 px-4">카테고리</th>
+                    <th class="py-3 px-4">권장 판매가</th>
                     <th class="py-3 px-4">현재 수량</th>
                     <th class="py-3 px-4">재고 상태</th>
                     <th class="py-3 px-4">AI 추천 조치</th>
@@ -104,19 +104,13 @@
 <script>
     let loadedItems = []; // 불러온 전체 항목 저장
 
-    // HTML 특수문자 이스케이프 함수 (보안 및 출력 처리)
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[character]);
+        }
 
-    async function loadExportData() {
-        try {
+        async function loadExportData() {
             const response = await fetch('/api/export', { credentials: 'include' });
             if (response.status === 401) {
                 window.location.href = 'signin.html';

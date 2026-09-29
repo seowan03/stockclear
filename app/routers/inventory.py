@@ -15,6 +15,7 @@ from app.services.inventory_service import (
     mark_latest_upload_summary_stale,
     query_user_analysis,
 )
+from app.services.mock_market_price import generate_mock_market_price
 
 router = APIRouter(tags=["inventory"])
 
@@ -96,6 +97,7 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
         "purchase_price": float(item.purchase_price or 0),
         "selling_price": float(item.market_price or 0),
         "mock_market_price": float(item.mock_market_price) if item.mock_market_price is not None else None,
+        "recommended_price": float(analysis.recommended_price) if analysis.recommended_price is not None else None,
         "received_date": item.inbound_date.isoformat() if item.inbound_date else None,
         "sales_speed": float(analysis.sales_velocity or 0),
         "sales_qty": item.sales_qty,
@@ -122,6 +124,39 @@ def list_deleted_inventory(db: Session = Depends(get_db), current_user: User = D
         "stock_qty": item.stock_qty,
         "risk_grade": analysis.risk_grade,
     } for analysis, item in rows]}
+
+
+@router.post("/api/inventory/{item_id}/refresh-market-price")
+def refresh_inventory_market_price(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = query_user_analysis(db, current_user.user_id).filter(RawInventory.item_id == item_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
+
+    analysis, item = row
+    new_market_price = generate_mock_market_price(
+        item.market_price,
+        previous_price=item.mock_market_price,
+    )
+    if new_market_price is None:
+        raise HTTPException(status_code=409, detail="현재 판매가 범위에서 변경 가능한 시세를 생성할 수 없습니다.")
+
+    item.mock_market_price = new_market_price
+    analysis.recommended_price = None
+    stale_message = "더미 시세가 갱신되었습니다. 새 시세 기준으로 AI 진단을 다시 실행해주세요."
+    analysis.ai_diagnosis = stale_message
+    analysis.action_plans = stale_message
+    db.commit()
+    return {
+        "status": "success",
+        "item_id": item_id,
+        "mock_market_price": float(item.mock_market_price),
+        "recommended_price": None,
+        "action_plans": analysis.action_plans,
+    }
 
 
 @router.delete("/api/inventory/{item_id}")
@@ -355,6 +390,7 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         "purchase_price": float(item.purchase_price or 0),
         "selling_price": float(item.market_price or 0),
         "mock_market_price": float(item.mock_market_price) if item.mock_market_price is not None else None,
+        "recommended_price": float(analysis.recommended_price) if analysis.recommended_price is not None else None,
         "aging_days": analysis.aging_days,
         "risk_grade": analysis.risk_grade,
         "action_plans": analysis.action_plans,

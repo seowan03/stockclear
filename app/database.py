@@ -137,6 +137,16 @@ def ensure_raw_inventory_mock_market_price_column():
             )
 
 
+def ensure_analysis_results_recommended_price_column():
+    inspector = inspect(engine)
+    if "analysis_results" not in inspector.get_table_names():
+        return
+    columns = [col["name"] for col in inspector.get_columns("analysis_results")]
+    if "recommended_price" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE analysis_results ADD COLUMN recommended_price NUMERIC(12, 2) NULL"))
+
+
 def init_db():
     """
     startup 시 호출할 통합 DB 초기화 함수.
@@ -148,3 +158,5 @@ def init_db():
     ensure_upload_analysis_summary_data_column()
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
     ensure_raw_inventory_mock_market_price_column()
+    ensure_analysis_results_recommended_price_column()
+    ensure_analysis_results_recommended_price_column()

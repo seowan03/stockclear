@@ -35,6 +35,8 @@ def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
     - 보관 기간: {product_data.get('storage_days', 0)}일
     - 현재 재고량: {product_data.get('stock_qty', 0)}개
     - 원가(사입가): {product_data.get('purchase_price', 0)}원
+    - 현재 기준 시세: {product_data.get('current_market_price', product_data.get('mock_market_price', product_data.get('selling_price', 0)))}원
+    - 현재 기준 시세: {product_data.get('current_market_price', product_data.get('mock_market_price', product_data.get('selling_price', 0)))}원
 
     반드시 아래 JSON 형식으로만 답변해주세요. 다른 부가 설명 텍스트는 절대 포함하지 마세요.
     {{
