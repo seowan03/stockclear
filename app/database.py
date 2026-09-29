@@ -81,11 +81,35 @@ def ensure_upload_analysis_summary_data_column():
             conn.execute(text("ALTER TABLE upload_analysis_summaries ADD COLUMN summary_data TEXT NULL"))
 
 
+def ensure_raw_inventory_upload_file_id_column():
+    """
+    raw_inventory 테이블에 upload_file_id 컬럼과 외래키(FK)가 없을 경우 안전하게 추가
+    """
+    inspector = inspect(engine)
+    if "raw_inventory" not in inspector.get_table_names():
+        return
+    columns = [col["name"] for col in inspector.get_columns("raw_inventory")]
+    if "upload_file_id" not in columns:
+        with engine.begin() as conn:
+            # 1. 컬럼 추가 (데이터 보존을 위해 NULL 허용)
+            conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN upload_file_id INT NULL"))
+            # 2. Foreign Key 제약조건 추가
+            conn.execute(
+                text(
+                    "ALTER TABLE raw_inventory "
+                    "ADD CONSTRAINT fk_raw_inventory_upload_file_id "
+                    "FOREIGN KEY (upload_file_id) REFERENCES upload_files(id) ON DELETE SET NULL"
+                )
+            )
 
 
-
-
-
-
-
-
+def init_db():
+    """
+    startup 시 호출할 통합 DB 초기화 함수.
+    테이블 생성 및 모든 컬럼 보정(Helper)을 한 번에 실행함.
+    """
+    Base.metadata.create_all(bind=engine)
+    ensure_upload_files_user_id_column()
+    ensure_raw_inventory_is_deleted_column()
+    ensure_upload_analysis_summary_data_column()
+    ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
