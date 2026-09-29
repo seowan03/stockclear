@@ -122,17 +122,18 @@ async def upload_and_parse_excel(
     except HTTPException:
         db.rollback()
         raise
-    except ValueError:
+    except ValueError as e:
         logger.exception("업로드 데이터 검증 중 오류 발생")
         db.rollback()
         try:
-            # 실패 이력은 본 처리 rollback 이후 별도 트랜잭션으로 남긴다.
             save_upload_history(db, current_user.user_id, filename, 0, "실패")
             db.commit()
         except Exception:
             db.rollback()
             logger.exception("업로드 실패 이력 저장 중 추가 오류 발생")
-        raise HTTPException(status_code=400, detail="업로드 데이터 형식이 올바르지 않습니다. 입력 파일을 확인해주세요.")
+        
+        error_detail = str(e) if str(e) else "업로드 데이터 형식이 올바르지 않습니다."
+        raise HTTPException(status_code=400, detail=error_detail)
     except Exception:
         logger.exception("업로드 처리 중 오류 발생")
         db.rollback()
