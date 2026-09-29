@@ -114,6 +114,13 @@
             .replace(/'/g, '&#039;');
     }
 
+    function formatRecommendationText(value) {
+        return String(value ?? '').replace(/(\d[\d,]*)(?:\.0)?(?=원)/g, (match, digits) => {
+            const price = Number(digits.replace(/,/g, ''));
+            return Number.isFinite(price) ? price.toLocaleString('ko-KR') : match;
+        });
+    }
+
     function formatNumber(num) {
         if (typeof StockClear !== 'undefined' && StockClear.formatNumber) {
             return StockClear.formatNumber(num);
@@ -147,7 +154,7 @@
                 tbody.innerHTML = loadedItems.length
                     ? loadedItems.map((item, index) => {
                         const status = item.risk_grade || '정상';
-                        const action = item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지');
+                        const action = formatRecommendationText(item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지'));
                         const mockMarketPrice = item.mock_market_price == null
                             ? '-'
                             : `${StockClear.formatNumber(item.mock_market_price)}원`;
@@ -155,7 +162,7 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4">${escapeHtml(action)}</td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4">${mockMarketPrice}</td><td class="py-3 px-4">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 whitespace-pre-line break-words leading-relaxed">${escapeHtml(action)}</td></tr>`;
                     }).join('')
                     : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
