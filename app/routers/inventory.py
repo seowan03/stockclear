@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import RISK_GRADE_META
 from app.database import get_db
 from app.models import AnalysisResult, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
-from app.schemas import InventorySellingUpdate
+from app.schemas import InventorySellingBatchUpdate, InventorySellingUpdate
 from app.security import get_current_user
 from app.services.inventory_service import (
     make_user_summary_input,
@@ -240,6 +240,28 @@ def update_inventory_selling(item_id: int, payload: InventorySellingUpdate, db: 
     item.is_selling = payload.is_selling
     db.commit()
     return {"item_id": item_id, "is_selling": item.is_selling}
+
+
+@router.post("/api/inventory/selling")
+def update_inventory_selling_batch(payload: InventorySellingBatchUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    item_ids = list(dict.fromkeys(payload.item_ids))
+    if not item_ids:
+        raise HTTPException(status_code=422, detail="판매할 재고를 하나 이상 선택해 주세요.")
+
+    items = db.query(RawInventory).filter(
+        RawInventory.item_id.in_(item_ids),
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(False),
+    ).all()
+    found_ids = {item.item_id for item in items}
+    missing_ids = [item_id for item_id in item_ids if item_id not in found_ids]
+    if missing_ids:
+        raise HTTPException(status_code=404, detail="선택한 재고 중 일부를 찾을 수 없습니다.")
+
+    for item in items:
+        item.is_selling = payload.is_selling
+    db.commit()
+    return {"items": [{"item_id": item.item_id, "is_selling": item.is_selling} for item in items]}
 
 
 @router.get("/api/strategy")
