@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coupong - AI 재고 직거래 마켓</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
+    body { background-color: #f8fafc; color: #1e293b; }
+
+    /* 1. 최상단 알림 띠배너 */
+    .top-bar {
+      background: #064e3b; color: #a7f3d0; text-align: center;
+      padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 600;
+    }
+    .top-bar span { color: #ffffff; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+    /* 2. 유저 서브 메뉴 */
+    .sub-nav {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; justify-content: flex-end; gap: 1rem; padding: 0.4rem 1rem;
+      font-size: 0.8rem; color: #64748b;
+    }
+    .sub-nav a { color: #64748b; text-decoration: none; }
+    .sub-nav a:hover { color: #059669; }
+
+    /* 3. 메인 헤더 레이아웃 */
+    header {
+      background: #ffffff; border-bottom: 2px solid #10b981;
+      position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+    }
+    
+    .header-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    /* 카테고리 버튼 */
+    .category-btn {
+      position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+      background: #10b981; color: white; border: none; padding: 0.5rem 0.8rem;
+      font-weight: 600; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+      white-space: nowrap; font-size: 0.8rem; z-index: 10;
+    }
+    .category-btn:hover { background: #059669; }
+
+    /* 컨테이너 */
+    .header-container {
+      max-width: 1200px; margin: 0 auto; padding: 0.8rem 1rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+    }
+
+    .logo { 
+      font-size: 1.8rem; font-weight: 900; color: #059669; text-decoration: none; 
+      white-space: nowrap; letter-spacing: -0.5px;
+    }
+
+    /* 검색창 */
+    .search-box {
+      display: flex; flex: 1; border: 2px solid #10b981; 
+      border-radius: 8px; overflow: hidden;
+    }
+    .search-box select { border: none; padding: 0 0.8rem; background: #f0fdf4; font-weight: 600; color: #065f46; outline: none; }
+    .search-box input { flex: 1; border: none; padding: 0.65rem 0.9rem; font-size: 0.9rem; outline: none; }
+    .search-box button { background: #10b981; color: white; border: none; padding: 0 1.5rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .search-box button:hover { background: #059669; }
+
+    /* 우측 아이콘 */
+    .header-icons { display: flex; gap: 1.2rem; align-items: center; }
+    .icon-item { text-align: center; color: #475569; text-decoration: none; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+    .icon-item div { font-size: 1.2rem; margin-bottom: 2px; color: #059669; }
+
+    /* 4. 메인 프로모션 배너 */
+    .hero-container {
+      display: flex; max-width: 1200px; margin: 1.5rem auto; padding: 0 1rem; gap: 1rem;
+    }
+    .main-banner {
+      flex: 3; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border-radius: 12px; padding: 3rem 2.5rem; border: 1px solid #a7f3d0;
+      display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden;
+    }
+    .main-banner .badge {
+      background: #059669; color: white; padding: 0.3rem 0.8rem; border-radius: 4px;
+      font-size: 0.8rem; font-weight: 700; width: fit-content; margin-bottom: 1rem;
+    }
+    .main-banner h1 { font-size: 2.2rem; font-weight: 800; color: #064e3b; margin-bottom: 0.8rem; line-height: 1.3; }
+    .main-banner p { color: #047857; font-size: 1rem; margin-bottom: 1.5rem; }
+    .btn-banner {
+      background: #059669; color: white; border: none; padding: 0.8rem 1.8rem;
+      border-radius: 8px; font-weight: 700; width: fit-content; cursor: pointer; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+
+    .quick-tabs {
+      flex: 1; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .tab-item {
+      padding: 1rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .tab-item:last-child { border-bottom: none; }
+    .tab-item:hover, .tab-item.active { background: #f0fdf4; border-left: 4px solid #10b981; }
+    .tab-img { width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+    .tab-info h4 { font-size: 0.85rem; color: #1e293b; font-weight: 700; }
+    .tab-info p { font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 2px; }
+
+    /* 5. 상품 목록 그리드 구역 */
+    .products-section { max-width: 1200px; margin: 3rem auto; padding: 0 1rem; }
+    .section-title { font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px; }
+    .section-title::before { content: ''; display: inline-block; width: 6px; height: 20px; background: #10b981; border-radius: 2px; }
+
+    .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.2rem; }
+    .product-card {
+      background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; display: flex; flex-direction: column;
+    }
+    .product-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); border-color: #10b981; }
+    .product-card:hover .product-thumb { transform: scale(1.03); }
+    
+    /* 카드 이미지 대신 풍성하게 채운 텍스트/그래픽 영역 */
+    .product-thumb { 
+      width: 100%; height: 160px; 
+      background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%); 
+      display: flex; flex-direction: column; align-items: center; justify-content: center; 
+      gap: 6px; position: relative; overflow: hidden; transition: transform 0.3s ease;
+    }
+    .product-thumb::after {
+      content: ''; position: absolute; top: -30%; right: -30%; width: 120px; height: 120px;
+      background: rgba(16, 185, 129, 0.08); border-radius: 50%; pointer-events: none;
+    }
+    .thumb-icon { font-size: 2.2rem; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
+    .thumb-brand { font-size: 0.75rem; font-weight: 800; color: #059669; letter-spacing: 0.5px; text-transform: uppercase; }
+    
+    .product-details { padding: 1.1rem; display: flex; flex-direction: column; flex: 1; justify-content: space-between; background: #fff; }
+    .product-tag { font-size: 0.7rem; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 7px; border-radius: 4px; font-weight: 700; width: fit-content; }
+    .product-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin: 0.6rem 0; line-height: 1.35; height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .price-group { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+    .discount { color: #ef4444; font-weight: 800; font-size: 1.15rem; }
+    .price { font-weight: 800; font-size: 1.15rem; color: #0f172a; }
+    .original-price { font-size: 0.8rem; color: #94a3b8; text-decoration: line-through; }
+  </style>
+</head>
+<body>
+
+  <!-- 최상단 알림 바 -->
+  <div class="top-bar">
+    ⚡ AI 재고 진단 솔루션 연동 마켓! 기업/소상공인 땡처리 대량 구매 시 추가 할인 <span>자세히 보기</span>
+  </div>
+
+  <!-- 보조 서브 메뉴 -->
+  <div class="sub-nav">
+    <a href="#">로그인</a>
+    <a href="#">회원가입</a>
+    <a href="#">고객센터</a>
+  </div>
+
+  <!-- 메인 헤더 -->
+  <header>
+    <div class="header-wrapper">
+      <button class="category-btn">☰ 카테고리</button>
+
+      <div class="header-container">
+        <a href="#" class="logo">Coupong</a>
+
+        <!-- 검색창 -->
+        <div class="search-box">
+          <select>
+            <option>전체</option>
+            <option>과다재고 땡처리</option>
+            <option>유통기한 임박</option>
+            <option>B2B 대량벌크</option>
+          </select>
+          <input type="text" placeholder="AI가 추천하는 클리어런스 상품을 검색해보세요!">
+          <button>검색</button>
+        </div>
+
+        <!-- 우측 아이콘 메뉴 -->
+        <div class="header-icons">
+          <a href="#" class="icon-item">
+            <div>👤</div>
+            마이페이지
+          </a>
+          <a href="#" class="icon-item">
+            <div>🛒</div>
+            장바구니
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 프로모션 배너 (너비 1200px) -->
+  <div class="hero-container">
+    <div class="main-banner">
+      <span class="badge">2026 AI 재고 클리어런스</span>
+      <h1>과다 체류 재고 상품<br>최대 80% 한정수량 방출</h1>
+      <p>AI 엔진이 진단한 유통기한 임박 및 소진 필요 품목을 가장 저렴하게 직거래하세요.</p>
+      <button class="btn-banner">오늘의 재고 특가 보기</button>
+    </div>
+
+    <div class="quick-tabs">
+      <div class="tab-item active">
+        <div class="tab-img" style="background:#a7f3d0;">🥛</div>
+        <div class="tab-info">
+          <h4>매일유업 기획전</h4>
+          <p>최대 50% 할인 혜택</p>
+        </div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-img" style="background:#6ee7b7;">📦</div>
+        <div class="tab-info">
+          <h4>B2B 벌크 대량구매</h4>
+          <p>기업 회원 전용 쿠폰</p>
+        </div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-item-icon tab-img" style="background:#34d399;">⏳</div>
+        <div class="tab-info">
+          <h4>유통기한 임박 특가</h4>
+          <p>마감 직전 초특가</p>
+        </div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-img" style="background:#10b981;">✨</div>
+        <div class="tab-info">
+          <h4>신규 입점 브랜드</h4>
+          <p>무료배송 혜택</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상품 리스트 구역 -->
+  <section class="products-section">
+    <div class="section-title" id="selectedItemsTitle">AI 추천! 지금 긴급 소진 중인 재고 상품</div>
+    
+    <div class="grid-container">
+      <div class="product-card">
+        <div class="product-thumb">
+          <span class="thumb-icon">🧃</span>
+          <span class="thumb-brand">BEVERAGE & SOY</span>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">과다재고 긴급소진</span>
+            <div class="product-title">[Coupong 파트너] 음료/두유 종합 선물세트</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">45%</span>
+            <span class="price">15,900원</span>
+            <span class="original-price">29,000원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-thumb">
+          <span class="thumb-icon">💊</span>
+          <span class="thumb-brand">HEALTH CARE</span>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">유통기한 임박</span>
+            <div class="product-title">프리미엄 건강기능식품 30일분</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">70%</span>
+            <span class="price">9,900원</span>
+            <span class="original-price">33,000원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-thumb">
+          <span class="thumb-icon">🧴</span>
+          <span class="thumb-brand">ECO LIVING</span>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">B2B 벌크</span>
+            <div class="product-title">친환경 리빙 주방세제 대용량 5L</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">30%</span>
+            <span class="price">21,000원</span>
+            <span class="original-price">30,000원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-thumb">
+          <span class="thumb-icon">🥣</span>
+          <span class="thumb-brand">ORGANIC FOOD</span>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">한정수량</span>
+            <div class="product-title">유기농 곡물 시리얼 400g x 3팩</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">55%</span>
+            <span class="price">11,200원</span>
+            <span class="original-price">25,000원</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const selectedSellItems = JSON.parse(localStorage.getItem('selectedSellItems') || '[]');
+    const selectedItemsTitle = document.getElementById('selectedItemsTitle');
+    if (selectedSellItems.length > 0) {
+      selectedItemsTitle.textContent = `판매 등록 상품 (${selectedSellItems.length}개)`;
+      const productGrid = document.querySelector('.grid-container');
+      productGrid.innerHTML = selectedSellItems.map((item) => `
+        <div class="product-card">
+          <div class="product-thumb">
+            <span class="thumb-icon">📦</span>
+            <span class="thumb-brand">StockClear Item</span>
+          </div>
+          <div class="product-details">
+            <div>
+              <span class="product-tag">StockClear 판매 중</span>
+              <div class="product-title">${escapeHtml(item.product_name || '상품명 없음')}</div>
+            </div>
+            <div class="price-group">
+              <span class="price">${Number(item.mock_market_price || item.selling_price || 0).toLocaleString('ko-KR')}원</span>
+              <span class="original-price">재고 ${Number(item.stock_qty || 0).toLocaleString('ko-KR')}개</span>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+
+</body>
+</html>

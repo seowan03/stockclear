@@ -37,5 +37,10 @@ def read_root():
     return FileResponse("static/upload.html")
 
 
+@app.get("/Sellpage.html")
+def read_sell_page():
+    return FileResponse("Sellpage.html")
+
+
 app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/", StaticFiles(directory="static"), name="static")
