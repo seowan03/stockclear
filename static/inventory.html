@@ -414,7 +414,9 @@ function switchTab(tabName) {
       const tbody = document.getElementById('inventoryBody');
       tbody.innerHTML = '';
 
-      inventoryData.forEach((item) => {
+      if (inventoryData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
+      } else inventoryData.forEach((item) => {
         const riskStyles = getRiskStyles(item.status);
         const qtyClass = `${riskStyles.text} font-semibold`;
 
@@ -587,11 +589,26 @@ function switchTab(tabName) {
     }
 
     async function moveToTrash(id) {
-      const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
-      if (response.status === 401) return window.location.href = 'signin.html';
-      if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
-      await loadInventoryData();
-      await loadTrashData();
+      try {
+        const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
+        if (response.status === 401) return window.location.href = 'signin.html';
+        if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
+
+        const itemIndex = inventoryData.findIndex((item) => item.id === Number(id));
+        if (itemIndex === -1) return await loadInventoryData();
+
+        const [item] = inventoryData.splice(itemIndex, 1);
+        trashData.unshift({
+          id: item.id,
+          internalCode: item.internalCode,
+          name: item.name,
+          currentQty: item.currentQty,
+        });
+        renderTable();
+        renderTrash();
+      } catch (error) {
+        alert(error.message || '재고를 휴지통으로 이동하지 못했습니다.');
+      }
     }
 
     async function loadTrashData() {
@@ -640,7 +657,6 @@ function switchTab(tabName) {
       if (response.status === 401) return window.location.href = 'signin.html';
       if (!response.ok) return alert('재고를 복원하지 못했습니다.');
       await loadInventoryData();
-      await loadTrashData();
     }
 
     // 영구 삭제
