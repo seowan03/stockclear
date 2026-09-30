@@ -1,9 +1,11 @@
 import csv
 import io
 import unittest
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -42,6 +44,16 @@ class InventoryUpsertApiTests(unittest.TestCase):
             "/api/upload",
             files={"file": (name, self._csv_file(rows), "text/csv")},
         )
+
+    def _xlsx_file(self, rows):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(REQUIRED_COLUMNS)
+        for row in rows:
+            sheet.append(row)
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+        return buffer.getvalue()
 
     def test_trimmed_product_name_and_date_upsert_is_user_scoped(self):
         with (
@@ -109,6 +121,44 @@ class InventoryUpsertApiTests(unittest.TestCase):
             first_user_items = client.get("/api/inventory").json()["items"]
             self.assertEqual(len(first_user_items), 1)
             self.assertEqual(first_user_items[0]["stock_qty"], 12)
+
+    def test_future_inbound_date_is_rejected_for_csv_and_xlsx(self):
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        with (
+            patch.object(database, "engine", self.engine),
+            patch.object(database, "SessionLocal", self.session_factory),
+            patch.object(upload_router, "get_upload_diagnosis_summary", return_value="test summary"),
+            TestClient(app) as client,
+        ):
+            signup = client.post("/api/auth/signup", json={
+                "username": "Date Test",
+                "email": "future-date@example.test",
+                "password": "test-password",
+            })
+            self.assertEqual(signup.status_code, 200, signup.text)
+
+            csv_response = self._upload(
+                client,
+                "future-date.csv",
+                [["Future CSV", 1, 100, tomorrow, 150, 1]],
+            )
+            xlsx_response = client.post(
+                "/api/upload",
+                files={
+                    "file": (
+                        "future-date.xlsx",
+                        self._xlsx_file([["Future XLSX", 1, 100, tomorrow, 150, 1]]),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                },
+            )
+
+            for response in (csv_response, xlsx_response):
+                self.assertEqual(response.status_code, 400, response.text)
+                self.assertIn("[입고일]", response.json()["detail"])
+                self.assertIn("미래", response.json()["detail"])
+
+            self.assertEqual(client.get("/api/inventory").json()["items"], [])
 
 
 if __name__ == "__main__":

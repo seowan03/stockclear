@@ -80,7 +80,9 @@ def validate_upload_dataframe(df: pd.DataFrame) -> None:
         stock_date = row.get("입고일")
         if pd.notna(stock_date) and str(stock_date).strip() not in ["", "nan", "None"]:
             try:
-                pd.to_datetime(stock_date)
+                parsed_date = pd.to_datetime(stock_date).date()
+                if parsed_date > pd.Timestamp.today().date():
+                    errors.append(f"{row_num}행 [입고일]: 미래 날짜는 입력할 수 없습니다.")
             except Exception:
                 errors.append(f"{row_num}행 [입고일]: 올바른 날짜 형식이 아닙니다 ('{stock_date}').")
 
