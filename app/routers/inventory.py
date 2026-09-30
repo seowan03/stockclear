@@ -1,13 +1,13 @@
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.config import RISK_GRADE_META
 from app.database import get_db
-from app.models import AnalysisResult, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
+from app.models import AnalysisResult, InventoryDailyMetric, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
 from app.schemas import InventorySellingBatchUpdate, InventorySellingUpdate
 from app.security import get_current_user
 from app.services.inventory_service import (
@@ -113,17 +113,57 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
     } for analysis, item in rows]}
 
 
-@router.get("/api/inventory/trash")
-def list_deleted_inventory(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    rows = query_user_analysis(db, current_user.user_id, include_deleted=True).filter(
-        RawInventory.is_deleted.is_(True)
-    ).order_by(AnalysisResult.final_score.desc()).all()
-    return {"items": [{
-        "item_id": item.item_id,
-        "product_name": item.product_name,
-        "stock_qty": item.stock_qty,
-        "risk_grade": analysis.risk_grade,
-    } for analysis, item in rows]}
+@router.get("/api/inventory/daily")
+def list_daily_inventory(
+    business_date: date,
+    upload_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    upload = None
+    if upload_id is not None:
+        upload = db.query(UploadHistory).filter(
+            UploadHistory.id == upload_id,
+            UploadHistory.user_id == current_user.user_id,
+        ).first()
+        if not upload:
+            raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+
+    query = db.query(InventoryDailyMetric, RawInventory).join(
+        RawInventory,
+        RawInventory.item_id == InventoryDailyMetric.item_id,
+    ).filter(
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(False),
+        InventoryDailyMetric.business_date == business_date,
+    )
+    if upload is not None:
+        upload_filter = RawInventory.upload_file_id == upload.id
+        if upload.content_hash:
+            upload_filter = or_(
+                upload_filter,
+                and_(
+                    RawInventory.upload_file_id.is_(None),
+                    RawInventory.upload_batch_id == upload.content_hash,
+                ),
+            )
+        query = query.filter(upload_filter)
+
+    weekday_names = ("월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일")
+    rows = query.order_by(RawInventory.item_id).all()
+    return {
+        "business_date": business_date.isoformat(),
+        "weekday": weekday_names[business_date.weekday()],
+        "items": [{
+            "item_id": item.item_id,
+            "product_name": item.product_name,
+            "business_date": metric.business_date.isoformat(),
+            "weekday": weekday_names[metric.business_date.weekday()],
+            "daily_sales_qty": metric.daily_sales_qty,
+            "daily_selling_price": float(metric.daily_selling_price),
+            "price_variation_rate": float(metric.price_variation_rate),
+        } for metric, item in rows],
+    }
 
 
 @router.post("/api/inventory/{item_id}/refresh-market-price")
@@ -160,7 +200,7 @@ def refresh_inventory_market_price(
 
 
 @router.delete("/api/inventory/{item_id}")
-def move_inventory_to_trash(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def delete_inventory_item(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     item = db.query(RawInventory).filter(
         RawInventory.item_id == item_id,
         RawInventory.user_id == current_user.user_id,
@@ -168,55 +208,16 @@ def move_inventory_to_trash(item_id: int, db: Session = Depends(get_db), current
     ).first()
     if not item:
         raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
-    item.is_deleted = True
-    mark_latest_upload_summary_stale(db, current_user.user_id)
-    db.commit()
-    return {"status": "deleted", "item_id": item_id}
-
-
-@router.post("/api/inventory/{item_id}/restore")
-def restore_inventory(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    item = db.query(RawInventory).filter(
-        RawInventory.item_id == item_id,
-        RawInventory.user_id == current_user.user_id,
-        RawInventory.is_deleted.is_(True),
-    ).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="휴지통에서 재고를 찾을 수 없습니다.")
-    item.is_deleted = False
-    mark_latest_upload_summary_stale(db, current_user.user_id)
-    db.commit()
-    return {"status": "restored", "item_id": item_id}
-
-
-@router.delete("/api/inventory/{item_id}/permanent")
-def permanently_delete_inventory(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    item = db.query(RawInventory).filter(
-        RawInventory.item_id == item_id,
-        RawInventory.user_id == current_user.user_id,
-        RawInventory.is_deleted.is_(True),
-    ).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="휴지통에서 재고를 찾을 수 없습니다.")
-    db.query(AnalysisResult).filter(AnalysisResult.item_id == item_id).delete()
+    db.query(InventoryDailyMetric).filter(
+        InventoryDailyMetric.item_id == item_id,
+    ).delete(synchronize_session=False)
+    db.query(AnalysisResult).filter(
+        AnalysisResult.item_id == item_id,
+    ).delete(synchronize_session=False)
     db.delete(item)
     mark_latest_upload_summary_stale(db, current_user.user_id)
     db.commit()
-    return {"status": "permanently_deleted", "item_id": item_id}
-
-
-@router.delete("/api/inventory/trash/empty")
-def empty_inventory_trash(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    deleted_ids = [row.item_id for row in db.query(RawInventory.item_id).filter(
-        RawInventory.user_id == current_user.user_id,
-        RawInventory.is_deleted.is_(True),
-    ).all()]
-    if deleted_ids:
-        db.query(AnalysisResult).filter(AnalysisResult.item_id.in_(deleted_ids)).delete(synchronize_session=False)
-        db.query(RawInventory).filter(RawInventory.item_id.in_(deleted_ids)).delete(synchronize_session=False)
-        mark_latest_upload_summary_stale(db, current_user.user_id)
-        db.commit()
-    return {"status": "emptied", "deleted_count": len(deleted_ids)}
+    return {"status": "deleted", "item_id": item_id}
 
 
 @router.get("/api/inventory/{item_id}")

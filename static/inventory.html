@@ -11,7 +11,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome & SheetJS CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link rel="stylesheet" href="css/style.css?v=20260922-navfix">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
@@ -50,25 +49,23 @@
       </div>
       <div class="flex items-center gap-3">
         <a id="allInventoryLink" href="inventory.html" class="hidden px-4 py-2.5 text-xs font-semibold border border-gray-700 text-gray-300 rounded-xl">전체 재고 보기</a>
-        <!-- 휴지통 버튼 -->
-        <button class="relative p-2.5 bg-gray-900 border border-gray-800 rounded-xl hover:bg-gray-800 text-gray-300 hover:text-white transition-all" onclick="openTrashModal()" title="휴지통 보기">
-          <i class="fa-solid fa-trash-can text-sm"></i>
-          <span class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#0b1120]" id="trashCount">0</span>
-        </button>
-        <!-- 엑셀 다운로드 버튼 -->
-        <button class="px-4 py-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-600/30 transition-all flex items-center" onclick="exportExcel()">
-          <i class="fa-solid fa-file-excel mr-2"></i>엑셀 다운로드
-        </button>
-        <!-- 재고 추가 업로드 버튼 -->
-        <a href="upload.html" class="px-4 py-2.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-white rounded-xl transition-all flex items-center">
-          <i class="fa-solid fa-cloud-arrow-up mr-2"></i>파일 업로드
-        </a>
       </div>
     </div>
   </div>
 
     <!-- 검색 및 필터 -->
-    <div class="bg-gray-900/60 border border-gray-800/80 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row gap-3">
+    <div class="bg-gray-900/60 border border-gray-800/80 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-end gap-3">
+      <div class="w-full md:w-56 shrink-0">
+        <span class="block text-xs font-semibold text-gray-300 mb-1.5">조회 날짜</span>
+        <div class="relative">
+          <button type="button" id="openHistoryDatePicker" onclick="openHistoryDatePicker()" aria-controls="historyDatePicker" class="w-full flex items-center justify-between gap-3 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-white hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60">
+            <span class="flex items-center gap-2"><i class="fa-regular fa-calendar-days text-blue-300" aria-hidden="true"></i><span id="historyDateLabel">2026. 09. 30.</span></span>
+            <span id="historyWeekday" class="text-xs text-blue-300" aria-live="polite">수요일</span>
+          </button>
+          <input type="date" id="historyDatePicker" aria-label="조회 날짜 선택" aria-hidden="true" tabindex="-1" class="absolute left-1 top-1 h-px w-px opacity-0" onchange="updateHistoryDate()">
+        </div>
+      </div>
+      <span id="dailyDataStatus" class="w-full md:w-44 shrink-0 pb-2 text-xs text-gray-400" aria-live="polite"></span>
       <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="내부 품목 코드 또는 품목명 검색..." onkeyup="filterItems()">
       <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
         <option value="ALL">전체 상태 보기</option>
@@ -80,7 +77,7 @@
     </div>
 
     <!-- 재고 테이블 -->
-    <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl shadow-xl overflow-hidden">
+    <div class="bg-gray-900/60 border border-gray-800/80 rounded-2xl shadow-xl overflow-x-auto">
       <table class="w-full text-left border-collapse" id="inventoryTable">
         <thead>
           <tr class="border-b border-gray-800 bg-gray-950/50 text-xs font-semibold text-gray-400 uppercase tracking-wider">
@@ -89,6 +86,8 @@
             <th class="py-3.5 px-6">현재 수량</th>
             <th class="py-3.5 px-6">원가</th>
             <th class="py-3.5 px-6">판매가</th>
+            <th class="py-3.5 px-6 whitespace-nowrap">조회일 시세</th>
+            <th class="py-3.5 px-6 whitespace-nowrap">해당일 판매량</th>
             <th class="py-3.5 px-6">상태</th>
             <th class="py-3.5 px-6 text-right">관리</th>
           </tr>
@@ -256,36 +255,6 @@
     </div>
   </div>
 
-  <!-- 휴지통 모달 창 -->
-  <div class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4" id="trashModal">
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-950/50">
-        <h2 class="text-base font-bold text-white flex items-center"><i class="fa-solid fa-trash-can mr-2 text-red-500"></i>휴지통</h2>
-        <button class="text-gray-400 hover:text-white text-xl font-bold" onclick="closeTrashModal()">&times;</button>
-      </div>
-      <div class="p-6 max-h-[60vh] overflow-y-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="border-b border-gray-800 text-xs font-semibold text-gray-400">
-              <th class="pb-3">내부 품목 코드</th>
-              <th class="pb-3">품목명</th>
-              <th class="pb-3">현재 수량</th>
-              <th class="pb-3 text-right">관리</th>
-            </tr>
-          </thead>
-          <tbody id="trashBody" class="divide-y divide-gray-800 text-sm"></tbody>
-        </table>
-        <div id="emptyTrashMsg" class="text-center py-8 text-gray-500 text-sm hidden">
-          휴지통이 비어 있습니다.
-        </div>
-      </div>
-      <div class="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-gray-950/50">
-        <button class="px-3.5 py-1.5 text-xs font-semibold bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 rounded-lg transition-colors" onclick="emptyTrashAll()">휴지통 비우기</button>
-        <button class="px-4 py-1.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors" onclick="closeTrashModal()">닫기</button>
-      </div>
-    </div>
-  </div>
-
   <!-- FOOTER -->
   <footer class="bg-gray-950 border-t border-gray-800/80 py-8 px-6 text-center text-xs text-gray-500">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
@@ -329,6 +298,10 @@ function switchTab(tabName) {
     let inventoryData = [];
     let selectedInventoryId = null;
     const currentUploadId = new URLSearchParams(window.location.search).get('upload_id');
+    const HISTORY_WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+    let dailyMetricsByItemId = new Map();
+    let dailyMetricsRequestId = 0;
+    let inventoryDataLoaded = false;
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -380,6 +353,8 @@ function switchTab(tabName) {
         currentQty: StockClear.number(item.stock_qty),
         purchasePrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
         sellingPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
+        sellingPriceValue: StockClear.number(item.selling_price),
+        mockMarketPriceValue: StockClear.number(item.mock_market_price),
         status: statusText,
         statusText,
         icon: 'fa-box-open',
@@ -408,17 +383,117 @@ function switchTab(tabName) {
       });
     }
 
-    let trashData = [];
+    function formatDateInputValue(year, month, day) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function addDaysToDateInputValue(value, days) {
+      const [year, month, day] = value.split('-').map(Number);
+      const date = new Date(year, month - 1, day + days);
+      return formatDateInputValue(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    }
+
+    function updateHistoryDateLabel() {
+      const datePicker = document.getElementById('historyDatePicker');
+      const selectedDate = datePicker.value;
+      if (!selectedDate) return;
+
+      const [year, month, day] = selectedDate.split('-').map(Number);
+      const weekday = HISTORY_WEEKDAYS[new Date(year, month - 1, day).getDay()];
+      document.getElementById('historyDateLabel').textContent = `${year}. ${String(month).padStart(2, '0')}. ${String(day).padStart(2, '0')}.`;
+      document.getElementById('historyWeekday').textContent = weekday;
+    }
+
+    function updateHistoryDateRange() {
+      const datePicker = document.getElementById('historyDatePicker');
+      const inboundDates = inventoryData
+        .map((item) => item.date)
+        .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value || ''))
+        .sort();
+
+      if (inboundDates.length === 0) {
+        datePicker.disabled = true;
+        document.getElementById('dailyDataStatus').textContent = '조회할 재고 데이터가 없습니다.';
+        return;
+      }
+
+      datePicker.disabled = false;
+      datePicker.min = inboundDates[0];
+      datePicker.max = addDaysToDateInputValue(inboundDates[inboundDates.length - 1], 30);
+      if (!datePicker.value || datePicker.value < datePicker.min || datePicker.value > datePicker.max) {
+        datePicker.value = datePicker.max;
+      }
+      updateHistoryDateLabel();
+    }
+
+    function updateHistoryDate() {
+      updateHistoryDateLabel();
+      if (inventoryDataLoaded) {
+        dailyMetricsByItemId = new Map();
+        document.getElementById('dailyDataStatus').textContent = '일별 데이터 조회 중...';
+        renderTable();
+        loadDailyInventoryData();
+      }
+    }
+
+    function openHistoryDatePicker() {
+      const datePicker = document.getElementById('historyDatePicker');
+      if (typeof datePicker.showPicker === 'function') {
+        datePicker.showPicker();
+      } else {
+        datePicker.focus();
+        datePicker.click();
+      }
+    }
+
+    async function loadDailyInventoryData() {
+      const requestId = ++dailyMetricsRequestId;
+      const selectedDate = document.getElementById('historyDatePicker').value;
+      const status = document.getElementById('dailyDataStatus');
+        if (!selectedDate) {
+          dailyMetricsByItemId = new Map();
+          status.textContent = '조회 가능한 날짜 데이터가 없습니다.';
+          renderTable();
+          return;
+        }
+      const params = new URLSearchParams({ business_date: selectedDate });
+      if (currentUploadId) params.set('upload_id', currentUploadId);
+
+      try {
+        const response = await fetch(`/api/inventory/daily?${params.toString()}`, { credentials: 'include' });
+        if (requestId !== dailyMetricsRequestId) return;
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (!response.ok) throw new Error('일별 데이터를 불러오지 못했습니다.');
+
+        const payload = await response.json();
+        if (requestId !== dailyMetricsRequestId) return;
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        dailyMetricsByItemId = new Map(items.map((item) => [Number(item.item_id), item]));
+        status.textContent = items.length
+          ? `${items.length}개 품목의 저장된 일별 데이터`
+          : '선택한 날짜의 일별 데이터가 없습니다.';
+        renderTable();
+      } catch (error) {
+        if (requestId !== dailyMetricsRequestId) return;
+        dailyMetricsByItemId = new Map();
+        status.textContent = error.message || '일별 데이터를 불러오지 못했습니다.';
+        renderTable();
+      }
+    }
 
     function renderTable() {
       const tbody = document.getElementById('inventoryBody');
       tbody.innerHTML = '';
 
       if (inventoryData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
       } else inventoryData.forEach((item) => {
         const riskStyles = getRiskStyles(item.status);
         const qtyClass = `${riskStyles.text} font-semibold`;
+        const dailyMetric = dailyMetricsByItemId.get(item.id);
 
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-800/30 transition-colors';
@@ -433,6 +508,8 @@ function switchTab(tabName) {
           <td class="py-4 px-6 ${qtyClass}">${item.currentQty} 개</td>
           <td class="py-4 px-6 text-gray-400">${item.purchasePrice}</td>
           <td class="py-4 px-6 text-gray-400">${item.sellingPrice}</td>
+          <td class="py-4 px-6 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원` : '-'}</td>
+          <td class="py-4 px-6 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
           <td class="py-4 px-6">
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}">${escapeHtml(item.statusText)}</span>
           </td>
@@ -443,7 +520,7 @@ function switchTab(tabName) {
             <button class="px-2.5 py-1.5 text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 rounded-md transition-colors" onclick="refreshMarketPrice(${item.id}, this)" title="더미 시세 갱신">
               <i class="fa-solid fa-arrows-rotate mr-1" aria-hidden="true"></i>시세 갱신
             </button>
-            <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
+            <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="deleteInventoryItem(${item.id})" title="영구 삭제">
               <i class="fa-solid fa-trash-can"></i>
             </button>
           </td>
@@ -451,7 +528,6 @@ function switchTab(tabName) {
         tbody.appendChild(tr);
       });
 
-      document.getElementById('trashCount').innerText = trashData.length;
       filterItems();
     }
 
@@ -588,106 +664,22 @@ function switchTab(tabName) {
       }
     }
 
-    async function moveToTrash(id) {
+    async function deleteInventoryItem(id) {
+      if (!confirm('이 재고와 분석 데이터를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+
       try {
         const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
         if (response.status === 401) return window.location.href = 'signin.html';
-        if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
+        if (!response.ok) return alert('재고를 삭제하지 못했습니다.');
 
         const itemIndex = inventoryData.findIndex((item) => item.id === Number(id));
         if (itemIndex === -1) return await loadInventoryData();
 
-        const [item] = inventoryData.splice(itemIndex, 1);
-        trashData.unshift({
-          id: item.id,
-          internalCode: item.internalCode,
-          name: item.name,
-          currentQty: item.currentQty,
-        });
+        inventoryData.splice(itemIndex, 1);
         renderTable();
-        renderTrash();
       } catch (error) {
-        alert(error.message || '재고를 휴지통으로 이동하지 못했습니다.');
+        alert(error.message || '재고를 삭제하지 못했습니다.');
       }
-    }
-
-    async function loadTrashData() {
-      const response = await fetch('/api/inventory/trash', { credentials: 'include' });
-      if (!response.ok) throw new Error('휴지통 데이터를 불러오지 못했습니다.');
-      const payload = await response.json();
-      trashData = (payload.items || []).map((item) => ({
-        id: Number(item.item_id),
-        internalCode: String(item.item_id),
-        name: item.product_name || '이름 없음',
-        currentQty: StockClear.number(item.stock_qty),
-      }));
-      document.getElementById('trashCount').innerText = trashData.length;
-      renderTrash();
-    }
-
-    function renderTrash() {
-      const trashBody = document.getElementById('trashBody');
-      const emptyMsg = document.getElementById('emptyTrashMsg');
-      trashBody.innerHTML = '';
-
-      if (trashData.length === 0) {
-        emptyMsg.classList.remove('hidden');
-      } else {
-        emptyMsg.classList.add('hidden');
-        trashData.forEach((item) => {
-          const tr = document.createElement('tr');
-          tr.className = 'hover:bg-gray-800/30 transition-colors';
-          tr.innerHTML = `
-            <td class="py-3 font-mono text-blue-400">${item.internalCode}</td>
-            <td class="py-3 text-gray-200">${escapeHtml(item.name)}</td>
-            <td class="py-3 text-gray-400">${item.currentQty} 개</td>
-            <td class="py-3 text-right space-x-2">
-              <button class="px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-md hover:bg-blue-600/30 transition-colors" onclick="restoreItem(${item.id})">복원</button>
-              <button class="px-2.5 py-1 text-xs bg-red-600/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-600/30 transition-colors" onclick="deletePermanently(${item.id})">삭제</button>
-            </td>
-          `;
-          trashBody.appendChild(tr);
-        });
-      }
-      document.getElementById('trashCount').innerText = trashData.length;
-    }
-
-    async function restoreItem(id) {
-      const response = await fetch(`/api/inventory/${id}/restore`, { method: 'POST', credentials: 'include' });
-      if (response.status === 401) return window.location.href = 'signin.html';
-      if (!response.ok) return alert('재고를 복원하지 못했습니다.');
-      await loadInventoryData();
-    }
-
-    // 영구 삭제
-    async function deletePermanently(id) {
-      if (confirm('완전히 삭제하시겠습니까?')) {
-        const response = await fetch(`/api/inventory/${id}/permanent`, { method: 'DELETE', credentials: 'include' });
-        if (response.status === 401) return window.location.href = 'signin.html';
-        if (!response.ok) return alert('재고를 영구 삭제하지 못했습니다.');
-        await loadTrashData();
-      }
-    }
-
-    // 휴지통 비우기
-    async function emptyTrashAll() {
-      if (trashData.length === 0) return;
-      if (confirm('휴지통을 완전히 비우시겠습니까?')) {
-        const response = await fetch('/api/inventory/trash/empty', { method: 'DELETE', credentials: 'include' });
-        if (response.status === 401) return window.location.href = 'signin.html';
-        if (!response.ok) return alert('휴지통을 비우지 못했습니다.');
-        await loadTrashData();
-      }
-    }
-
-    // 모달 제어
-    async function openTrashModal() {
-      await loadTrashData();
-      document.getElementById('trashModal').classList.add('active');
-    }
-
-    function closeTrashModal() {
-      document.getElementById('trashModal').classList.remove('active');
     }
 
     // 검색 및 필터링
@@ -712,16 +704,9 @@ function switchTab(tabName) {
       });
     }
 
-    // 엑셀 내보내기 기능
-    function exportExcel() {
-      const table = document.getElementById('inventoryTable');
-      const wb = XLSX.utils.table_to_book(table, { sheet: "재고목록" });
-      XLSX.writeFile(wb, "StockClear_재고목록.xlsx");
-    }
-
     async function loadInventoryData() {
       const tbody = document.getElementById('inventoryBody');
-      tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
       try {
         const inventoryUrl = currentUploadId
           ? `/api/inventory?upload_id=${encodeURIComponent(currentUploadId)}`
@@ -734,24 +719,28 @@ function switchTab(tabName) {
         if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
         const payload = await response.json();
         setInventoryData(Array.isArray(payload.items) ? payload.items : []);
+        updateHistoryDateRange();
+        inventoryDataLoaded = true;
         if (currentUploadId) {
           document.getElementById('inventoryTitle').textContent = payload.upload_file_name
             ? `${payload.upload_file_name} 재고`
             : '선택한 업로드 파일의 재고';
           document.getElementById('allInventoryLink').classList.remove('hidden');
         }
-        await loadTrashData();
         if (!inventoryData.length) {
-          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
+          dailyMetricsByItemId = new Map();
+          document.getElementById('dailyDataStatus').textContent = '등록된 재고 데이터가 없습니다.';
+          renderTable();
           return;
         }
-        renderTable();
+        await loadDailyInventoryData();
       } catch (error) {
         console.error('재고 데이터 로딩 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
       }
     }
 
+    updateHistoryDate();
     loadInventoryData();
   </script>
 </body>

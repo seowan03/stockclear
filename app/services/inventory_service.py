@@ -2,10 +2,11 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory
+from app.services.daily_inventory_service import replace_daily_inventory_metrics
 from app.services.mock_market_price import generate_mock_market_price
 
 
@@ -23,34 +24,33 @@ def save_inventory_analysis(
     rows_by_key = {}
     for _, row in df.iterrows():
         product_name = str(row["product_name"]).strip()
-        inbound_date = pd.to_datetime(row["received_date"]).date()
-        rows_by_key[(product_name, inbound_date)] = row
+        rows_by_key[product_name] = row
 
     existing_by_key = {}
     existing_candidates = {}
-    requested_keys = set(rows_by_key)
-    inbound_dates = list({inbound_date for _, inbound_date in requested_keys})
-    for offset in range(0, len(inbound_dates), 500):
-        date_batch = inbound_dates[offset:offset + 500]
+    requested_names = set(rows_by_key)
+    product_names = list(requested_names)
+    for offset in range(0, len(product_names), 500):
+        name_batch = product_names[offset:offset + 500]
         candidates = db.query(RawInventory).filter(
             RawInventory.user_id == user_id,
-            RawInventory.inbound_date.in_(date_batch),
-        ).order_by(RawInventory.item_id).all()
+            func.trim(RawInventory.product_name).in_(name_batch),
+        ).order_by(RawInventory.item_id.desc()).all()
         for candidate in candidates:
-            key = (str(candidate.product_name or "").strip(), candidate.inbound_date)
-            if key in requested_keys:
-                existing_candidates.setdefault(key, []).append(candidate)
+            product_name = str(candidate.product_name or "").strip()
+            if product_name in requested_names:
+                existing_candidates.setdefault(product_name, []).append(candidate)
 
-    for key, candidates in existing_candidates.items():
-        candidates.sort(key=lambda item: (bool(item.is_deleted), item.item_id))
-        existing_by_key[key] = candidates[0]
+    for product_name, candidates in existing_candidates.items():
+        candidates.sort(key=lambda item: (bool(item.is_deleted), -item.item_id))
+        existing_by_key[product_name] = candidates[0]
         for duplicate in candidates[1:]:
             if not duplicate.is_deleted:
                 duplicate.is_deleted = True
 
     saved_rows = []
-    for key, row in rows_by_key.items():
-        raw_row = existing_by_key.get(key)
+    for product_name, row in rows_by_key.items():
+        raw_row = existing_by_key.get(product_name)
         if raw_row is None:
             raw_row = RawInventory(
                 user_id=user_id,
@@ -60,12 +60,12 @@ def save_inventory_analysis(
 
         raw_row.upload_batch_id = str(upload_batch_id)
         raw_row.upload_file_id = upload_file_id
-        raw_row.product_name = key[0]
+        raw_row.product_name = product_name
         raw_row.stock_qty = int(row["stock_qty"])
         raw_row.purchase_price = row["purchase_price"]
         raw_row.market_price = row["selling_price"]
         raw_row.mock_market_price = generate_mock_market_price(row["selling_price"], price_rng)
-        raw_row.inbound_date = key[1]
+        raw_row.inbound_date = pd.to_datetime(row["received_date"]).date()
         raw_row.sales_qty = int(row["sales_qty"])
         raw_row.is_deleted = False
         saved_rows.append((raw_row, row))
@@ -98,6 +98,13 @@ def save_inventory_analysis(
         analysis.action_plans = None
         analysis.recommended_price = None
         analysis.updated_at = now
+        replace_daily_inventory_metrics(
+            db,
+            user_id,
+            raw_row.item_id,
+            raw_row.inbound_date,
+            raw_row.market_price,
+        )
 
 
 def save_upload_history(
