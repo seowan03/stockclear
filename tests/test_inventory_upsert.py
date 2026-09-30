@@ -55,7 +55,7 @@ class InventoryUpsertApiTests(unittest.TestCase):
         workbook.save(buffer)
         return buffer.getvalue()
 
-    def test_trimmed_product_name_and_date_upsert_is_user_scoped(self):
+    def test_trimmed_product_name_upsert_updates_date_and_is_user_scoped(self):
         with (
             patch.object(database, "engine", self.engine),
             patch.object(database, "SessionLocal", self.session_factory),
@@ -84,7 +84,7 @@ class InventoryUpsertApiTests(unittest.TestCase):
             updated_upload = self._upload(
                 client,
                 "updated.csv",
-                [["Widget ", 12, 100, "2026-01-01", 150, 50]],
+                [["Widget ", 12, 100, "2026-02-01", 150, 50]],
             )
             self.assertEqual(updated_upload.status_code, 200, updated_upload.text)
 
@@ -93,6 +93,7 @@ class InventoryUpsertApiTests(unittest.TestCase):
             updated_item = updated_items[0]
             self.assertEqual(updated_item["item_id"], original_item_id)
             self.assertEqual(updated_item["product_name"], "Widget")
+            self.assertEqual(updated_item["received_date"], "2026-02-01")
             self.assertEqual(updated_item["stock_qty"], 12)
             self.assertEqual(updated_item["sales_qty"], 50)
             self.assertEqual(updated_item["inventory_value"], 1200)

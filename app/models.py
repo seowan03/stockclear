@@ -10,6 +10,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.sql import func
 
@@ -42,6 +43,21 @@ class RawInventory(Base):
   sales_qty = Column(Integer)
   is_selling = Column(Boolean, nullable=False, default=False, server_default="0")
   is_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
+
+
+class InventoryDailyMetric(Base):
+  __tablename__ = "inventory_daily_metrics"
+  __table_args__ = (
+    UniqueConstraint("item_id", "business_date", name="uq_inventory_daily_item_date"),
+  )
+
+  metric_id = Column(Integer, primary_key=True, autoincrement=True)
+  item_id = Column(Integer, ForeignKey("raw_inventory.item_id", ondelete="CASCADE"), nullable=False)
+  business_date = Column(Date, nullable=False)
+  daily_sales_qty = Column(Integer, nullable=False)
+  daily_selling_price = Column(Numeric(12, 2), nullable=False)
+  price_variation_rate = Column(Numeric(7, 5), nullable=False)
+  generated_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
 class AnalysisResult(Base):
