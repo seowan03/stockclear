@@ -105,4 +105,5 @@ def parse_and_analyze_upload(contents: bytes, filename: str, csv_encoding: str |
     if missing_columns:
         raise HTTPException(status_code=400, detail=f"필수 컬럼이 없습니다: {missing_columns}")
     validate_upload_dataframe(df)
+    df["상품명"] = df["상품명"].astype(str).str.strip()
     return analyze_inventory(df)
