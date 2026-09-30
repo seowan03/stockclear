@@ -159,4 +159,3 @@ def init_db():
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
     ensure_raw_inventory_mock_market_price_column()
     ensure_analysis_results_recommended_price_column()
-    ensure_analysis_results_recommended_price_column()
