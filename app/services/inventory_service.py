@@ -2,10 +2,13 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory
+from app.analysis import analyze_inventory
+from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory, User
+from app.schemas import InventoryGridBatchUpdate
 from app.services.daily_inventory_service import replace_daily_inventory_metrics
 from app.services.mock_market_price import generate_mock_market_price
 
@@ -20,6 +23,7 @@ def save_inventory_analysis(
 ) -> None:
     now = datetime.utcnow()
     price_rng = rng if rng is not None else np.random.default_rng()
+    db.query(User).filter(User.user_id == user_id).with_for_update().first()
 
     rows_by_key = {}
     for _, row in df.iterrows():
@@ -68,6 +72,8 @@ def save_inventory_analysis(
         raw_row.inbound_date = pd.to_datetime(row["received_date"]).date()
         raw_row.sales_qty = int(row["sales_qty"])
         raw_row.is_deleted = False
+        raw_row.version = (raw_row.version or 0) + 1 if raw_row.item_id else 1
+        raw_row.edited_at = None
         saved_rows.append((raw_row, row))
 
     db.flush()
@@ -105,6 +111,93 @@ def save_inventory_analysis(
             raw_row.inbound_date,
             raw_row.market_price,
         )
+
+
+def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatchUpdate) -> list[dict]:
+    db.query(User).filter(User.user_id == user_id).with_for_update().first()
+    edits = payload.items
+    item_ids = [edit.item_id for edit in edits]
+    if len(set(item_ids)) != len(item_ids):
+        raise HTTPException(status_code=409, detail="같은 품목이 요청에 중복되어 있습니다.")
+    names = [edit.product_name for edit in edits]
+    if len(set(names)) != len(names):
+        raise HTTPException(status_code=409, detail="상품명이 요청에 중복되어 있습니다.")
+
+    rows = db.query(RawInventory).filter(
+        RawInventory.user_id == user_id,
+        RawInventory.item_id.in_(item_ids),
+        RawInventory.is_deleted.is_(False),
+    ).all()
+    by_id = {row.item_id: row for row in rows}
+    if len(by_id) != len(edits):
+        raise HTTPException(status_code=404, detail="수정할 재고를 찾을 수 없습니다.")
+    if any(by_id[edit.item_id].version != edit.version for edit in edits):
+        raise HTTPException(status_code=409, detail="재고가 변경되었습니다. 새로고침 후 다시 수정해 주세요.")
+
+    conflicts = db.query(RawInventory.item_id).filter(
+        RawInventory.user_id == user_id,
+        RawInventory.is_deleted.is_(False),
+        RawInventory.item_id.notin_(item_ids),
+        func.trim(RawInventory.product_name).in_(names),
+    ).first()
+    if conflicts:
+        raise HTTPException(status_code=409, detail="동일한 상품명이 이미 있습니다.")
+
+    analyzed = analyze_inventory(pd.DataFrame([{
+        "상품명": edit.product_name,
+        "재고량": edit.stock_qty,
+        "원가": float(edit.purchase_price),
+        "입고일": edit.received_date.isoformat(),
+        "판매가": float(edit.selling_price),
+        "판매량": edit.sales_qty,
+    } for edit in edits]))
+    now = datetime.utcnow()
+    results = []
+    for edit, (_, values) in zip(edits, analyzed.iterrows()):
+        current = by_id[edit.item_id]
+        price_changed = current.market_price != edit.selling_price
+        updated = db.query(RawInventory).filter(
+            RawInventory.item_id == edit.item_id,
+            RawInventory.user_id == user_id,
+            RawInventory.is_deleted.is_(False),
+            RawInventory.version == edit.version,
+        ).update({
+            RawInventory.product_name: edit.product_name,
+            RawInventory.stock_qty: edit.stock_qty,
+            RawInventory.purchase_price: edit.purchase_price,
+            RawInventory.inbound_date: edit.received_date,
+            RawInventory.market_price: edit.selling_price,
+            RawInventory.sales_qty: edit.sales_qty,
+            RawInventory.mock_market_price: generate_mock_market_price(edit.selling_price) if price_changed else current.mock_market_price,
+            RawInventory.version: edit.version + 1,
+            RawInventory.edited_at: now,
+        }, synchronize_session=False)
+        if updated != 1:
+            raise HTTPException(status_code=409, detail="재고가 변경되었습니다. 새로고침 후 다시 수정해 주세요.")
+
+        analysis = db.query(AnalysisResult).filter(AnalysisResult.item_id == edit.item_id).first()
+        if analysis is None:
+            analysis = AnalysisResult(item_id=edit.item_id)
+            db.add(analysis)
+        analysis.sales_velocity = float(values["sales_speed"])
+        analysis.aging_days = int(values["storage_days"])
+        analysis.days_to_sell = int(min(values["days_to_sell"], 9999))
+        analysis.risk_grade = values["risk_grade"]
+        analysis.inventory_amount = values["inventory_value"]
+        analysis.final_score = float(values["final_score"])
+        analysis.fluctuation_rate = float(values["depreciation_rate"])
+        analysis.ai_diagnosis = None
+        analysis.action_plans = None
+        analysis.recommended_price = None
+        analysis.updated_at = now
+        replace_daily_inventory_metrics(db, user_id, edit.item_id, edit.received_date, edit.selling_price)
+        results.append({"item_id": edit.item_id, "version": edit.version + 1})
+
+    db.query(UploadAnalysisSummary).filter(
+        UploadAnalysisSummary.user_id == user_id,
+        UploadAnalysisSummary.status == "complete",
+    ).update({UploadAnalysisSummary.status: "stale"}, synchronize_session=False)
+    return results
 
 
 def save_upload_history(
