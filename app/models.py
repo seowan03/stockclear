@@ -43,6 +43,8 @@ class RawInventory(Base):
   sales_qty = Column(Integer)
   is_selling = Column(Boolean, nullable=False, default=False, server_default="0")
   is_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
+  version = Column(Integer, nullable=False, default=1, server_default="1")
+  edited_at = Column(DateTime, nullable=True)
 
 
 class InventoryDailyMetric(Base):

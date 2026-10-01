@@ -43,7 +43,12 @@ def _delete_uploads_with_inventory(db: Session, user_id: int, uploads: list[Uplo
 @router.get("")
 def list_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(UploadHistory).filter(UploadHistory.user_id == current_user.user_id).order_by(UploadHistory.upload_date.desc()).all()
-    return [{"id": row.id, "file_name": row.file_name, "size": row.size, "status": row.status, "upload_date": row.upload_date.isoformat() if row.upload_date else None} for row in rows]
+    edited_ids = {row.upload_file_id for row in db.query(RawInventory.upload_file_id).filter(
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.edited_at.isnot(None),
+        RawInventory.upload_file_id.isnot(None),
+    ).distinct().all()}
+    return [{"id": row.id, "file_name": row.file_name, "size": row.size, "status": row.status, "edited": row.id in edited_ids, "upload_date": row.upload_date.isoformat() if row.upload_date else None} for row in rows]
 
 
 @router.delete("/{history_id}")
