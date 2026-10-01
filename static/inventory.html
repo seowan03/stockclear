@@ -639,21 +639,6 @@ function switchTab(tabName) {
       await loadInventoryData();
     }
 
-      try {
-        const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
-        if (response.status === 401) return window.location.href = 'signin.html';
-        if (!response.ok) return alert('재고를 삭제하지 못했습니다.');
-
-        const itemIndex = inventoryData.findIndex((item) => item.id === Number(id));
-        if (itemIndex === -1) return await loadInventoryData();
-
-        inventoryData.splice(itemIndex, 1);
-        renderTable();
-      } catch (error) {
-        alert(error.message || '재고를 삭제하지 못했습니다.');
-      }
-    }
-
     // 검색 및 필터링
     function filterItems() {
       const searchVal = document.getElementById('searchInput').value.toLowerCase();
