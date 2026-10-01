@@ -140,10 +140,6 @@
             
             <div class="space-y-3 text-xs">
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
-                <span class="text-gray-400">카테고리</span>
-                <span class="text-gray-200 font-medium" id="modalCategory">-</span>
-              </div>
-              <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">내부 품목 코드</span>
                 <span class="text-blue-400 font-mono font-medium" id="modalItemCode">-</span>
               </div>
@@ -235,7 +231,6 @@
                   </div>
                 </div>
                 <p id="aiDiagnosis" class="rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-sm leading-relaxed text-gray-300 whitespace-pre-line break-words" role="status">AI 진단 결과가 없습니다.</p>
-                <button id="diagnoseButton" type="button" onclick="diagnoseInventory()" class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg">AI 진단 실행</button>
               </div>
             </div>
 
@@ -414,7 +409,9 @@ function switchTab(tabName) {
       const tbody = document.getElementById('inventoryBody');
       tbody.innerHTML = '';
 
-      inventoryData.forEach((item) => {
+      if (inventoryData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
+      } else inventoryData.forEach((item) => {
         const riskStyles = getRiskStyles(item.status);
         const qtyClass = `${riskStyles.text} font-semibold`;
 
@@ -435,12 +432,6 @@ function switchTab(tabName) {
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}">${escapeHtml(item.statusText)}</span>
           </td>
           <td class="py-4 px-6 text-right whitespace-nowrap space-x-2">
-            <button class="px-2.5 py-1.5 text-xs text-blue-300 hover:text-blue-200 hover:bg-blue-500/10 rounded-md transition-colors" onclick="diagnoseInventoryForItem(${item.id})" title="이 품목 AI 진단">
-              <i class="fa-solid fa-wand-magic-sparkles mr-1" aria-hidden="true"></i>AI 진단
-            </button>
-            <button class="px-2.5 py-1.5 text-xs text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 rounded-md transition-colors" onclick="refreshMarketPrice(${item.id}, this)" title="더미 시세 갱신">
-              <i class="fa-solid fa-arrows-rotate mr-1" aria-hidden="true"></i>시세 갱신
-            </button>
             <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
               <i class="fa-solid fa-trash-can"></i>
             </button>
@@ -465,7 +456,6 @@ function switchTab(tabName) {
       badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}`;
 
       document.getElementById('modalItemIcon').className = `fa-solid ${item.icon || 'fa-box-open'} text-6xl text-gray-700`;
-      document.getElementById('modalCategory').innerText = item.category;
       document.getElementById('modalItemCode').innerText = item.internalCode;
       document.getElementById('modalDate').innerText = item.date || '-';
       document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
@@ -502,96 +492,27 @@ function switchTab(tabName) {
       modal.classList.add('hidden');
     }
 
-    async function diagnoseInventory() {
-      if (!selectedInventoryId) return;
-      const button = document.getElementById('diagnoseButton');
-      const diagnosis = document.getElementById('aiDiagnosis');
-      button.disabled = true;
-      diagnosis.innerText = 'AI 진단 중입니다.';
-      try {
-        const response = await fetch(`/api/inventory/${selectedInventoryId}/ai-diagnose`, {
-          method: 'POST',
-          credentials: 'include'
-        });
-        const result = await response.json();
-        if (response.status === 401) {
-          window.location.href = 'signin.html';
-          return;
-        }
-        if (!response.ok) throw new Error(result.detail || 'AI 진단에 실패했습니다.');
-        diagnosis.innerText = formatRecommendationText(result.judgment || '-');
-        const discountLabel = result.recommended_discount == null
-          ? '-'
-          : `${Number(result.recommended_discount).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}%`;
-        document.getElementById('recDiscount').innerText = discountLabel;
-        if (result.recommended_price != null) {
-          const recommendedPrice = `${StockClear.formatNumber(result.recommended_price)}원`;
-          document.getElementById('recPrice').innerText = recommendedPrice;
-          const item = inventoryData.find((row) => row.id === selectedInventoryId);
-          if (item) item.recPrice = recommendedPrice;
-        }
-        const item = inventoryData.find((row) => row.id === selectedInventoryId);
-        if (item) {
-          item.aiDiagnosis = formatRecommendationText(result.judgment || '');
-          item.actionPlans = formatRecommendationText(result.action_plans || '');
-          item.recDiscount = discountLabel;
-        }
-      } catch (error) {
-        diagnosis.innerText = error.message || 'AI 진단에 실패했습니다.';
-      } finally {
-        button.disabled = false;
-      }
-    }
-
-    async function diagnoseInventoryForItem(id) {
-      openDetailModal(id);
-      switchTab('analysis');
-      await diagnoseInventory();
-    }
-
-    async function refreshMarketPrice(id, button) {
-      button.disabled = true;
-      try {
-        const response = await fetch(`/api/inventory/${id}/refresh-market-price`, {
-          method: 'POST',
-          credentials: 'include'
-        });
-        const result = await response.json().catch(() => ({}));
-        if (response.status === 401) {
-          window.location.href = 'signin.html';
-          return;
-        }
-        if (!response.ok) throw new Error(result.detail || '시세를 갱신하지 못했습니다.');
-
-        const item = inventoryData.find((row) => row.id === id);
-        const formattedPrice = `${StockClear.formatNumber(result.mock_market_price)} 원`;
-        if (item) {
-          item.mockMarketPrice = formattedPrice;
-          item.recPrice = '-';
-          item.recDiscount = '-';
-          item.actionPlans = result.action_plans || '';
-          item.aiDiagnosis = result.action_plans || '';
-        }
-        if (selectedInventoryId === id) {
-          document.getElementById('modalMockMarketPrice').innerText = formattedPrice;
-          document.getElementById('recDiscount').innerText = result.action_plans || '-';
-          document.getElementById('recPrice').innerText = '-';
-          document.getElementById('aiDiagnosis').innerText = result.action_plans || '-';
-        }
-        alert(`${formattedPrice}로 시세를 갱신했습니다. 새 시세 기준으로 AI 진단을 다시 실행해주세요.`);
-      } catch (error) {
-        alert(error.message || '시세를 갱신하지 못했습니다.');
-      } finally {
-        button.disabled = false;
-      }
-    }
-
     async function moveToTrash(id) {
-      const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
-      if (response.status === 401) return window.location.href = 'signin.html';
-      if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
-      await loadInventoryData();
-      await loadTrashData();
+      try {
+        const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
+        if (response.status === 401) return window.location.href = 'signin.html';
+        if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
+
+        const itemIndex = inventoryData.findIndex((item) => item.id === Number(id));
+        if (itemIndex === -1) return await loadInventoryData();
+
+        const [item] = inventoryData.splice(itemIndex, 1);
+        trashData.unshift({
+          id: item.id,
+          internalCode: item.internalCode,
+          name: item.name,
+          currentQty: item.currentQty,
+        });
+        renderTable();
+        renderTrash();
+      } catch (error) {
+        alert(error.message || '재고를 휴지통으로 이동하지 못했습니다.');
+      }
     }
 
     async function loadTrashData() {
@@ -640,7 +561,6 @@ function switchTab(tabName) {
       if (response.status === 401) return window.location.href = 'signin.html';
       if (!response.ok) return alert('재고를 복원하지 못했습니다.');
       await loadInventoryData();
-      await loadTrashData();
     }
 
     // 영구 삭제
