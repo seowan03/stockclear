@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.config import RISK_GRADE_META
 from app.database import get_db
-from app.models import AnalysisResult, InventoryDailyMetric, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
+from app.models import AnalysisResult, InventoryDailyMetric, InventoryMonthlySale, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
 from app.schemas import InventoryGridBatchUpdate, InventorySellingBatchUpdate, InventorySellingUpdate
 from app.security import get_current_user
+from app.services.daily_inventory_service import inventory_archive_before, inventory_today
 from app.services.inventory_service import (
     make_user_summary_input,
     mark_latest_upload_summary_stale,
@@ -91,7 +92,8 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
     if status:
         query = query.filter(AnalysisResult.risk_grade == status)
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
-    return {"upload_file_name": upload.file_name if upload else None, "items": [{
+    return {"upload_file_name": upload.file_name if upload else None,
+        "daily_window_start": inventory_archive_before(inventory_today()).isoformat(), "items": [{
         "item_id": item.item_id,
         "version": item.version,
         "edited_at": item.edited_at.isoformat() if item.edited_at else None,
@@ -179,6 +181,19 @@ def list_daily_inventory(
             InventoryDailyMetric.item_id.in_(legacy_item_ids),
             InventoryDailyMetric.business_date <= business_date,
         ).group_by(InventoryDailyMetric.item_id).all())
+    archived_sales = {}
+    if legacy_item_ids:
+        archived_sales = dict(db.query(
+            InventoryMonthlySale.item_id,
+            func.sum(InventoryMonthlySale.total_sales_qty),
+        ).join(
+            RawInventory,
+            RawInventory.item_id == InventoryMonthlySale.item_id,
+        ).filter(
+            RawInventory.user_id == current_user.user_id,
+            InventoryMonthlySale.item_id.in_(legacy_item_ids),
+            InventoryMonthlySale.month_start < business_date.replace(day=1),
+        ).group_by(InventoryMonthlySale.item_id).all())
     return {
         "business_date": business_date.isoformat(),
         "weekday": weekday_names[business_date.weekday()],
@@ -190,6 +205,7 @@ def list_daily_inventory(
             "daily_sales_qty": metric.daily_sales_qty,
             "remaining_stock_qty": metric.remaining_stock_qty if metric.remaining_stock_qty is not None else max(
                 0, int(item.stock_qty or 0) - int(legacy_sales.get(item.item_id, 0))
+                - int(archived_sales.get(item.item_id, 0))
             ),
             "daily_selling_price": float(metric.daily_selling_price),
             "price_variation_rate": float(metric.price_variation_rate),
@@ -232,6 +248,7 @@ def refresh_inventory_market_price(
 
 @router.delete("/api/inventory/{item_id}")
 def delete_inventory_item(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    db.query(User).filter(User.user_id == current_user.user_id).with_for_update().first()
     item = db.query(RawInventory).filter(
         RawInventory.item_id == item_id,
         RawInventory.user_id == current_user.user_id,
@@ -241,6 +258,9 @@ def delete_inventory_item(item_id: int, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
     db.query(InventoryDailyMetric).filter(
         InventoryDailyMetric.item_id == item_id,
+    ).delete(synchronize_session=False)
+    db.query(InventoryMonthlySale).filter(
+        InventoryMonthlySale.item_id == item_id,
     ).delete(synchronize_session=False)
     db.query(AnalysisResult).filter(
         AnalysisResult.item_id == item_id,

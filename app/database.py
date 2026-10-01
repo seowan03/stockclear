@@ -175,6 +175,8 @@ def init_db():
     테이블 생성 및 모든 컬럼 보정(Helper)을 한 번에 실행함.
     """
     Base.metadata.create_all(bind=engine)
+    from app.models import InventoryDailyMetric
+    next(index for index in InventoryDailyMetric.__table__.indexes if index.name == "ix_inventory_daily_business_date").create(bind=engine, checkfirst=True)
     ensure_upload_files_user_id_column()
     ensure_raw_inventory_is_deleted_column()
     ensure_raw_inventory_edit_columns()

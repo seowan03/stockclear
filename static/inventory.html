@@ -548,7 +548,7 @@ function switchTab(tabName) {
       document.getElementById('historyWeekday').textContent = weekday;
     }
 
-    function updateHistoryDateRange() {
+    function updateHistoryDateRange(archiveBefore) {
       const datePicker = document.getElementById('historyDatePicker');
       const inboundDates = inventoryData
         .map((item) => item.date)
@@ -556,7 +556,8 @@ function switchTab(tabName) {
         .sort();
 
       const firstDate = inboundDates.length ? addDaysToDateInputValue(inboundDates[0], 1) : null;
-      if (!firstDate || firstDate > DAILY_METRIC_END_DATE) {
+      const dailyStart = firstDate && firstDate > archiveBefore ? firstDate : archiveBefore;
+      if (!firstDate || dailyStart > DAILY_METRIC_END_DATE) {
         datePicker.disabled = true;
         datePicker.value = '';
         document.getElementById('historyDateLabel').textContent = '-';
@@ -566,7 +567,7 @@ function switchTab(tabName) {
       }
 
       datePicker.disabled = false;
-      datePicker.min = firstDate;
+      datePicker.min = dailyStart;
       datePicker.max = DAILY_METRIC_END_DATE;
       if (!datePicker.value || datePicker.value < datePicker.min || datePicker.value > datePicker.max) {
         datePicker.value = datePicker.max;
@@ -779,7 +780,7 @@ function switchTab(tabName) {
 
     async function loadInventoryData() {
       const tbody = document.getElementById('inventoryBody');
-      tbody.innerHTML = '<tr><td colspan="12" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
       try {
         const inventoryUrl = currentUploadId
           ? `/api/inventory?upload_id=${encodeURIComponent(currentUploadId)}`
@@ -792,7 +793,7 @@ function switchTab(tabName) {
         if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
         const payload = await response.json();
         setInventoryData(Array.isArray(payload.items) ? payload.items : []);
-        updateHistoryDateRange();
+        updateHistoryDateRange(payload.daily_window_start);
         inventoryDataLoaded = true;
         if (currentUploadId) {
           document.getElementById('inventoryTitle').textContent = payload.upload_file_name
@@ -809,7 +810,7 @@ function switchTab(tabName) {
         await loadDailyInventoryData();
       } catch (error) {
         console.error('재고 데이터 로딩 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="12" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
       }
     }
 
