@@ -2,10 +2,11 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory
+from app.services.daily_inventory_service import replace_daily_inventory_metrics
 from app.services.mock_market_price import generate_mock_market_price
 
 
@@ -19,42 +20,91 @@ def save_inventory_analysis(
 ) -> None:
     now = datetime.utcnow()
     price_rng = rng if rng is not None else np.random.default_rng()
-    raw_rows = [
-        RawInventory(
-            user_id=user_id,
-            upload_batch_id=str(upload_batch_id),
-            upload_file_id=upload_file_id,
-            product_name=row["product_name"],
-            stock_qty=int(row["stock_qty"]),
-            purchase_price=row["purchase_price"],
-            market_price=row["selling_price"],
-            mock_market_price=generate_mock_market_price(row["selling_price"], price_rng),
-            inbound_date=row["received_date"].date(),
-            created_at=now,
-            sales_qty=int(row["sales_qty"]),
-        )
-        for _, row in df.iterrows()
-    ]
-    db.add_all(raw_rows)
+
+    rows_by_key = {}
+    for _, row in df.iterrows():
+        product_name = str(row["product_name"]).strip()
+        rows_by_key[product_name] = row
+
+    existing_by_key = {}
+    existing_candidates = {}
+    requested_names = set(rows_by_key)
+    product_names = list(requested_names)
+    for offset in range(0, len(product_names), 500):
+        name_batch = product_names[offset:offset + 500]
+        candidates = db.query(RawInventory).filter(
+            RawInventory.user_id == user_id,
+            func.trim(RawInventory.product_name).in_(name_batch),
+        ).order_by(RawInventory.item_id.desc()).all()
+        for candidate in candidates:
+            product_name = str(candidate.product_name or "").strip()
+            if product_name in requested_names:
+                existing_candidates.setdefault(product_name, []).append(candidate)
+
+    for product_name, candidates in existing_candidates.items():
+        candidates.sort(key=lambda item: (bool(item.is_deleted), -item.item_id))
+        existing_by_key[product_name] = candidates[0]
+        for duplicate in candidates[1:]:
+            if not duplicate.is_deleted:
+                duplicate.is_deleted = True
+
+    saved_rows = []
+    for product_name, row in rows_by_key.items():
+        raw_row = existing_by_key.get(product_name)
+        if raw_row is None:
+            raw_row = RawInventory(
+                user_id=user_id,
+                created_at=now,
+            )
+            db.add(raw_row)
+
+        raw_row.upload_batch_id = str(upload_batch_id)
+        raw_row.upload_file_id = upload_file_id
+        raw_row.product_name = product_name
+        raw_row.stock_qty = int(row["stock_qty"])
+        raw_row.purchase_price = row["purchase_price"]
+        raw_row.market_price = row["selling_price"]
+        raw_row.mock_market_price = generate_mock_market_price(row["selling_price"], price_rng)
+        raw_row.inbound_date = pd.to_datetime(row["received_date"]).date()
+        raw_row.sales_qty = int(row["sales_qty"])
+        raw_row.is_deleted = False
+        saved_rows.append((raw_row, row))
+
     db.flush()
 
-    # Commit은 업로드 라우터에서 이력 저장까지 끝난 뒤 한 번만 수행한다.
-    db.add_all(
-        [
-            AnalysisResult(
-                item_id=raw_row.item_id,
-                sales_velocity=row["sales_speed"],
-                aging_days=int(row["storage_days"]),
-                days_to_sell=int(min(row["days_to_sell"], 9999)),
-                risk_grade=row["risk_grade"],
-                inventory_amount=row["inventory_value"],
-                final_score=row["final_score"],
-                fluctuation_rate=row["depreciation_rate"],
-                updated_at=now,
-            )
-            for raw_row, (_, row) in zip(raw_rows, df.iterrows())
-        ]
-    )
+    analysis_by_item_id = {}
+    item_ids = [raw_row.item_id for raw_row, _ in saved_rows]
+    for offset in range(0, len(item_ids), 500):
+        item_id_batch = item_ids[offset:offset + 500]
+        analyses = db.query(AnalysisResult).filter(
+            AnalysisResult.item_id.in_(item_id_batch),
+        ).order_by(AnalysisResult.result_id).all()
+        for analysis in analyses:
+            analysis_by_item_id.setdefault(analysis.item_id, analysis)
+
+    for raw_row, row in saved_rows:
+        analysis = analysis_by_item_id.get(raw_row.item_id)
+        if analysis is None:
+            analysis = AnalysisResult(item_id=raw_row.item_id)
+            db.add(analysis)
+        analysis.sales_velocity = row["sales_speed"]
+        analysis.aging_days = int(row["storage_days"])
+        analysis.days_to_sell = int(min(row["days_to_sell"], 9999))
+        analysis.risk_grade = row["risk_grade"]
+        analysis.inventory_amount = row["inventory_value"]
+        analysis.final_score = row["final_score"]
+        analysis.fluctuation_rate = row["depreciation_rate"]
+        analysis.ai_diagnosis = None
+        analysis.action_plans = None
+        analysis.recommended_price = None
+        analysis.updated_at = now
+        replace_daily_inventory_metrics(
+            db,
+            user_id,
+            raw_row.item_id,
+            raw_row.inbound_date,
+            raw_row.market_price,
+        )
 
 
 def save_upload_history(
