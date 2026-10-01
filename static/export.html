@@ -80,7 +80,7 @@
                         <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer">
                     </th>
                     <th class="py-3 px-4">품목명</th>
-                    <th class="py-3 px-4">더미 시세(참고용)</th>
+                    <th class="py-3 px-4">시세</th>
                     <th class="py-3 px-4">권장 판매가</th>
                     <th class="py-3 px-4">현재 수량</th>
                     <th class="py-3 px-4">재고 상태</th>
@@ -105,10 +105,84 @@
 </div>
 </footer>
 
+<div id="exportDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center z-[60] p-4" onclick="if (event.target === this) closeExportItemDetail()">
+    <div class="bg-gray-900 border border-gray-800 rounded-3xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="flex items-center justify-between px-8 py-5 border-b border-gray-800 bg-gray-950/60">
+            <span class="text-xs text-gray-400">내보내기 &gt; <span class="text-blue-400 font-semibold">상품 상세</span></span>
+            <button type="button" class="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-colors" onclick="closeExportItemDetail()">닫기</button>
+        </div>
+        <div class="p-8 overflow-y-auto space-y-8 flex-1">
+            <div class="flex items-center space-x-4">
+                <h2 id="exportDetailTitle" class="text-2xl font-bold text-white"></h2>
+                <span id="exportDetailBadge" class="px-3 py-1 text-xs font-semibold rounded-full"></span>
+            </div>
+            <div class="flex space-x-6 border-b border-gray-800 text-sm font-semibold">
+                <button id="exportDetailTabButton" type="button" onclick="switchExportDetailTab('detail')" class="pb-3 text-gray-400 hover:text-white transition-colors">상세 정보</button>
+                <button id="exportAnalysisTabButton" type="button" onclick="switchExportDetailTab('analysis')" class="pb-3 border-b-2 border-blue-500 text-blue-400 font-bold">분석 결과</button>
+                <button id="exportHistoryTabButton" type="button" onclick="switchExportDetailTab('history')" class="pb-3 text-gray-400 hover:text-white transition-colors">판매 이력</button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="bg-gray-950 border border-gray-800/80 rounded-2xl p-6 flex items-center justify-center h-52">
+                        <i class="fa-solid fa-box-open text-6xl text-gray-700"></i>
+                    </div>
+                    <div class="space-y-3 text-xs">
+                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">내부 품목 코드</span><span id="exportDetailCode" class="text-blue-400 font-mono font-medium">-</span></div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">입고일</span><span id="exportDetailDate" class="text-gray-200 font-medium">-</span></div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">원가</span><span id="exportDetailPurchasePrice" class="text-gray-200 font-medium">-</span></div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">판매가</span><span id="exportDetailSellingPrice" class="text-gray-200 font-medium">-</span></div>
+                        <div class="flex justify-between py-1.5"><span class="text-gray-400">더미 시세(참고용)</span><span id="exportDetailMarketPrice" class="text-gray-200 font-medium">-</span></div>
+                        <p class="text-[11px] leading-relaxed text-amber-300/80">실제 시세가 아닌 판매가 기준으로 생성한 데모값입니다.</p>
+                    </div>
+                </div>
+                <div class="lg:col-span-8">
+                    <div id="exportDetailTab" class="hidden space-y-6">
+                        <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                            <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>업로드 재고 정보</h3>
+                            <div class="grid grid-cols-2 gap-4 text-xs">
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">현재 수량</span><span id="exportDetailStock" class="text-gray-200 font-mono">-</span></div>
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">업로드 판매량</span><span id="exportDetailSales" class="text-gray-200 font-mono">-</span></div>
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">재고 금액</span><span id="exportDetailInventoryValue" class="text-gray-200 font-medium">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="exportAnalysisTab" class="space-y-6">
+                        <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                            <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-chart-line text-blue-500 mr-2"></i>위험도 분석 결과</h3>
+                            <div class="grid grid-cols-2 gap-3 text-xs">
+                                <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">예상 소진 기간</span><span id="exportDetailDaysToSell" class="text-gray-200 font-semibold">-</span></div>
+                                <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">감가율</span><span id="exportDetailDepreciation" class="text-gray-200 font-semibold">-</span></div>
+                                <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">보관 기간</span><span id="exportDetailStorage" class="text-gray-200 font-semibold">-</span></div>
+                                <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">재고 금액</span><span id="exportDetailAnalysisValue" class="text-gray-200 font-semibold">-</span></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800/80 mt-4 text-center">
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800"><span class="text-[11px] text-gray-400 block mb-1">최종 위험도</span><span id="exportDetailRiskScore" class="text-xl font-extrabold">-</span></div>
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800"><span class="text-[11px] text-gray-400 block mb-1">등급</span><span id="exportDetailRiskGrade" class="text-xl font-extrabold">-</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6 space-y-4">
+                            <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-wand-magic-sparkles text-amber-400 mr-2"></i>추천 정보</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 space-y-1"><span class="text-xs text-gray-400">적용 할인율</span><p id="exportDetailDiscount" class="text-2xl font-bold text-emerald-400">-</p></div>
+                                <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 space-y-1"><span class="text-xs text-gray-400">권장 판매가</span><p id="exportDetailRecommendedPrice" class="text-2xl font-bold text-blue-400 whitespace-nowrap tabular-nums">-</p></div>
+                            </div>
+                            <p id="exportDetailDiagnosis" class="rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-sm leading-relaxed text-gray-300 whitespace-pre-line break-words">-</p>
+                        </div>
+                    </div>
+                    <div id="exportHistoryTab" class="hidden space-y-4">
+                        <div class="bg-gray-950/80 border border-gray-800 rounded-2xl p-6"><h3 class="text-sm font-bold text-white mb-4"><i class="fa-solid fa-chart-line text-purple-400 mr-2"></i>업로드 판매량</h3><p class="text-sm text-gray-300">업로드 파일 기준 판매량: <span id="exportDetailHistorySales">-</span>개</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- JS 스크립트 경로 최적화 -->
 <script src="js/stockclear.js"></script>
 <script>
     let loadedItems = [];
+    let inventoryDetailsPromise;
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -198,7 +272,7 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white">${escapeHtml(item.product_name || '-')}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 whitespace-pre-line break-words leading-relaxed">${escapeHtml(action)}</td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)})">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 whitespace-pre-line break-words leading-relaxed">${escapeHtml(action)}</td></tr>`;
                     }).join('')
                     : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
@@ -206,6 +280,88 @@
                 tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
             }
         }
+
+    async function loadInventoryDetails() {
+        if (!inventoryDetailsPromise) {
+            inventoryDetailsPromise = fetch('/api/inventory', { credentials: 'include' }).then(async response => {
+                if (response.status === 401) {
+                    window.location.href = 'signin.html';
+                    return [];
+                }
+                if (!response.ok) throw new Error('상품 상세 정보를 불러오지 못했습니다.');
+                const inventory = await response.json();
+                return Array.isArray(inventory.items) ? inventory.items : [];
+            });
+        }
+        return inventoryDetailsPromise;
+    }
+
+    function switchExportDetailTab(tab) {
+        const panels = {
+            detail: ['exportDetailTab', 'exportDetailTabButton'],
+            analysis: ['exportAnalysisTab', 'exportAnalysisTabButton'],
+            history: ['exportHistoryTab', 'exportHistoryTabButton']
+        };
+        Object.entries(panels).forEach(([name, [panelId, buttonId]]) => {
+            document.getElementById(panelId).classList.toggle('hidden', name !== tab);
+            document.getElementById(buttonId).className = name === tab
+                ? 'pb-3 border-b-2 border-blue-500 text-blue-400 font-bold'
+                : 'pb-3 text-gray-400 hover:text-white transition-colors';
+        });
+    }
+
+    async function openExportItemDetail(itemId) {
+        const modal = document.getElementById('exportDetailModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('exportDetailTitle').textContent = '상세 정보를 불러오는 중입니다.';
+        switchExportDetailTab('analysis');
+
+        try {
+            const items = await loadInventoryDetails();
+            const item = items.find(row => Number(row.item_id) === Number(itemId));
+            if (!item) throw new Error('해당 상품 정보를 찾을 수 없습니다.');
+
+            const status = item.risk_grade || '정상';
+            const statusClass = getStatusClass(status);
+            const formatCurrency = value => value == null ? '-' : `₩ ${formatNumber(value)}`;
+            const formatDays = value => value == null ? '-' : `${formatNumber(value)} 일`;
+            const discountMatch = String(item.action_plans || '').match(/(\d+(?:\.\d+)?)\s*%/);
+
+            document.getElementById('exportDetailTitle').textContent = item.product_name || '이름 없음';
+            const badge = document.getElementById('exportDetailBadge');
+            badge.textContent = status;
+            badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${statusClass} bg-gray-800/70 border border-gray-700`;
+            document.getElementById('exportDetailCode').textContent = item.item_id;
+            document.getElementById('exportDetailDate').textContent = item.received_date || '-';
+            document.getElementById('exportDetailPurchasePrice').textContent = formatCurrency(item.purchase_price);
+            document.getElementById('exportDetailSellingPrice').textContent = formatCurrency(item.selling_price);
+            document.getElementById('exportDetailMarketPrice').textContent = formatCurrency(item.mock_market_price);
+            document.getElementById('exportDetailStock').textContent = `${formatNumber(item.stock_qty)} 개`;
+            document.getElementById('exportDetailSales').textContent = `${formatNumber(item.sales_qty)} 개`;
+            document.getElementById('exportDetailInventoryValue').textContent = formatCurrency(item.inventory_value);
+            document.getElementById('exportDetailDaysToSell').textContent = formatDays(item.days_to_sell);
+            document.getElementById('exportDetailDepreciation').textContent = `${formatNumber(item.depreciation_rate)} %`;
+            document.getElementById('exportDetailStorage').textContent = formatDays(item.storage_days);
+            document.getElementById('exportDetailAnalysisValue').textContent = formatCurrency(item.inventory_value);
+            document.getElementById('exportDetailRiskScore').textContent = `${Math.round(Number(item.final_score) || 0)} / 100`;
+            document.getElementById('exportDetailRiskGrade').textContent = status;
+            document.getElementById('exportDetailRiskScore').className = `text-xl font-extrabold ${statusClass}`;
+            document.getElementById('exportDetailRiskGrade').className = `text-xl font-extrabold ${statusClass}`;
+            document.getElementById('exportDetailDiscount').textContent = discountMatch ? `${discountMatch[1]}%` : '-';
+            document.getElementById('exportDetailRecommendedPrice').textContent = item.recommended_price == null ? '-' : `${formatNumber(item.recommended_price)}원`;
+            document.getElementById('exportDetailDiagnosis').textContent = item.ai_diagnosis || item.action_plans || 'AI 진단 결과가 없습니다.';
+            document.getElementById('exportDetailHistorySales').textContent = formatNumber(item.sales_qty);
+        } catch (error) {
+            document.getElementById('exportDetailTitle').textContent = error.message || '상품 상세 정보를 불러오지 못했습니다.';
+        }
+    }
+
+    function closeExportItemDetail() {
+        const modal = document.getElementById('exportDetailModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
 
     // DOM 완성 후 안전하게 데이터 수신
     if (document.readyState === 'loading') {
@@ -259,6 +415,6 @@
             if (button) button.disabled = false;
         }
     }
-</script> 
+</script>
 </body>
 </html>

@@ -139,10 +139,6 @@
             
             <div class="space-y-3 text-xs">
               <div class="flex justify-between py-1.5 border-b border-gray-800/50">
-                <span class="text-gray-400">카테고리</span>
-                <span class="text-gray-200 font-medium" id="modalCategory">-</span>
-              </div>
-              <div class="flex justify-between py-1.5 border-b border-gray-800/50">
                 <span class="text-gray-400">내부 품목 코드</span>
                 <span class="text-blue-400 font-mono font-medium" id="modalItemCode">-</span>
               </div>
@@ -543,7 +539,6 @@ function switchTab(tabName) {
       badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}`;
 
       document.getElementById('modalItemIcon').className = `fa-solid ${item.icon || 'fa-box-open'} text-6xl text-gray-700`;
-      document.getElementById('modalCategory').innerText = item.category;
       document.getElementById('modalItemCode').innerText = item.internalCode;
       document.getElementById('modalDate').innerText = item.date || '-';
       document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
