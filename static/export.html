@@ -83,12 +83,13 @@
                     <th class="py-3 px-4">시세</th>
                     <th class="py-3 px-4">권장 판매가</th>
                     <th class="py-3 px-4">현재 수량</th>
+                    <th class="py-3 px-4">권장 수량</th>
                     <th class="py-3 px-4">재고 상태</th>
                     <th class="py-3 px-4">AI 추천 조치</th>
                 </tr>
             </thead>
             <tbody id="reportBody" class="divide-y divide-gray-800/60">
-                <tr><td colspan="7" class="py-8 text-center text-gray-400">데이터를 불러오는 중입니다...</td></tr>
+                <tr><td colspan="8" class="py-8 text-center text-gray-400">데이터를 불러오는 중입니다...</td></tr>
             </tbody>
         </table>
     </div>
@@ -141,6 +142,7 @@
                             <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>업로드 재고 정보</h3>
                             <div class="grid grid-cols-2 gap-4 text-xs">
                                 <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">현재 수량</span><span id="exportDetailStock" class="text-gray-200 font-mono">-</span></div>
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">권장 수량</span><span class="text-gray-200 font-mono">-</span></div>
                                 <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">업로드 판매량</span><span id="exportDetailSales" class="text-gray-200 font-mono">-</span></div>
                                 <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">재고 금액</span><span id="exportDetailInventoryValue" class="text-gray-200 font-medium">-</span></div>
                             </div>
@@ -264,7 +266,6 @@
                 tbody.innerHTML = loadedItems.length
                     ? loadedItems.map((item, index) => {
                         const status = item.risk_grade || '정상';
-                        const action = formatRecommendationText(item.action_plans || (status === '처분 권장' ? '재고 처분 검토' : '현 상태 유지'));
                         const mockMarketPrice = item.mock_market_price == null
                             ? '-'
                             : `${StockClear.formatNumber(item.mock_market_price)}원`;
@@ -272,12 +273,12 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)})">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 whitespace-pre-line break-words leading-relaxed">${escapeHtml(action)}</td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4">-</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200" onclick="openExportItemDetail(${Number(item.item_id)}, 'analysis')"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
                     }).join('')
-                    : '<tr><td colspan="7" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
+                    : '<tr><td colspan="8" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
                 console.error('내보내기 데이터 로딩 실패:', error);
-                tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
             }
         }
 
@@ -310,12 +311,12 @@
         });
     }
 
-    async function openExportItemDetail(itemId) {
+    async function openExportItemDetail(itemId, initialTab = 'detail') {
         const modal = document.getElementById('exportDetailModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.getElementById('exportDetailTitle').textContent = '상세 정보를 불러오는 중입니다.';
-        switchExportDetailTab('analysis');
+        switchExportDetailTab(initialTab);
 
         try {
             const items = await loadInventoryDetails();
