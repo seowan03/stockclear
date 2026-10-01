@@ -47,12 +47,13 @@
         <h1 class="text-2xl font-bold tracking-tight text-white" id="inventoryTitle">전체 재고 관리 목록</h1>
         <p class="text-sm text-gray-400 mt-1">내부 품목 코드 또는 품목명을 클릭하면 <strong class="text-blue-400">AI 상품 상세 분석</strong>을 확인하실 수 있습니다.</p>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <a id="allInventoryLink" href="inventory.html" class="hidden px-4 py-2.5 text-xs font-semibold border border-gray-700 text-gray-300 rounded-xl">전체 재고 보기</a>
+        <span id="editStatus" class="text-xs text-gray-400" role="status" aria-live="polite"></span>
+        <button type="button" id="discardEdits" onclick="discardGridEdits()" disabled class="px-3 py-2 text-xs font-semibold border border-gray-700 text-gray-200 disabled:opacity-40" title="변경 취소"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+        <button type="button" id="saveEdits" onclick="saveGridEdits()" disabled class="px-3 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40" title="변경 저장"><i class="fa-solid fa-floppy-disk mr-1" aria-hidden="true"></i>저장</button>
       </div>
     </div>
-  </div>
-
     <!-- 검색 및 필터 -->
     <div class="bg-gray-900/60 border border-gray-800/80 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-end gap-3">
       <div class="w-full md:w-56 shrink-0">
@@ -81,21 +82,28 @@
       <table class="w-full text-left border-collapse" id="inventoryTable">
         <thead>
           <tr class="border-b border-gray-800 bg-gray-950/50 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            <th class="py-3.5 px-6">내부 품목 코드</th>
-            <th class="py-3.5 px-6">품목명</th>
-            <th class="py-3.5 px-6">현재 수량</th>
-            <th class="py-3.5 px-6">원가</th>
-            <th class="py-3.5 px-6">판매가</th>
-            <th class="py-3.5 px-6 whitespace-nowrap">조회일 시세</th>
-            <th class="py-3.5 px-6 whitespace-nowrap">해당일 판매량</th>
-            <th class="py-3.5 px-6">상태</th>
-            <th class="py-3.5 px-6 text-right">관리</th>
+            <th class="sticky left-0 z-10 bg-gray-950 py-2 px-3 whitespace-nowrap"><button type="button" onclick="sortGrid('id')" title="코드순 정렬">내부 품목 코드 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-48"><button type="button" onclick="sortGrid('product_name')" title="품목명 정렬">품목명 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('stock_qty')" title="수량순 정렬">현재 수량 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('purchase_price')" title="원가순 정렬">원가 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('selling_price')" title="판매가순 정렬">판매가 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-36"><button type="button" onclick="sortGrid('received_date')" title="입고일 정렬">입고일 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('sales_qty')" title="판매량순 정렬">업로드 판매량 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 whitespace-nowrap">조회일 시세</th>
+            <th class="py-2 px-3 whitespace-nowrap">해당일 판매량</th>
+            <th class="py-2 px-3">상태</th>
+            <th class="py-2 px-3 text-right">관리</th>
           </tr>
         </thead>
         <tbody id="inventoryBody" class="divide-y divide-gray-800/50 text-sm">
           <!-- 동적 생성 -->
         </tbody>
       </table>
+    </div>
+    <div class="flex items-center justify-end gap-3 text-xs text-gray-300" aria-label="재고 목록 페이지">
+      <span id="gridPageLabel"></span>
+      <button type="button" id="previousGridPage" onclick="changeGridPage(-1)" disabled class="px-2 py-1 border border-gray-700 disabled:opacity-40" title="이전 페이지" aria-label="이전 페이지"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+      <button type="button" id="nextGridPage" onclick="changeGridPage(1)" disabled class="px-2 py-1 border border-gray-700 disabled:opacity-40" title="다음 페이지" aria-label="다음 페이지"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
     </div>
 
   </main>
@@ -297,6 +305,143 @@ function switchTab(tabName) {
     let dailyMetricsByItemId = new Map();
     let dailyMetricsRequestId = 0;
     let inventoryDataLoaded = false;
+    let gridPage = 0;
+    const gridPageSize = 50;
+    let gridSortField = null;
+    let gridSortDirection = 1;
+    const pendingEdits = new Map();
+    let savingEdits = false;
+    const editableFields = ['product_name', 'stock_qty', 'purchase_price', 'selling_price', 'received_date', 'sales_qty'];
+    const editFieldLabels = {
+      product_name: '품목명', stock_qty: '현재 수량', purchase_price: '원가',
+      selling_price: '판매가', received_date: '입고일', sales_qty: '업로드 판매량'
+    };
+
+    function showGridValidationError(detail, items) {
+      const issue = Array.isArray(detail) ? detail[0] : null;
+      const index = issue?.loc?.[2];
+      const field = issue?.loc?.[3];
+      const item = Number.isInteger(index) ? items[index] : null;
+      if (!item || !Object.hasOwn(editFieldLabels, field)) {
+        updateEditStatus('입력값을 확인해 주세요.');
+        return;
+      }
+      updateEditStatus(`품목 ${item.item_id} · ${editFieldLabels[field]}: 입력값을 확인해 주세요.`);
+      const input = [...document.querySelectorAll('#inventoryBody input[data-field]')]
+        .find((cell) => Number(cell.dataset.id) === item.item_id && cell.dataset.field === field);
+      if (input) {
+        input.classList.add('border-red-400');
+        input.focus();
+      }
+    }
+
+    function originalCellValue(item, field) {
+      return String({
+        product_name: item.name, stock_qty: item.currentQty,
+        purchase_price: item.purchasePriceValue, selling_price: item.sellingPriceValue,
+        received_date: item.date, sales_qty: item.salesQty
+      }[field] ?? '');
+    }
+
+    function updateEditStatus(message) {
+      const count = pendingEdits.size;
+      document.getElementById('editStatus').textContent = message || (count ? `${count}개 품목 수정 중` : '');
+      document.getElementById('saveEdits').disabled = !count || savingEdits;
+      document.getElementById('discardEdits').disabled = !count || savingEdits;
+    }
+
+    function editCell(input) {
+      if (savingEdits) return;
+      const id = Number(input.dataset.id);
+      const field = input.dataset.field;
+      const item = inventoryData.find((row) => row.id === id);
+      if (!item) return;
+      const values = { ...pendingEdits.get(id), [field]: input.value };
+      if (input.value === originalCellValue(item, field)) delete values[field];
+      if (Object.keys(values).length) pendingEdits.set(id, values);
+      else pendingEdits.delete(id);
+      input.classList.toggle('bg-blue-950/60', Object.hasOwn(values, field));
+      input.classList.toggle('ring-1', Object.hasOwn(values, field));
+      input.classList.remove('border-red-400');
+      updateEditStatus();
+    }
+
+    function navigateGrid(event) {
+      if (event.key !== 'Enter' && event.key !== 'Tab') return;
+      if (event.key === 'Enter') event.preventDefault();
+      const inputs = [...document.querySelectorAll('#inventoryBody input[data-field]')].filter((input) => input.closest('tr').style.display !== 'none');
+      const next = inputs[inputs.indexOf(event.target) + (event.shiftKey ? -1 : 1)];
+      if (next) {
+        if (event.key === 'Tab') event.preventDefault();
+        next.focus();
+        if (next.type === 'text') next.select();
+      }
+    }
+
+    function discardGridEdits() {
+      if (savingEdits) return;
+      pendingEdits.clear();
+      renderTable();
+      updateEditStatus();
+    }
+
+    function changeGridPage(direction) {
+      gridPage += direction;
+      renderTable();
+    }
+
+    function sortGrid(field) {
+      gridSortDirection = gridSortField === field ? -gridSortDirection : 1;
+      gridSortField = field;
+      gridPage = 0;
+      renderTable();
+    }
+
+    async function saveGridEdits() {
+      if (!pendingEdits.size || savingEdits) return;
+      savingEdits = true;
+      updateEditStatus('저장 중...');
+      document.querySelectorAll('#inventoryBody input[data-field]').forEach((input) => { input.disabled = true; });
+      try {
+        const items = [...pendingEdits].map(([id, changes]) => {
+          const original = inventoryData.find((row) => row.id === id);
+          const values = Object.fromEntries(editableFields.map((field) => [field, changes[field] ?? originalCellValue(original, field)]));
+          for (const field of ['stock_qty', 'purchase_price', 'selling_price', 'sales_qty']) {
+            if (values[field] === '') throw new Error(`품목 ${id} · ${editFieldLabels[field]}: 값을 입력해 주세요.`);
+            values[field] = Number(values[field]);
+          }
+          return { item_id: id, version: original.version, ...values };
+        });
+        const response = await fetch('/api/inventory/batch', {
+          method: 'PATCH', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items })
+        });
+        if (response.status === 401) return window.location.href = 'signin.html';
+        if (!response.ok) {
+          const error = await response.json();
+          if (response.status === 422 && Array.isArray(error.detail)) {
+            showGridValidationError(error.detail, items);
+            return;
+          }
+          throw new Error(typeof error.detail === 'string' ? error.detail : '입력값을 확인해 주세요.');
+        }
+        pendingEdits.clear();
+        await loadInventoryData();
+        updateEditStatus('저장했습니다.');
+      } catch (error) {
+        updateEditStatus(error.message || '저장하지 못했습니다.');
+      } finally {
+        savingEdits = false;
+        document.querySelectorAll('#inventoryBody input[data-field]').forEach((input) => { input.disabled = false; });
+        document.getElementById('saveEdits').disabled = !pendingEdits.size;
+        document.getElementById('discardEdits').disabled = !pendingEdits.size;
+      }
+    }
+
+    window.addEventListener('beforeunload', (event) => {
+      if (pendingEdits.size) event.preventDefault();
+    });
 
     function escapeHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -346,6 +491,8 @@ function switchTab(tabName) {
         name: item.product_name || '이름 없음',
         category: '-',
         currentQty: StockClear.number(item.stock_qty),
+        version: item.version,
+        purchasePriceValue: StockClear.number(item.purchase_price),
         purchasePrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
         sellingPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
         sellingPriceValue: StockClear.number(item.selling_price),
@@ -481,11 +628,30 @@ function switchTab(tabName) {
 
     function renderTable() {
       const tbody = document.getElementById('inventoryBody');
+      const active = document.activeElement;
+      const focusedCell = active?.dataset?.field ? { id: active.dataset.id, field: active.dataset.field, start: active.selectionStart } : null;
       tbody.innerHTML = '';
+      const search = document.getElementById('searchInput').value.trim().toLowerCase();
+      const status = document.getElementById('statusFilter').value;
+      const visibleItems = inventoryData.filter((item) =>
+        (item.internalCode.toLowerCase().includes(search) || (pendingEdits.get(item.id)?.product_name ?? item.name).toLowerCase().includes(search)) &&
+        (status === 'ALL' || item.status === status)
+      );
+      if (gridSortField) visibleItems.sort((left, right) => {
+        const leftValue = gridSortField === 'id' ? left.id : pendingEdits.get(left.id)?.[gridSortField] ?? originalCellValue(left, gridSortField);
+        const rightValue = gridSortField === 'id' ? right.id : pendingEdits.get(right.id)?.[gridSortField] ?? originalCellValue(right, gridSortField);
+        const numeric = ['id', 'stock_qty', 'purchase_price', 'selling_price', 'sales_qty'].includes(gridSortField);
+        return gridSortDirection * (numeric ? Number(leftValue) - Number(rightValue) : String(leftValue).localeCompare(String(rightValue), 'ko'));
+      });
+      const pages = Math.max(1, Math.ceil(visibleItems.length / gridPageSize));
+      gridPage = Math.min(gridPage, pages - 1);
+      document.getElementById('gridPageLabel').textContent = `${visibleItems.length}개 · ${gridPage + 1}/${pages} 페이지`;
+      document.getElementById('previousGridPage').disabled = gridPage === 0;
+      document.getElementById('nextGridPage').disabled = gridPage + 1 === pages;
 
-      if (inventoryData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-gray-400">등록된 재고 데이터가 없습니다.</td></tr>';
-      } else inventoryData.forEach((item) => {
+      if (visibleItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-gray-400">${inventoryData.length ? '검색 결과가 없습니다.' : '등록된 재고 데이터가 없습니다.'}</td></tr>`;
+      } else visibleItems.slice(gridPage * gridPageSize, (gridPage + 1) * gridPageSize).forEach((item) => {
         const riskStyles = getRiskStyles(item.status);
         const qtyClass = `${riskStyles.text} font-semibold`;
         const dailyMetric = dailyMetricsByItemId.get(item.id);
@@ -493,23 +659,29 @@ function switchTab(tabName) {
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-800/30 transition-colors';
         tr.setAttribute('data-id', item.id);
+        const cell = (field, type, width) => {
+          const value = pendingEdits.get(item.id)?.[field] ?? originalCellValue(item, field);
+          const changed = Object.hasOwn(pendingEdits.get(item.id) || {}, field);
+          const step = ['stock_qty', 'sales_qty'].includes(field) ? '1' : '0.01';
+          return `<input data-id="${item.id}" data-field="${field}" type="${type}" ${type === 'number' ? `min="0" step="${step}"` : ''} ${field === 'received_date' ? 'inputmode="numeric" placeholder="YYYY-MM-DD" maxlength="10"' : ''} ${savingEdits ? 'disabled' : ''} value="${escapeHtml(value)}" oninput="editCell(this)" onkeydown="navigateGrid(event)" aria-label="${escapeHtml(item.name)} ${field}" class="${width} max-w-full rounded-sm border border-transparent px-2 py-1.5 text-sm text-gray-100 outline-none focus:border-blue-400 focus:bg-gray-800 ${changed ? 'bg-blue-950/60 ring-1 ring-blue-600' : 'bg-transparent'}">`;
+        };
         tr.innerHTML = `
-          <td class="py-4 px-6 font-mono font-medium">
+          <td class="sticky left-0 z-10 bg-gray-900 py-2 px-3 font-mono font-medium">
             <button onclick="openDetailModal(${item.id})" class="text-blue-400 hover:text-blue-300 hover:underline text-left">${item.internalCode}</button>
           </td>
-          <td class="py-4 px-6 font-medium">
-            <button onclick="openDetailModal(${item.id})" class="text-white hover:text-blue-400 hover:underline text-left">${escapeHtml(item.name)}</button>
-          </td>
-          <td class="py-4 px-6 ${qtyClass}">${item.currentQty} 개</td>
-          <td class="py-4 px-6 text-gray-400">${item.purchasePrice}</td>
-          <td class="py-4 px-6 text-gray-400">${item.sellingPrice}</td>
-          <td class="py-4 px-6 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원` : '-'}</td>
-          <td class="py-4 px-6 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
-          <td class="py-4 px-6">
+          <td class="py-2 px-2">${cell('product_name', 'text', 'w-48')}</td>
+          <td class="py-2 px-2 ${qtyClass}">${cell('stock_qty', 'number', 'w-24')}</td>
+          <td class="py-2 px-2">${cell('purchase_price', 'number', 'w-24')}</td>
+          <td class="py-2 px-2">${cell('selling_price', 'number', 'w-24')}</td>
+          <td class="py-2 px-2">${cell('received_date', 'text', 'w-36')}</td>
+          <td class="py-2 px-2">${cell('sales_qty', 'number', 'w-24')}</td>
+          <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원` : '-'}</td>
+          <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
+          <td class="py-2 px-3">
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}">${escapeHtml(item.statusText)}</span>
           </td>
-          <td class="py-4 px-6 text-right whitespace-nowrap space-x-2">
-            <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="moveToTrash(${item.id})" title="삭제">
+          <td class="py-2 px-3 text-right whitespace-nowrap space-x-2">
+            <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="deleteInventoryItem(${item.id})" title="삭제">
               <i class="fa-solid fa-trash-can"></i>
             </button>
           </td>
@@ -517,7 +689,13 @@ function switchTab(tabName) {
         tbody.appendChild(tr);
       });
 
-      filterItems();
+      if (focusedCell) {
+        const input = [...tbody.querySelectorAll('input[data-field]')].find((candidate) => candidate.dataset.id === focusedCell.id && candidate.dataset.field === focusedCell.field);
+        if (input) {
+          input.focus();
+          if (input.type === 'text' && focusedCell.start != null) input.setSelectionRange(focusedCell.start, focusedCell.start);
+        }
+      }
     }
 
     function openDetailModal(id) {
@@ -568,97 +746,27 @@ function switchTab(tabName) {
       modal.classList.add('hidden');
     }
 
-    async function moveToTrash(id) {
+    async function deleteInventoryItem(id) {
+      if (savingEdits) return;
+      if (pendingEdits.size && !confirm('저장하지 않은 변경을 취소하고 삭제하시겠습니까?')) return;
+      if (!confirm('재고를 삭제하면 되돌릴 수 없습니다. 삭제하시겠습니까?')) return;
       try {
         const response = await fetch(`/api/inventory/${id}`, { method: 'DELETE', credentials: 'include' });
         if (response.status === 401) return window.location.href = 'signin.html';
-        if (!response.ok) return alert('재고를 휴지통으로 이동하지 못했습니다.');
+        if (!response.ok) return alert('재고를 삭제하지 못했습니다.');
 
-        const itemIndex = inventoryData.findIndex((item) => item.id === Number(id));
-        if (itemIndex === -1) return await loadInventoryData();
-
-        const [item] = inventoryData.splice(itemIndex, 1);
-        trashData.unshift({
-          id: item.id,
-          internalCode: item.internalCode,
-          name: item.name,
-          currentQty: item.currentQty,
-        });
-        renderTable();
-        renderTrash();
+        pendingEdits.clear();
+        await loadInventoryData();
+        updateEditStatus();
       } catch (error) {
-        alert(error.message || '재고를 휴지통으로 이동하지 못했습니다.');
+        alert(error.message || '재고를 삭제하지 못했습니다.');
       }
-    }
-
-    async function loadTrashData() {
-      const response = await fetch('/api/inventory/trash', { credentials: 'include' });
-      if (!response.ok) throw new Error('휴지통 데이터를 불러오지 못했습니다.');
-      const payload = await response.json();
-      trashData = (payload.items || []).map((item) => ({
-        id: Number(item.item_id),
-        internalCode: String(item.item_id),
-        name: item.product_name || '이름 없음',
-        currentQty: StockClear.number(item.stock_qty),
-      }));
-      document.getElementById('trashCount').innerText = trashData.length;
-      renderTrash();
-    }
-
-    function renderTrash() {
-      const trashBody = document.getElementById('trashBody');
-      const emptyMsg = document.getElementById('emptyTrashMsg');
-      trashBody.innerHTML = '';
-
-      if (trashData.length === 0) {
-        emptyMsg.classList.remove('hidden');
-      } else {
-        emptyMsg.classList.add('hidden');
-        trashData.forEach((item) => {
-          const tr = document.createElement('tr');
-          tr.className = 'hover:bg-gray-800/30 transition-colors';
-          tr.innerHTML = `
-            <td class="py-3 font-mono text-blue-400">${item.internalCode}</td>
-            <td class="py-3 text-gray-200">${escapeHtml(item.name)}</td>
-            <td class="py-3 text-gray-400">${item.currentQty} 개</td>
-            <td class="py-3 text-right space-x-2">
-              <button class="px-2.5 py-1 text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-md hover:bg-blue-600/30 transition-colors" onclick="restoreItem(${item.id})">복원</button>
-              <button class="px-2.5 py-1 text-xs bg-red-600/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-600/30 transition-colors" onclick="deletePermanently(${item.id})">삭제</button>
-            </td>
-          `;
-          trashBody.appendChild(tr);
-        });
-      }
-      document.getElementById('trashCount').innerText = trashData.length;
-    }
-
-    async function restoreItem(id) {
-      const response = await fetch(`/api/inventory/${id}/restore`, { method: 'POST', credentials: 'include' });
-      if (response.status === 401) return window.location.href = 'signin.html';
-      if (!response.ok) return alert('재고를 복원하지 못했습니다.');
-      await loadInventoryData();
     }
 
     // 검색 및 필터링
     function filterItems() {
-      const searchVal = document.getElementById('searchInput').value.toLowerCase();
-      const statusVal = document.getElementById('statusFilter').value;
-
-      const rows = document.querySelectorAll('#inventoryBody tr');
-      rows.forEach((row) => {
-        const id = parseInt(row.getAttribute('data-id'));
-        const item = inventoryData.find(i => i.id === id);
-        if (!item) return;
-
-        const matchSearch = item.internalCode.toLowerCase().includes(searchVal) || item.name.toLowerCase().includes(searchVal);
-        const matchStatus = statusVal === 'ALL' || item.status === statusVal;
-
-        if (matchSearch && matchStatus) {
-          row.style.display = '';
-        } else {
-          row.style.display = 'none';
-        }
-      });
+      gridPage = 0;
+      renderTable();
     }
 
     async function loadInventoryData() {

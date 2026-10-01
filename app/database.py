@@ -73,6 +73,18 @@ def ensure_raw_inventory_is_deleted_column():
             conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0"))
 
 
+def ensure_raw_inventory_edit_columns():
+    inspector = inspect(engine)
+    if "raw_inventory" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("raw_inventory")}
+    with engine.begin() as conn:
+        if "version" not in columns:
+            conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN version INT NOT NULL DEFAULT 1"))
+        if "edited_at" not in columns:
+            conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN edited_at DATETIME NULL"))
+
+
 def ensure_upload_analysis_summary_data_column():
     inspector = inspect(engine)
     if "upload_analysis_summaries" not in inspector.get_table_names():
@@ -155,6 +167,7 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     ensure_upload_files_user_id_column()
     ensure_raw_inventory_is_deleted_column()
+    ensure_raw_inventory_edit_columns()
     ensure_upload_analysis_summary_data_column()
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
     ensure_raw_inventory_mock_market_price_column()

@@ -8,12 +8,13 @@ from sqlalchemy.orm import Session
 from app.config import RISK_GRADE_META
 from app.database import get_db
 from app.models import AnalysisResult, InventoryDailyMetric, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
-from app.schemas import InventorySellingBatchUpdate, InventorySellingUpdate
+from app.schemas import InventoryGridBatchUpdate, InventorySellingBatchUpdate, InventorySellingUpdate
 from app.security import get_current_user
 from app.services.inventory_service import (
     make_user_summary_input,
     mark_latest_upload_summary_stale,
     query_user_analysis,
+    update_inventory_grid,
 )
 from app.services.mock_market_price import generate_mock_market_price
 
@@ -92,6 +93,8 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
     return {"upload_file_name": upload.file_name if upload else None, "items": [{
         "item_id": item.item_id,
+        "version": item.version,
+        "edited_at": item.edited_at.isoformat() if item.edited_at else None,
         "product_name": item.product_name,
         "stock_qty": item.stock_qty,
         "purchase_price": float(item.purchase_price or 0),
@@ -111,6 +114,17 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
         "action_plans": analysis.action_plans,
         "ai_diagnosis": analysis.ai_diagnosis,
     } for analysis, item in rows]}
+
+
+@router.patch("/api/inventory/batch")
+def edit_inventory_grid(payload: InventoryGridBatchUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        items = update_inventory_grid(db, current_user.user_id, payload)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return {"items": items}
 
 
 @router.get("/api/inventory/daily")
