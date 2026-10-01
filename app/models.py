@@ -6,6 +6,7 @@ from sqlalchemy import (
     Boolean,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -51,15 +52,32 @@ class InventoryDailyMetric(Base):
   __tablename__ = "inventory_daily_metrics"
   __table_args__ = (
     UniqueConstraint("item_id", "business_date", name="uq_inventory_daily_item_date"),
+    Index("ix_inventory_daily_business_date", "business_date"),
   )
 
   metric_id = Column(Integer, primary_key=True, autoincrement=True)
   item_id = Column(Integer, ForeignKey("raw_inventory.item_id", ondelete="CASCADE"), nullable=False)
   business_date = Column(Date, nullable=False)
   daily_sales_qty = Column(Integer, nullable=False)
+  remaining_stock_qty = Column(Integer, nullable=True)
   daily_selling_price = Column(Numeric(12, 2), nullable=False)
   price_variation_rate = Column(Numeric(7, 5), nullable=False)
   generated_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+
+class InventoryMonthlySale(Base):
+  __tablename__ = "inventory_monthly_sales"
+  __table_args__ = (
+    UniqueConstraint("item_id", "month_start", "source_type", name="uq_inventory_monthly_item_month_source"),
+  )
+
+  monthly_id = Column(Integer, primary_key=True, autoincrement=True)
+  item_id = Column(Integer, ForeignKey("raw_inventory.item_id", ondelete="CASCADE"), nullable=False)
+  month_start = Column(Date, nullable=False)
+  source_type = Column(String(20), nullable=False)
+  total_sales_qty = Column(Integer, nullable=False)
+  recorded_days = Column(Integer, nullable=False)
+  aggregated_at = Column(DateTime, server_default=func.now(), nullable=False)
 
 
 class AnalysisResult(Base):
