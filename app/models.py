@@ -57,6 +57,7 @@ class InventoryDailyMetric(Base):
   item_id = Column(Integer, ForeignKey("raw_inventory.item_id", ondelete="CASCADE"), nullable=False)
   business_date = Column(Date, nullable=False)
   daily_sales_qty = Column(Integer, nullable=False)
+  remaining_stock_qty = Column(Integer, nullable=True)
   daily_selling_price = Column(Numeric(12, 2), nullable=False)
   price_variation_rate = Column(Numeric(7, 5), nullable=False)
   generated_at = Column(DateTime, server_default=func.now(), nullable=False)

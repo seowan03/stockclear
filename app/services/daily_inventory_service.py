@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import InventoryDailyMetric
 
-DAILY_METRIC_DAYS = 31
+DAILY_METRIC_END_DATE = date(2026, 9, 30)
 DAILY_METRIC_GENERATION_VERSION = "v1"
 PRICE_VARIATION_MIN = -0.05
 PRICE_VARIATION_MAX = 0.05
@@ -18,13 +18,16 @@ def generate_daily_inventory_metrics(
     item_id: int,
     inbound_date: date,
     base_selling_price: object,
+    stock_qty: int,
 ) -> list[InventoryDailyMetric]:
     base_price = Decimal(str(base_selling_price or 0))
     if not base_price.is_finite() or base_price < 0:
         base_price = Decimal("0")
 
     metrics = []
-    for day_offset in range(DAILY_METRIC_DAYS):
+    remaining_stock = max(0, int(stock_qty))
+    days_to_generate = max(0, (DAILY_METRIC_END_DATE - inbound_date).days)
+    for day_offset in range(1, days_to_generate + 1):
         business_date = inbound_date + timedelta(days=day_offset)
         seed_material = (
             f"{DAILY_METRIC_GENERATION_VERSION}:{user_id}:{item_id}:"
@@ -32,7 +35,8 @@ def generate_daily_inventory_metrics(
         )
         seed = int.from_bytes(hashlib.sha256(seed_material.encode("utf-8")).digest()[:8], "big")
         rng = np.random.default_rng(seed)
-        daily_sales_qty = int(rng.integers(0, 21))
+        daily_sales_qty = min(int(rng.integers(0, 6)), max(0, remaining_stock - 1))
+        remaining_stock -= daily_sales_qty
         requested_variation = float(rng.uniform(PRICE_VARIATION_MIN, PRICE_VARIATION_MAX))
 
         if base_price == 0:
@@ -57,6 +61,7 @@ def generate_daily_inventory_metrics(
             item_id=item_id,
             business_date=business_date,
             daily_sales_qty=daily_sales_qty,
+            remaining_stock_qty=remaining_stock,
             daily_selling_price=daily_selling_price,
             price_variation_rate=applied_variation,
         ))
@@ -69,13 +74,17 @@ def replace_daily_inventory_metrics(
     item_id: int,
     inbound_date: date,
     base_selling_price: object,
+    stock_qty: int,
 ) -> None:
     db.query(InventoryDailyMetric).filter(
         InventoryDailyMetric.item_id == item_id,
     ).delete(synchronize_session=False)
-    db.add_all(generate_daily_inventory_metrics(
+    metrics = generate_daily_inventory_metrics(
         user_id,
         item_id,
         inbound_date,
         base_selling_price,
-    ))
+        stock_qty,
+    )
+    if metrics:
+        db.bulk_save_objects(metrics)

@@ -165,6 +165,20 @@ def list_daily_inventory(
 
     weekday_names = ("월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일")
     rows = query.order_by(RawInventory.item_id).all()
+    legacy_item_ids = {item.item_id for metric, item in rows if metric.remaining_stock_qty is None}
+    legacy_sales = {}
+    if legacy_item_ids:
+        legacy_sales = dict(db.query(
+            InventoryDailyMetric.item_id,
+            func.sum(InventoryDailyMetric.daily_sales_qty),
+        ).join(
+            RawInventory,
+            RawInventory.item_id == InventoryDailyMetric.item_id,
+        ).filter(
+            RawInventory.user_id == current_user.user_id,
+            InventoryDailyMetric.item_id.in_(legacy_item_ids),
+            InventoryDailyMetric.business_date <= business_date,
+        ).group_by(InventoryDailyMetric.item_id).all())
     return {
         "business_date": business_date.isoformat(),
         "weekday": weekday_names[business_date.weekday()],
@@ -174,6 +188,9 @@ def list_daily_inventory(
             "business_date": metric.business_date.isoformat(),
             "weekday": weekday_names[metric.business_date.weekday()],
             "daily_sales_qty": metric.daily_sales_qty,
+            "remaining_stock_qty": metric.remaining_stock_qty if metric.remaining_stock_qty is not None else max(
+                0, int(item.stock_qty or 0) - int(legacy_sales.get(item.item_id, 0))
+            ),
             "daily_selling_price": float(metric.daily_selling_price),
             "price_variation_rate": float(metric.price_variation_rate),
         } for metric, item in rows],

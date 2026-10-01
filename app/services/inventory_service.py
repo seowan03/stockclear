@@ -110,6 +110,7 @@ def save_inventory_analysis(
             raw_row.item_id,
             raw_row.inbound_date,
             raw_row.market_price,
+            raw_row.stock_qty,
         )
 
 
@@ -190,7 +191,7 @@ def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatch
         analysis.action_plans = None
         analysis.recommended_price = None
         analysis.updated_at = now
-        replace_daily_inventory_metrics(db, user_id, edit.item_id, edit.received_date, edit.selling_price)
+        replace_daily_inventory_metrics(db, user_id, edit.item_id, edit.received_date, edit.selling_price, edit.stock_qty)
         results.append({"item_id": edit.item_id, "version": edit.version + 1})
 
     db.query(UploadAnalysisSummary).filter(

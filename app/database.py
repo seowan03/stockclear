@@ -85,6 +85,16 @@ def ensure_raw_inventory_edit_columns():
             conn.execute(text("ALTER TABLE raw_inventory ADD COLUMN edited_at DATETIME NULL"))
 
 
+def ensure_daily_inventory_remaining_stock_column():
+    inspector = inspect(engine)
+    if "inventory_daily_metrics" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("inventory_daily_metrics")}
+    if "remaining_stock_qty" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE inventory_daily_metrics ADD COLUMN remaining_stock_qty INT NULL"))
+
+
 def ensure_upload_analysis_summary_data_column():
     inspector = inspect(engine)
     if "upload_analysis_summaries" not in inspector.get_table_names():
@@ -168,6 +178,7 @@ def init_db():
     ensure_upload_files_user_id_column()
     ensure_raw_inventory_is_deleted_column()
     ensure_raw_inventory_edit_columns()
+    ensure_daily_inventory_remaining_stock_column()
     ensure_upload_analysis_summary_data_column()
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
     ensure_raw_inventory_mock_market_price_column()
