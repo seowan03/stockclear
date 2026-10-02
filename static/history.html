@@ -157,13 +157,6 @@
           deleteButton.innerHTML = '<i class="fa-solid fa-xmark"></i>';
           deleteButton.addEventListener('click', () => deleteRow(deleteButton, Number(row.id)));
 
-          const editLink = document.createElement('a');
-          editLink.href = `inventory.html?upload_id=${encodeURIComponent(row.id)}`;
-          editLink.className = 'inline-block px-2.5 py-1.5 text-blue-400 hover:text-blue-300 text-[11px]';
-          editLink.title = '이 파일의 현재 재고 편집';
-          editLink.setAttribute('aria-label', '이 파일의 현재 재고 편집');
-          editLink.innerHTML = '<i class="fa-solid fa-table-cells" aria-hidden="true"></i>';
-
           const filenameCell = createCell('px-6 py-4 font-bold text-white', fileIcon(row.file_name), String(row.file_name ?? ''));
           if (row.edited) {
             const changed = document.createElement('span');
@@ -177,7 +170,7 @@
             filenameCell,
             createCell('px-6 py-4 text-gray-400', formatFileSize(row.size)),
             createCell('px-6 py-4', statusBadge(row.status)),
-            createCell('px-6 py-4 text-right space-x-1', ...(row.status === '성공' ? [editLink] : []), deleteButton)
+            createCell('px-6 py-4 text-right', deleteButton)
           );
           return tr;
         }));

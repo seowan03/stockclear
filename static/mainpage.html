@@ -13,7 +13,7 @@
   <!-- 분리된 외부 스타일시트 연결 -->
   <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
-<body class="landing-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
+<body class="landing-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased relative">
 
   <!-- BACKGROUND GLOW -->
   <div class="glow-effect"></div>
@@ -58,7 +58,7 @@
         </h1>
 
         <p class="text-gray-400 text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-          매장의 엑셀 파일만 업로드하세요. StockClear AI 엔진이 실시간으로 결품 위험 품목, 체류 과다 재고, 자동 발주 예측 수치를 시각화해 드립니다.
+          매장의 엑셀 파일만 업로드하세요. StockClear AI 엔진이 실시간으로 위험 재고, 장기 재고, 자동 발주 예측 수치를 시각화해 드립니다.
         </p>
 
         <!-- CTA Buttons -->
@@ -96,10 +96,10 @@
               <div><span>04</span><strong>감가율</strong></div>
             </div>
             <div class="landing-ai-focus__grades" aria-label="재고 등급">
-              <span class="is-normal">정상</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-              <span class="is-caution">주의</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-              <span class="is-risk">위험</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-              <span class="is-disposal">처분 권장</span>
+              <span class="is-risk">위험 재고</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span class="is-aging">장기 재고</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span class="is-caution">주의 재고</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span class="is-normal">정상 재고</span>
             </div>
             <a class="landing-ai-focus__link" href="dashboard.html">분석 대시보드 확인 <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
           </div>
@@ -114,13 +114,13 @@
             <div class="landing-metric"><span>전체 관리 품목</span><strong>128 <small>개</small></strong></div>
             <div class="landing-metric"><span>총 재고 자산</span><strong>₩ 24.8<small>백만</small></strong></div>
             <div class="landing-metric landing-metric--risk"><span>위험 재고</span><strong>12 <small>개 품목</small></strong></div>
-            <div class="landing-metric landing-metric--aging"><span>과다 재고</span><strong>18 <small>개 품목</small></strong></div>
+            <div class="landing-metric landing-metric--aging"><span>장기 재고</span><strong>18 <small>개 품목</small></strong></div>
           </div>
           <div class="landing-dashboard__charts">
             <article class="landing-chart-panel">
               <div class="landing-chart-panel__heading"><div><h4>재고 등급별 현황</h4><p>상태별 재고 비율</p></div><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></div>
               <div class="landing-chart-panel__canvas landing-chart-panel__canvas--doughnut">
-                <canvas id="landingRiskChart" role="img" aria-label="위험, 장기, 주의, 정상 재고 비율을 나타내는 도넛 차트"></canvas>
+                <canvas id="landingRiskChart" role="img" aria-label="위험 재고, 장기 재고, 주의 재고, 정상 재고 비율을 나타내는 도넛 차트"></canvas>
                 <span class="landing-chart-center"><strong>128</strong><small>전체 품목</small></span>
               </div>
             </article>
