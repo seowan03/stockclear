@@ -1,8 +1,19 @@
+window.redirectToSignIn = () => {
+  const returnTo = `${window.location.pathname.replace(/^\//, '')}${window.location.search}`;
+  const signInUrl = new URL('/signin.html', window.location.origin);
+  signInUrl.searchParams.set('v', '20261001-auth');
+  signInUrl.searchParams.set('next', returnTo);
+  window.location.assign(signInUrl.toString());
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const authLinks = [...document.querySelectorAll('header a[href="signin.html"]')];
+  const authLinks = [...document.querySelectorAll('header a[href*="signin.html"]')];
   if (!authLinks.length) return;
 
   const accountArea = authLinks[0].parentElement;
+  authLinks.forEach(link => {
+    link.href = '/signin.html?v=20261001-auth';
+  });
   const authMarkup = accountArea.innerHTML;
   const showAccount = accountName => {
     accountArea.innerHTML = `
@@ -15,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
   const showAuthLinks = () => {
     accountArea.innerHTML = authMarkup;
-    accountArea.querySelectorAll('a[href="signin.html"]').forEach(link => {
+    accountArea.querySelectorAll('a[href*="signin.html"]').forEach(link => {
       link.style.visibility = 'visible';
     });
   };
