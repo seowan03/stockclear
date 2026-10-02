@@ -70,10 +70,10 @@
       <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="내부 품목 코드 또는 품목명 검색..." onkeyup="filterItems()">
       <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
         <option value="ALL">전체 상태 보기</option>
-        <option value="정상">정상</option>
-        <option value="주의">주의</option>
-        <option value="위험">위험</option>
-        <option value="처분 권장">처분 권장</option>
+        <option value="위험 재고">위험 재고</option>
+        <option value="장기 재고">장기 재고</option>
+        <option value="주의 재고">주의 재고</option>
+        <option value="정상 재고">정상 재고</option>
       </select>
     </div>
 
@@ -308,7 +308,7 @@ function switchTab(tabName) {
     const gridPageSize = 50;
     let gridSortField = null;
     let gridSortDirection = 1;
-    const riskSortOrder = { '정상': 0, '주의': 1, '위험': 2, '처분 권장': 3 };
+    const riskSortOrder = { '정상 재고': 0, '주의 재고': 1, '장기 재고': 2, '위험 재고': 3 };
     const pendingEdits = new Map();
     let savingEdits = false;
     const editableFields = ['product_name', 'stock_qty', 'purchase_price', 'selling_price', 'received_date', 'sales_qty'];
@@ -465,16 +465,22 @@ function switchTab(tabName) {
     }
 
     function getRiskStyles(status) {
-      if (status === '위험' || status === '처분 권장') {
+      if (status === '위험 재고') {
         return {
           text: 'text-red-400',
           badge: 'bg-red-500/10 text-red-400 border border-red-500/20'
         };
       }
-      if (status === '주의') {
+      if (status === '주의 재고') {
         return {
           text: 'text-amber-400',
           badge: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+        };
+      }
+      if (status === '장기 재고') {
+        return {
+          text: 'text-orange-400',
+          badge: 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
         };
       }
       return {
@@ -485,7 +491,8 @@ function switchTab(tabName) {
 
     function setInventoryData(sourceInventory) {
       inventoryData = sourceInventory.map((item) => {
-      const statusText = item.risk_grade || '정상';
+      const statusText = StockClear.riskCategory(item);
+      const sourceStatus = item.risk_grade || '정상';
       return {
         id: Number(item.item_id),
         internalCode: String(item.item_id),
@@ -498,7 +505,8 @@ function switchTab(tabName) {
         sellingPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
         sellingPriceValue: StockClear.number(item.selling_price),
         mockMarketPriceValue: StockClear.number(item.mock_market_price),
-        status: statusText,
+        status: sourceStatus,
+        category: statusText,
         statusText,
         icon: 'fa-box-open',
         date: item.received_date || '-',
@@ -641,11 +649,11 @@ function switchTab(tabName) {
       const status = document.getElementById('statusFilter').value;
       const visibleItems = inventoryData.filter((item) =>
         (item.internalCode.toLowerCase().includes(search) || (pendingEdits.get(item.id)?.product_name ?? item.name).toLowerCase().includes(search)) &&
-        (status === 'ALL' || item.status === status)
+        (status === 'ALL' || item.category === status)
       );
       if (gridSortField) visibleItems.sort((left, right) => {
         if (gridSortField === 'status') {
-          return gridSortDirection * ((riskSortOrder[left.status] ?? 4) - (riskSortOrder[right.status] ?? 4));
+          return gridSortDirection * ((riskSortOrder[left.category] ?? 4) - (riskSortOrder[right.category] ?? 4));
         }
         const leftValue = gridSortField === 'id' ? left.id : pendingEdits.get(left.id)?.[gridSortField] ?? originalCellValue(left, gridSortField);
         const rightValue = gridSortField === 'id' ? right.id : pendingEdits.get(right.id)?.[gridSortField] ?? originalCellValue(right, gridSortField);
@@ -661,7 +669,7 @@ function switchTab(tabName) {
       if (visibleItems.length === 0) {
         tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-400">${inventoryData.length ? '검색 결과가 없습니다.' : '등록된 재고 데이터가 없습니다.'}</td></tr>`;
       } else visibleItems.slice(gridPage * gridPageSize, (gridPage + 1) * gridPageSize).forEach((item) => {
-        const riskStyles = getRiskStyles(item.status);
+        const riskStyles = getRiskStyles(item.category);
         const qtyClass = `${riskStyles.text} font-semibold`;
         const dailyMetric = dailyMetricsByItemId.get(item.id);
 
@@ -713,7 +721,7 @@ function switchTab(tabName) {
       document.getElementById('modalItemTitle').innerText = item.name;
       document.getElementById('modalItemBadge').innerText = item.statusText;
       
-      const riskStyles = getRiskStyles(item.status);
+      const riskStyles = getRiskStyles(item.category);
       const badge = document.getElementById('modalItemBadge');
       badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}`;
 

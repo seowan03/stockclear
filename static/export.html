@@ -243,14 +243,14 @@
                     0,
                 );
                 document.getElementById('reportOverview').textContent =
-                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 ${riskCount.toLocaleString('ko-KR')}개가 위험·처분 권장 상태이며, ${agingCount.toLocaleString('ko-KR')}개는 60일 이상 보관 중입니다.`;
+                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 위험 재고는 ${riskCount.toLocaleString('ko-KR')}개, 장기 재고는 ${agingCount.toLocaleString('ko-KR')}개입니다.`;
                 document.getElementById('reportAdvice').textContent = riskCount
-                    ? '위험 품목의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
+                    ? '위험 재고의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
                     : agingCount
                         ? '장기 보관 품목의 판매 흐름을 확인하고 재고 회전 개선을 검토하세요.'
                         : '현재 분류 기준에서 우선 조치가 필요한 품목은 없습니다.';
                 document.getElementById('reportMetrics').textContent =
-                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  위험 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 체류 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
+                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  위험 재고 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 재고 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
                 const reportScopeNote = document.getElementById('reportScopeNote');
                 if (summary.scope === 'account_active_inventory' && report.upload_file_name) {
                     reportScopeNote.textContent = `AI 종합진단은 ${report.summary_source_file_name || '업로드 당시'}의 전체 누적 재고 기준이고, 위 집계와 표는 선택한 파일 기준입니다.`;
@@ -264,7 +264,7 @@
 
                 tbody.innerHTML = loadedItems.length
                     ? loadedItems.map((item, index) => {
-                        const status = item.risk_grade || '정상';
+                        const status = StockClear.riskCategory(item);
                         const mockMarketPrice = item.mock_market_price == null
                             ? '-'
                             : `${StockClear.formatNumber(item.mock_market_price)}원`;
@@ -322,7 +322,7 @@
             const item = items.find(row => Number(row.item_id) === Number(itemId));
             if (!item) throw new Error('해당 상품 정보를 찾을 수 없습니다.');
 
-            const status = item.risk_grade || '정상';
+            const status = StockClear.riskCategory(item);
             const statusClass = getStatusClass(status);
             const formatCurrency = value => value == null ? '-' : `₩ ${formatNumber(value)}`;
             const formatDays = value => value == null ? '-' : `${formatNumber(value)} 일`;

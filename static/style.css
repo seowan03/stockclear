@@ -747,8 +747,8 @@ body.inventory-page {
 .landing-ai-focus__grades i { color: #94a3b8; font-size: 0.55rem; }
 .landing-ai-focus__grades .is-normal { color: #047857; background: #ecfdf5; }
 .landing-ai-focus__grades .is-caution { color: #a16207; background: #fefce8; }
-.landing-ai-focus__grades .is-risk { color: #c2410c; background: #fff7ed; }
-.landing-ai-focus__grades .is-disposal { color: #b91c1c; background: #fef2f2; }
+.landing-ai-focus__grades .is-risk { color: #b91c1c; background: #fef2f2; }
+.landing-ai-focus__grades .is-aging { color: #c2410c; background: #fff7ed; }
 .landing-ai-focus__link { display: inline-flex; align-items: center; gap: 8px; width: fit-content; margin-top: auto; padding-top: 18px; color: #2563eb; font-size: 0.8rem; font-weight: 750; text-decoration: none; }
 .landing-ai-focus__link:hover { color: #1d4ed8; }
 
