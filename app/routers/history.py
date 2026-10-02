@@ -3,7 +3,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import AnalysisResult, InventoryDailyMetric, InventoryMonthlySale, RawInventory, UploadAnalysisSummary, UploadHistory, User
+from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory, User
 from app.security import get_current_user
 from app.services.inventory_service import mark_latest_upload_summary_stale
 
@@ -11,7 +11,6 @@ router = APIRouter(prefix="/api/history", tags=["history"])
 
 
 def _delete_uploads_with_inventory(db: Session, user_id: int, uploads: list[UploadHistory]) -> int:
-    db.query(User).filter(User.user_id == user_id).with_for_update().first()
     upload_ids = [upload.id for upload in uploads]
     content_hashes = [upload.content_hash for upload in uploads if upload.content_hash]
     if not upload_ids:
@@ -27,8 +26,6 @@ def _delete_uploads_with_inventory(db: Session, user_id: int, uploads: list[Uplo
     item_ids = [row.item_id for row in inventory_query.filter(or_(*conditions)).all()]
     if item_ids:
         db.query(AnalysisResult).filter(AnalysisResult.item_id.in_(item_ids)).delete(synchronize_session=False)
-        db.query(InventoryDailyMetric).filter(InventoryDailyMetric.item_id.in_(item_ids)).delete(synchronize_session=False)
-        db.query(InventoryMonthlySale).filter(InventoryMonthlySale.item_id.in_(item_ids)).delete(synchronize_session=False)
         db.query(RawInventory).filter(RawInventory.item_id.in_(item_ids)).delete(synchronize_session=False)
     db.query(UploadAnalysisSummary).filter(
         UploadAnalysisSummary.user_id == user_id,
