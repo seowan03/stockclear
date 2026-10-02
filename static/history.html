@@ -8,7 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260922-navfix">
+<link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
 <body class="history-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -157,12 +157,27 @@
           deleteButton.innerHTML = '<i class="fa-solid fa-xmark"></i>';
           deleteButton.addEventListener('click', () => deleteRow(deleteButton, Number(row.id)));
 
+          const editLink = document.createElement('a');
+          editLink.href = `inventory.html?upload_id=${encodeURIComponent(row.id)}`;
+          editLink.className = 'inline-block px-2.5 py-1.5 text-blue-400 hover:text-blue-300 text-[11px]';
+          editLink.title = '이 파일의 현재 재고 편집';
+          editLink.setAttribute('aria-label', '이 파일의 현재 재고 편집');
+          editLink.innerHTML = '<i class="fa-solid fa-table-cells" aria-hidden="true"></i>';
+
+          const filenameCell = createCell('px-6 py-4 font-bold text-white', fileIcon(row.file_name), String(row.file_name ?? ''));
+          if (row.edited) {
+            const changed = document.createElement('span');
+            changed.className = 'ml-2 text-xs font-normal text-amber-300';
+            changed.textContent = '업로드 후 수정됨';
+            filenameCell.append(changed);
+          }
+
           tr.append(
             createCell('px-6 py-4 font-mono text-gray-400', row.upload_date ? String(row.upload_date).replace('T', ' ').slice(0, 16) : '-'),
-            createCell('px-6 py-4 font-bold text-white', fileIcon(row.file_name), String(row.file_name ?? '')),
+            filenameCell,
             createCell('px-6 py-4 text-gray-400', formatFileSize(row.size)),
             createCell('px-6 py-4', statusBadge(row.status)),
-            createCell('px-6 py-4 text-right space-x-1', deleteButton)
+            createCell('px-6 py-4 text-right space-x-1', ...(row.status === '성공' ? [editLink] : []), deleteButton)
           );
           return tr;
         }));

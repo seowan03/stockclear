@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import CORS_ORIGINS
@@ -34,7 +34,12 @@ def on_startup():
 
 @app.get("/")
 def read_root():
-    return FileResponse("static/upload.html")
+    return FileResponse("static/mainpage.html")
+
+
+@app.get("/Sellpage.html")
+def read_sell_page():
+    return RedirectResponse("/sellpage/Sellpage.html")
 
 
 @app.get("/Sellpage.html")
