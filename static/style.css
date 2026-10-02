@@ -730,9 +730,7 @@ body.inventory-page {
   flex-direction: column;
   margin-top: 26px;
   padding: 22px;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #ffffff 45%, #f5f8ff 100%);
+  background: #f8fafc;
 }
 
 .landing-ai-focus__heading { display: flex; align-items: center; gap: 13px; }
