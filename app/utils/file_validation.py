@@ -1,10 +1,6 @@
 from fastapi import HTTPException, Request, UploadFile
 
-from app.config import (
-    MAX_UPLOAD_BODY_SIZE_BYTES,
-    MAX_UPLOAD_SIZE_BYTES,
-    UPLOAD_READ_CHUNK_SIZE,
-)
+from app.config import MAX_UPLOAD_BODY_SIZE_BYTES, MAX_UPLOAD_SIZE_BYTES, UPLOAD_READ_CHUNK_SIZE
 
 
 def check_upload_content_length(request: Request) -> None:
@@ -22,7 +18,6 @@ def check_upload_content_length(request: Request) -> None:
 async def read_upload_file_with_limit(file: UploadFile) -> bytes:
     chunks: list[bytes] = []
     total_size = 0
-
     while True:
         chunk = await file.read(UPLOAD_READ_CHUNK_SIZE)
         if not chunk:
@@ -31,7 +26,6 @@ async def read_upload_file_with_limit(file: UploadFile) -> bytes:
         if total_size > MAX_UPLOAD_SIZE_BYTES:
             raise HTTPException(status_code=413, detail="파일 용량은 10MB를 초과할 수 없습니다.")
         chunks.append(chunk)
-
     if total_size == 0:
         raise HTTPException(status_code=400, detail="빈 파일은 업로드할 수 없습니다.")
     return b"".join(chunks)
@@ -52,9 +46,5 @@ def validate_upload_file_signature(filename: str, contents: bytes) -> str | None
     if normalized_filename.endswith(".xlsx"):
         if not contents.startswith(b"PK"):
             raise HTTPException(status_code=400, detail="파일 내용이 XLSX 형식이 아닙니다.")
-        return None
-    if normalized_filename.endswith(".xls"):
-        if not contents.startswith(b"\xd0\xcf\x11\xe0"):
-            raise HTTPException(status_code=400, detail="파일 내용이 XLS 형식이 아닙니다.")
         return None
     return detect_csv_encoding(contents)

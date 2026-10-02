@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="auth-document">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,81 +10,66 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- 분리된 외부 스타일시트 연결 -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
-<body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col justify-between antialiased">
-
-  <!-- HEADER -->
-  <header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="mainpage.html" class="flex items-center space-x-3 cursor-pointer">
-        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
-        <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
-      </a>
-      <a href="mainpage.html" class="text-xs font-semibold text-gray-400 hover:text-white transition-colors">
-        <i class="fa-solid fa-house mr-1"></i>메인으로 돌아가기
-      </a>
-    </div>
-  </header>
-
-  <!-- MAIN CONTAINER -->
-  <main class="flex-1 flex items-center justify-center p-6">
-    <div class="auth-card w-full max-w-md bg-gray-900/90 border border-gray-800 rounded-3xl p-8 shadow-2xl space-y-6">
-      
-      <div class="text-center space-y-2">
-        <h1 class="text-2xl font-black text-white" id="authTitle">StockClear 로그인</h1>
-        <p class="text-xs text-gray-400" id="authSubtitle">서비스 이용을 위해 로그인하세요.</p>
-      </div>
-
-      <!-- 로그인 / 회원가입 전환 탭 -->
-      <div class="grid grid-cols-2 gap-2 bg-gray-950 border border-gray-800 rounded-xl p-1">
-        <button type="button" id="tabLogin" onclick="switchMode('login')" class="py-2 text-xs font-bold rounded-lg bg-blue-600 text-white transition-colors">로그인</button>
-        <button type="button" id="tabSignup" onclick="switchMode('signup')" class="py-2 text-xs font-bold rounded-lg text-gray-400 transition-colors">회원가입</button>
-      </div>
-
-      <p id="authError" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></p>
-
-      <form id="authForm" class="space-y-4">
-        <div id="usernameField" class="hidden">
-          <label class="block text-xs font-semibold text-gray-300 mb-1.5">이름</label>
-          <input type="text" id="usernameInput" placeholder="홍길동" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-300 mb-1.5">이메일 주소</label>
-          <input type="email" id="emailInput" placeholder="name@company.com" required class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-300 mb-1.5">비밀번호</label>
-          <input type="password" id="passwordInput" placeholder="••••••••" required class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-xs text-white">
-        </div>
-        <button type="submit" id="authSubmitBtn" class="block text-center w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/30 transition-all border-none cursor-pointer">
-          로그인
-        </button>
-      </form>
-
-      <div class="relative flex py-2 items-center">
-        <div class="flex-grow border-t border-gray-800"></div>
-        <span class="flex-shrink mx-4 text-[11px] text-gray-500">소셜 계정 간편 로그인</span>
-        <div class="flex-grow border-t border-gray-800"></div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <a href="dashboard.html" class="social-btn flex items-center justify-center space-x-2 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-xs font-semibold text-gray-300">
-          <i class="fa-brands fa-google"></i><span>Google</span>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-form-panel" aria-labelledby="authTitle">
+      <div class="auth-form-content">
+        <a class="auth-brand" href="mainpage.html" aria-label="StockClear 메인으로 이동">
+          <span class="auth-brand__mark">S</span><span>Stock<span>Clear</span></span>
         </a>
-        <!-- 카톡 변경 -->
-        <a href="/api/auth/kakao" class="social-btn flex items-center justify-center space-x-2 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-xs font-semibold text-gray-300">
-          <i class="fa-solid fa-comment"></i><span>Kakao</span>
-        </a>
-      </div>
 
-    </div>
+        <div class="auth-heading">
+          <span class="auth-heading__icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></span>
+          <h1 id="authTitle">Login</h1>
+          <p id="authSubtitle">Sign in to continue to StockClear.</p>
+        </div>
+
+        <div class="auth-mode-switch" role="group" aria-label="로그인 또는 회원가입 선택">
+          <button type="button" id="tabLogin" class="is-active" aria-pressed="true" onclick="switchMode('login')">Login</button>
+          <button type="button" id="tabSignup" aria-pressed="false" onclick="switchMode('signup')">Sign up</button>
+        </div>
+
+        <p id="authError" class="auth-error hidden" role="alert"></p>
+
+        <form id="authForm" class="auth-form">
+          <div id="usernameField" class="hidden">
+            <label for="usernameInput">Name</label>
+            <input type="text" id="usernameInput" placeholder="Your name" autocomplete="name">
+          </div>
+          <div>
+            <label for="emailInput">Email</label>
+            <input type="email" id="emailInput" placeholder="name@company.com" autocomplete="email" required>
+          </div>
+          <div>
+            <label for="passwordInput">Password</label>
+            <input type="password" id="passwordInput" placeholder="Enter your password" autocomplete="current-password" required>
+          </div>
+          <div class="auth-options" id="authOptions">
+            <label><input type="checkbox" id="rememberEmail"><span>Remember email</span></label>
+            <span class="auth-forgot">Forgot password?</span>
+          </div>
+          <button type="submit" id="authSubmitBtn" class="auth-submit">Sign in</button>
+        </form>
+
+        <div class="auth-divider"><span>or continue with</span></div>
+        <div class="auth-socials">
+          <span class="is-unavailable" title="Google 로그인은 아직 제공되지 않습니다." aria-disabled="true"><i class="fa-brands fa-google" aria-hidden="true"></i>Google <small>준비 중</small></span>
+          <a href="/api/auth/kakao"><i class="fa-solid fa-comment" aria-hidden="true"></i>Kakao</a>
+        </div>
+        <a class="auth-back" href="mainpage.html"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to home</a>
+      </div>
+    </section>
+
+    <aside class="auth-welcome" aria-live="polite">
+      <div class="auth-welcome__content">
+        <span class="auth-welcome__eyebrow">STOCKCLEAR ACCOUNT</span>
+        <h2 id="welcomeTitle">Welcome Back</h2>
+        <p id="welcomeCopy">Manage your inventory with clear insights and make confident decisions.</p>
+      </div>
+    </aside>
   </main>
-
-  <!-- FOOTER -->
-  <footer class="bg-gray-950 border-t border-gray-800/80 py-6 px-6 text-center text-xs text-gray-500">
-    <p>© 2026 StockClear. All rights reserved.</p>
-  </footer>
 
   <script>
     let mode = 'login';
@@ -92,17 +77,28 @@
     function switchMode(newMode) {
       mode = newMode;
       const isLogin = mode === 'login';
-      document.getElementById('tabLogin').classList.toggle('bg-blue-600', isLogin);
-      document.getElementById('tabLogin').classList.toggle('text-white', isLogin);
-      document.getElementById('tabLogin').classList.toggle('text-gray-400', !isLogin);
-      document.getElementById('tabSignup').classList.toggle('bg-blue-600', !isLogin);
-      document.getElementById('tabSignup').classList.toggle('text-white', !isLogin);
-      document.getElementById('tabSignup').classList.toggle('text-gray-400', isLogin);
+      document.getElementById('tabLogin').classList.toggle('is-active', isLogin);
+      document.getElementById('tabLogin').setAttribute('aria-pressed', String(isLogin));
+      document.getElementById('tabSignup').classList.toggle('is-active', !isLogin);
+      document.getElementById('tabSignup').setAttribute('aria-pressed', String(!isLogin));
       document.getElementById('usernameField').classList.toggle('hidden', isLogin);
-      document.getElementById('authTitle').innerText = isLogin ? 'StockClear 로그인' : 'StockClear 회원가입';
-      document.getElementById('authSubtitle').innerText = isLogin ? '서비스 이용을 위해 로그인하세요.' : '새 계정을 생성하고 서비스를 시작하세요.';
-      document.getElementById('authSubmitBtn').innerText = isLogin ? '로그인' : '회원가입';
+      document.getElementById('usernameInput').required = !isLogin;
+      document.getElementById('passwordInput').autocomplete = isLogin ? 'current-password' : 'new-password';
+      document.getElementById('authOptions').classList.toggle('hidden', !isLogin);
+      document.getElementById('authTitle').innerText = isLogin ? 'Login' : 'Create account';
+      document.getElementById('authSubtitle').innerText = isLogin ? 'Sign in to continue to StockClear.' : 'Create an account to get started.';
+      document.getElementById('authSubmitBtn').innerText = isLogin ? 'Sign in' : 'Create account';
+      document.getElementById('welcomeTitle').innerText = isLogin ? 'Welcome Back' : 'Welcome to StockClear';
+      document.getElementById('welcomeCopy').innerText = isLogin
+        ? 'Manage your inventory with clear insights and make confident decisions.'
+        : 'Start turning your inventory data into clear, practical next steps.';
       document.getElementById('authError').classList.add('hidden');
+    }
+
+    const rememberedEmail = localStorage.getItem('stockclear.rememberedEmail');
+    if (rememberedEmail) {
+      document.getElementById('emailInput').value = rememberedEmail;
+      document.getElementById('rememberEmail').checked = true;
     }
 
     document.getElementById('authForm').addEventListener('submit', async (e) => {
@@ -113,6 +109,12 @@
       const email = document.getElementById('emailInput').value.trim();
       const password = document.getElementById('passwordInput').value;
       const username = document.getElementById('usernameInput').value.trim();
+
+      if (mode === 'login' && document.getElementById('rememberEmail').checked) {
+        localStorage.setItem('stockclear.rememberedEmail', email);
+      } else if (mode === 'login') {
+        localStorage.removeItem('stockclear.rememberedEmail');
+      }
 
       const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/signup';
       const payload = mode === 'login' ? { email, password } : { email, password, username };
@@ -131,7 +133,6 @@
           return;
         }
 
-        localStorage.setItem('stockclear-account-name', email.split('@')[0]);
         window.location.href = 'dashboard.html';
       } catch (err) {
         errorBox.innerText = '서버에 연결할 수 없습니다.';

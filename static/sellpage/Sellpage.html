@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coupong - AI 재고 직거래 마켓</title>
+  <link rel="stylesheet" href="sellpage.css">
+</head>
+<body>
+
+  <!-- 최상단 알림 바 -->
+  <div class="top-bar">
+    ⚡ AI 재고 진단 솔루션 연동 마켓! 기업/소상공인 땡처리 대량 구매 시 추가 할인 <span>자세히 보기</span>
+  </div>
+
+  <!-- 보조 서브 메뉴 -->
+  <div class="sub-nav">
+    <a href="#">로그인</a>
+    <a href="#">회원가입</a>
+    <a href="#">고객센터</a>
+  </div>
+
+  <!-- 메인 헤더 -->
+  <header>
+    <div class="header-wrapper">
+      <button class="category-btn">☰ 카테고리</button>
+
+      <div class="header-container">
+        <a href="#" class="logo">Coupong</a>
+
+        <!-- 검색창 -->
+        <div class="search-box">
+          <select>
+            <option>전체</option>
+            <option>과다재고 땡처리</option>
+            <option>유통기한 임박</option>
+            <option>B2B 대량벌크</option>
+          </select>
+          <input type="text" placeholder="AI가 추천하는 클리어런스 상품을 검색해보세요!">
+          <button>검색</button>
+        </div>
+
+        <!-- 우측 아이콘 메뉴 -->
+        <div class="header-icons">
+          <a href="#" class="icon-item">
+            <div>👤</div>
+            마이페이지
+          </a>
+          <a href="#" class="icon-item">
+            <div>🛒</div>
+            장바구니
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 프로모션 배너 -->
+  <div class="hero-container">
+    <div class="main-banner">
+      <span class="badge">2026 AI 재고 클리어런스</span>
+      <h1>과다 체류 재고 상품<br>최대 80% 한정수량 방출</h1>
+      <p>AI 엔진이 진단한 유통기한 임박 및 소진 필요 품목을 가장 저렴하게 직거래하세요.</p>
+      <button class="btn-banner">오늘의 재고 특가 보기</button>
+    </div>
+
+    <div class="quick-tabs">
+      <div class="tab-item active">
+        <div class="tab-img tab-maeil">MAEIL</div>
+        <div class="tab-info">
+          <h4>매일유업 기획전</h4>
+          <p>최대 50% 할인 혜택</p>
+        </div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-img tab-bulk">BULK</div>
+        <div class="tab-info">
+          <h4>B2B 벌크 대량구매</h4>
+          <p>기업 회원 전용 쿠폰</p>
+        </div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-img tab-time">TIME</div>
+        <div class="tab-info">
+          <h4>유통기한 임박 특가</h4>
+          <p>마감 직전 초특가</p>
+        </div>
+      </div>
+      <div class="tab-item">
+        <div class="tab-img tab-new">NEW</div>
+        <div class="tab-info">
+          <h4>신규 입점 브랜드</h4>
+          <p>무료배송 혜택</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상품 리스트 구역 -->
+  <section class="products-section">
+    <div class="section-title" id="selectedItemsTitle">AI 추천! 지금 긴급 소진 중인 재고 상품</div>
+    
+    <div class="grid-container">
+      <div class="product-card">
+        <div class="product-thumb">
+          <div class="thumb-bg bg-bev"></div>
+          <div class="thumb-content">
+            <span class="brand-initial">BV</span>
+            <span class="brand-sub">BEVERAGE</span>
+          </div>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">과다재고 긴급소진</span>
+            <div class="product-title">[Coupong 파트너] 음료/두유 종합 선물세트</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">45%</span>
+            <span class="price">15,900원</span>
+            <span class="original-price">29,000원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-thumb">
+          <div class="thumb-bg bg-hlth"></div>
+          <div class="thumb-content">
+            <span class="brand-initial">HC</span>
+            <span class="brand-sub">HEALTHCARE</span>
+          </div>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">유통기한 임박</span>
+            <div class="product-title">프리미엄 건강기능식품 30일분</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">70%</span>
+            <span class="price">9,900원</span>
+            <span class="original-price">33,000원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-thumb">
+          <div class="thumb-bg bg-eco"></div>
+          <div class="thumb-content">
+            <span class="brand-initial">EL</span>
+            <span class="brand-sub">ECO LIVING</span>
+          </div>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">B2B 벌크</span>
+            <div class="product-title">친환경 리빙 주방세제 대용량 5L</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">30%</span>
+            <span class="price">21,000원</span>
+            <span class="original-price">30,000원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="product-card">
+        <div class="product-thumb">
+          <div class="thumb-bg bg-food"></div>
+          <div class="thumb-content">
+            <span class="brand-initial">OG</span>
+            <span class="brand-sub">ORGANIC</span>
+          </div>
+        </div>
+        <div class="product-details">
+          <div>
+            <span class="product-tag">한정수량</span>
+            <div class="product-title">유기농 곡물 시리얼 400g x 3팩</div>
+          </div>
+          <div class="price-group">
+            <span class="discount">55%</span>
+            <span class="price">11,200원</span>
+            <span class="original-price">25,000원</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="sellpage.js"></script>
+
+</body>
+</html>

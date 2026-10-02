@@ -21,6 +21,8 @@
       box-shadow: 0 0 10px #3b82f6;
     }
   </style>
+  <!-- 분리된 외부 스타일시트 연결 -->
+  <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
 
@@ -34,22 +36,9 @@
         </div>
         <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
       </a>
-
-      <!-- Navigation Tabs (페이지 간 자유로운 이동) -->
-      <nav class="hidden md:flex items-center space-x-1 bg-gray-900/80 p-1 rounded-xl border border-gray-800">
-        <a href="mainpage.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-house mr-2"></i>메인 Home
-        </a>
-        <a href="upload.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg bg-blue-600 text-white shadow-md">
-          <i class="fa-solid fa-cloud-arrow-up mr-2"></i>데이터 업로드
-        </a>
-        <a href="dashboard.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-chart-pie mr-2"></i>분석 대시보드
-        </a>
-        <a href="inventory.html" class="px-4 py-1.5 text-sm font-semibold rounded-lg text-gray-400 hover:text-white transition-colors">
-          <i class="fa-solid fa-boxes-stacked mr-2"></i>전체 재고 목록
-        </a>
-      </nav>
+      <nav class="site-navigation" aria-label="주요 메뉴"></nav>
+      <script src="js/site-navigation.js?v=20260922-navfix"></script>
+      <script src="js/session-header.js?v=20260922-auth"></script>
 
       <!-- Auth Buttons / User Profile -->
       <div class="flex items-center space-x-3">
@@ -99,6 +88,15 @@
           <p class="text-gray-400 text-sm mt-1">매장의 재고 엑셀 파일(.xlsx, .csv)을 업로드하여 분석 리포트를 확인해보세요.</p>
         </div>
 
+        <section class="mb-6 border-l-2 border-blue-500 pl-4 text-left" aria-labelledby="upload-columns-title">
+          <h3 id="upload-columns-title" class="text-sm font-semibold text-white">파일에 포함할 컬럼</h3>
+          <p class="mt-1 text-xs leading-6 text-gray-300">
+            <strong class="text-blue-300">필수 6개:</strong>
+            <code>상품명</code>, <code>재고량</code>, <code>원가</code>, <code>입고일</code>, <code>판매가</code>, <code>판매량</code>
+          </p>
+          <p class="text-xs text-gray-400">선택 컬럼은 없습니다. 첫 번째 행의 컬럼명을 위와 똑같이 입력해주세요.</p>
+        </section>
+
         <!-- 팀장님이 요청한 백엔드 전송용 멀티파트 폼 -->
         <form action="/api/upload" method="post" enctype="multipart/form-data" id="upload-form" class="space-y-6">
           
@@ -106,7 +104,7 @@
           <div id="drop-zone" class="border-2 border-dashed border-gray-700 hover:border-blue-500 bg-gray-950/60 hover:bg-blue-500/10 rounded-2xl p-10 text-center cursor-pointer transition-all duration-300 group relative">
             
             <!-- 실제 파일이 선택되는 숨겨진 input 태그 -->
-            <input type="file" name="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelect(event)" required>
+            <input type="file" name="file" id="file-input" accept=".xlsx, .csv" class="hidden" onchange="handleFileSelect(event)" required>
             
             <div class="flex justify-center mb-4 pointer-events-none">
               <div class="relative">
@@ -130,7 +128,7 @@
             </span>
 
             <p class="text-xs text-gray-500 mt-4 pointer-events-none">
-              지원 형식: .xlsx, .xls, .csv (최대 50MB)
+              지원 형식: .xlsx, .csv (최대 10MB)
             </p>
           </div>
 
@@ -139,6 +137,7 @@
             <i class="fa-solid fa-paper-plane"></i>
             <span>서버로 데이터 전송 및 분석 시작</span>
           </button>
+          <p id="upload-status" class="hidden rounded-xl px-4 py-3 text-sm" role="status"></p>
         </form>
 
         <!-- SAMPLE DATA BUTTON -->
@@ -168,6 +167,8 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const fileNameDisplay = document.getElementById('file-name-display');
+    const uploadForm = document.getElementById('upload-form');
+    const uploadStatus = document.getElementById('upload-status');
 
     // 드래그 존 클릭 시 파일 선택창 열기
     dropZone.addEventListener('click', () => fileInput.click());
@@ -212,15 +213,80 @@
     }
 
     function updateFileName(name) {
-      fileNameDisplay.innerHTML = `<span class="text-blue-400 font-bold">'${name}'</span> 파일이 선택되었습니다.`;
+      fileNameDisplay.textContent = `'${name}' 파일이 선택되었습니다.`;
+      fileNameDisplay.classList.add('text-blue-400');
     }
 
-    // 샘플 데이터 테스트용 함수
-    function loadSampleAndAnalyze() {
-      alert("샘플 엑셀 데이터 분석 리포트로 이동합니다.");
-      window.location.href = "dashboard.html";
+    function showUploadStatus(message, isError = false) {
+      uploadStatus.textContent = message;
+      uploadStatus.className = `rounded-xl px-4 py-3 text-sm ${isError ? 'bg-rose-500/10 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'}`;
+    }
+
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const submitButton = uploadForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      submitButton.classList.add('opacity-60', 'cursor-not-allowed');
+      showUploadStatus('재고 파일을 분석하는 중입니다.');
+
+      try {
+        const response = await fetch(uploadForm.action, {
+          method: uploadForm.method,
+          body: new FormData(uploadForm),
+          credentials: 'include'
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(result.detail || '업로드 처리 중 오류가 발생했습니다.');
+        }
+
+        showUploadStatus('분석이 완료되었습니다. 대시보드로 이동합니다.');
+        window.location.href = 'dashboard.html';
+      } catch (error) {
+        showUploadStatus(error.message || '서버에 연결할 수 없습니다.', true);
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-60', 'cursor-not-allowed');
+      }
+    });
+
+    async function loadSampleAndAnalyze() {
+      const sampleCsv = [
+        '\ufeff상품명,재고량,원가,입고일,판매가,판매량',
+        '샘플 무선 마우스,80,18000,2025-01-10,15000,12',
+        '샘플 키보드,35,42000,2025-06-15,39900,24',
+        '샘플 USB 허브,16,12000,2026-02-01,10900,8'
+      ].join('\r\n');
+      const formData = new FormData();
+      formData.append('file', new File([sampleCsv], 'stockclear_sample.csv', { type: 'text/csv' }));
+      showUploadStatus('샘플 재고를 분석하는 중입니다.');
+
+      try {
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        });
+        const result = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          window.location.href = 'signin.html';
+          return;
+        }
+        if (response.status === 409) {
+          showUploadStatus('샘플 데이터는 이미 등록되어 있습니다. 대시보드로 이동합니다.');
+          window.location.href = 'dashboard.html';
+          return;
+        }
+        if (!response.ok) throw new Error(result.detail || '샘플 분석에 실패했습니다.');
+        window.location.href = 'dashboard.html';
+      } catch (error) {
+        showUploadStatus(error.message || '샘플 분석에 실패했습니다.', true);
+      }
     }
   </script>
-  <script src="js/session-header.js"></script>
 </body>
 </html>

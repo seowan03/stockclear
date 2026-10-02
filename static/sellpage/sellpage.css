@@ -1,0 +1,175 @@
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
+body { background-color: #f8fafc; color: #1e293b; }
+
+/* 1. 최상단 알림 띠배너 */
+.top-bar {
+	background: #064e3b; color: #a7f3d0; text-align: center;
+	padding: 0.4rem 1rem; font-size: 0.85rem; font-weight: 600;
+}
+.top-bar span { color: #ffffff; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+/* 2. 유저 서브 메뉴 */
+.sub-nav {
+	max-width: 1200px; margin: 0 auto;
+	display: flex; justify-content: flex-end; gap: 1rem; padding: 0.4rem 1rem;
+	font-size: 0.8rem; color: #64748b;
+}
+.sub-nav a { color: #64748b; text-decoration: none; }
+.sub-nav a:hover { color: #059669; }
+
+/* 3. 메인 헤더 레이아웃 */
+header {
+	background: #ffffff; border-bottom: 2px solid #10b981;
+	position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+}
+
+.header-wrapper {
+	position: relative;
+	width: 100%;
+}
+
+/* 카테고리 버튼 */
+.category-btn {
+	position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+	background: #10b981; color: white; border: none; padding: 0.5rem 0.8rem;
+	font-weight: 600; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+	white-space: nowrap; font-size: 0.8rem; z-index: 10;
+}
+.category-btn:hover { background: #059669; }
+
+/* 헤더 컨테이너 */
+.header-container {
+	max-width: 1200px; margin: 0 auto; padding: 0.8rem 1rem;
+	display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+}
+
+.logo {
+	font-size: 1.8rem; font-weight: 900; color: #059669; text-decoration: none;
+	white-space: nowrap; letter-spacing: -0.5px;
+}
+
+/* 검색창 */
+.search-box {
+	display: flex; flex: 1; border: 2px solid #10b981;
+	border-radius: 8px; overflow: hidden;
+}
+.search-box select { border: none; padding: 0 0.8rem; background: #f0fdf4; font-weight: 600; color: #065f46; outline: none; }
+.search-box input { flex: 1; border: none; padding: 0.65rem 0.9rem; font-size: 0.9rem; outline: none; }
+.search-box button { background: #10b981; color: white; border: none; padding: 0 1.5rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.search-box button:hover { background: #059669; }
+
+/* 우측 아이콘 */
+.header-icons { display: flex; gap: 1.2rem; align-items: center; }
+.icon-item { text-align: center; color: #475569; text-decoration: none; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.icon-item div { font-size: 1.2rem; margin-bottom: 2px; color: #059669; }
+
+/* 4. 메인 프로모션 배너 */
+.hero-container {
+	display: flex; max-width: 1200px; margin: 1.5rem auto; padding: 0 1rem; gap: 1rem;
+}
+.main-banner {
+	flex: 3; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+	border-radius: 12px; padding: 3rem 2.5rem; border: 1px solid #a7f3d0;
+	display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden;
+}
+.main-banner .badge {
+	background: #059669; color: white; padding: 0.3rem 0.8rem; border-radius: 4px;
+	font-size: 0.8rem; font-weight: 700; width: fit-content; margin-bottom: 1rem;
+}
+.main-banner h1 { font-size: 2.2rem; font-weight: 800; color: #064e3b; margin-bottom: 0.8rem; line-height: 1.3; }
+.main-banner p { color: #047857; font-size: 1rem; margin-bottom: 1.5rem; }
+.btn-banner {
+	background: #059669; color: white; border: none; padding: 0.8rem 1.8rem;
+	border-radius: 8px; font-weight: 700; width: fit-content; cursor: pointer; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+}
+
+.quick-tabs {
+	flex: 1; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0;
+	display: flex; flex-direction: column; overflow: hidden;
+}
+.tab-item {
+	padding: 1rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 12px;
+	cursor: pointer; transition: background 0.2s;
+}
+.tab-item:last-child { border-bottom: none; }
+.tab-item:hover, .tab-item.active { background: #f0fdf4; border-left: 4px solid #10b981; }
+.tab-img {
+	width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0;
+	display: flex; align-items: center; justify-content: center;
+	font-weight: 900; font-size: 0.85rem; color: #065f46; letter-spacing: -0.5px;
+}
+.tab-maeil { background: #a7f3d0; }
+.tab-bulk { background: #6ee7b7; }
+.tab-time { background: #34d399; }
+.tab-new { background: #10b981; }
+.tab-info h4 { font-size: 0.85rem; color: #1e293b; font-weight: 700; }
+.tab-info p { font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 2px; }
+
+/* 5. 상품 목록 그리드 구역 */
+.products-section { max-width: 1200px; margin: 3rem auto; padding: 0 1rem; }
+.section-title { font-size: 1.4rem; font-weight: 800; color: #0f172a; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px; }
+.section-title::before { content: ''; display: inline-block; width: 6px; height: 20px; background: #10b981; border-radius: 2px; }
+
+.grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.2rem; }
+.product-card {
+	background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+	transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; display: flex; flex-direction: column;
+}
+.product-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); border-color: #10b981; }
+.product-card:hover .thumb-bg { transform: scale(1.05); }
+
+/* 이니셜 & 브랜딩 배지 타이포그래피 */
+.product-thumb {
+	width: 100%; height: 160px;
+	background: #f1f5f9; position: relative; overflow: hidden;
+	display: flex; align-items: center; justify-content: center;
+}
+.thumb-bg {
+	position: absolute; inset: 0;
+	background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+	transition: transform 0.3s ease;
+}
+.thumb-content {
+	position: relative; z-index: 2; text-align: center;
+	display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.brand-initial {
+	font-size: 2.2rem; font-weight: 900; color: #0f172a;
+	letter-spacing: -1px; line-height: 1; opacity: 0.85;
+	font-family: 'Arial Black', sans-serif;
+}
+.brand-sub {
+	font-size: 0.68rem; font-weight: 800; color: #475569;
+	letter-spacing: 1.5px; text-transform: uppercase;
+}
+
+/* 개별 카드별 영문 브랜딩 톤 */
+.bg-bev { background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); }
+.bg-bev .brand-initial { color: #166534; }
+.bg-bev .brand-sub { color: #15803d; }
+
+.bg-hlth { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); }
+.bg-hlth .brand-initial { color: #92400e; }
+.bg-hlth .brand-sub { color: #b45309; }
+
+.bg-eco { background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); }
+.bg-eco .brand-initial { color: #075985; }
+.bg-eco .brand-sub { color: #0369a1; }
+
+.bg-food { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); }
+.bg-food .brand-initial { color: #9d174d; }
+.bg-food .brand-sub { color: #be185d; }
+
+.bg-stock { background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%); }
+.bg-stock .brand-initial { color: #065f46; }
+.bg-stock .brand-sub { color: #047857; }
+
+.product-details { padding: 1.1rem; display: flex; flex-direction: column; flex: 1; justify-content: space-between; background: #fff; }
+.product-tag { font-size: 0.7rem; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 7px; border-radius: 4px; font-weight: 700; width: fit-content; }
+.product-title { font-size: 0.95rem; font-weight: 700; color: #1e293b; margin: 0.6rem 0; line-height: 1.35; height: 2.7em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* 가격 영역 스타일 정의 */
+.price-group { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.discount { color: #ef4444; font-weight: 800; font-size: 1.15rem; }
+.price { font-weight: 800; font-size: 1.15rem; color: #0f172a; }
+.original-price { font-size: 0.8rem; color: #94a3b8; text-decoration: line-through; }
