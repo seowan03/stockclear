@@ -8,7 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=20260922-navfix">
+<link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
 <body class="export-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -37,7 +37,7 @@
     </div>
     <div class="flex space-x-2 no-print">
     <!-- 판매사이트 이동 버튼 (보라색) -->
-    <a href="http://127.0.0.1:5500/Sellpage.html#" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-purple-600/30 transition-all cursor-pointer flex items-center">
+    <a href="sellpage/Sellpage.html" class="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-purple-600/30 transition-all cursor-pointer flex items-center">
         <i class="fa-solid fa-arrow-up-right-from-square mr-1.5"></i>판매사이트 이동
     </a>
     <!-- 판매하기 버튼 -->
@@ -410,7 +410,7 @@
             if (!response.ok) throw new Error(result.detail || '판매 상품 등록에 실패했습니다.');
 
             localStorage.setItem('selectedSellItems', JSON.stringify(selectedItems));
-            window.location.href = 'Sellpage.html';
+            window.location.href = 'sellpage/Sellpage.html';
         } catch (error) {
             alert(error.message || '판매 상품 등록에 실패했습니다.');
             if (button) button.disabled = false;
