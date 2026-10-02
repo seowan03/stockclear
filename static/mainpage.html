@@ -7,12 +7,13 @@
   
   <!-- Tailwind CSS & FontAwesome CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- 분리된 외부 스타일시트 연결 -->
-  <link rel="stylesheet" href="css/style.css?v=20260922-navfix">
+  <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
-<body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
+<body class="landing-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
 
   <!-- BACKGROUND GLOW -->
   <div class="glow-effect"></div>
@@ -76,48 +77,46 @@
       </div>
     </section>
 
-    <!-- FEATURES SECTION -->
-    <section class="py-20 px-6 max-w-7xl mx-auto">
-      <div class="text-center mb-16 space-y-2">
-        <h2 class="text-2xl md:text-3xl font-extrabold text-white">StockClear 핵심 제공 기능</h2>
-        <p class="text-gray-400 text-xs md:text-sm">데이터 수집부터 재고 최적화 제안까지 단 3단계로 완벽하게</p>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
-        <!-- FEATURE CARD 1 -->
-        <div class="bg-gray-900/60 border border-gray-800 p-8 rounded-3xl backdrop-blur-xl hover:border-blue-500/50 transition-all duration-300 group">
-          <div class="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-xl font-bold mb-6 group-hover:scale-110 transition-transform">
-            <i class="fa-solid fa-file-excel"></i>
+    <section class="landing-showcase">
+      <div class="landing-showcase__layout">
+        <aside class="landing-showcase__intro">
+          <span class="landing-showcase__eyebrow">STOCKCLEAR OVERVIEW</span>
+          <h2>재고 흐름을<br>한눈에 살펴보세요</h2>
+          <p class="landing-showcase__lead">데이터를 올리고, 위험을 찾고, 다음 조치를 정리하는 과정을 한 화면에서 이어갑니다.</p>
+          <div class="landing-ai-focus">
+            <div class="landing-ai-focus__heading">
+              <span class="landing-ai-focus__icon"><i class="fa-solid fa-brain" aria-hidden="true"></i></span>
+              <div><span>AI INVENTORY DIAGNOSIS</span><h3>AI 기반 재고 진단</h3></div>
+            </div>
+            <p class="landing-ai-focus__description">판매 흐름과 보관 기간, 가격 변화를 종합해 확인이 필요한 품목을 선별합니다.</p>
+            <div class="landing-ai-focus__signals" aria-label="재고 위험 분석 기준">
+              <div><span>01</span><strong>보관 기간</strong></div>
+              <div><span>02</span><strong>판매 속도</strong></div>
+              <div><span>03</span><strong>예상 소진 기간</strong></div>
+              <div><span>04</span><strong>감가율</strong></div>
+            </div>
+            <div class="landing-ai-focus__grades" aria-label="재고 등급">
+              <span class="is-normal">정상</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span class="is-caution">주의</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span class="is-risk">위험</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              <span class="is-disposal">처분 권장</span>
+            </div>
+            <a class="landing-ai-focus__link" href="dashboard.html">분석 대시보드 확인 <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">간편한 엑셀 파일 파싱</h3>
-          <p class="text-gray-400 text-xs leading-relaxed mb-6">
-            양식 제한 없는 스마트 파싱 기능. 매장에서 보유 중인 `.xlsx`, `.csv` 파일을 드래그 한 번으로 즉시 업로드합니다.
-          </p>
-          <a href="upload.html" class="inline-flex items-center text-xs font-semibold text-blue-400 hover:text-blue-300">
-            데이터 업로드 가기 <i class="fa-solid fa-arrow-right ml-1.5"></i>
-          </a>
-        </div>
+        </aside>
 
-        <!-- FEATURE CARD 2 -->
-        <div class="bg-gray-900/60 border border-gray-800 p-8 rounded-3xl backdrop-blur-xl hover:border-blue-500/50 transition-all duration-300 group">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xl font-bold mb-6 group-hover:scale-110 transition-transform">
-            <i class="fa-solid fa-brain"></i>
+        <div class="landing-dashboard" aria-label="재고 분석 대시보드 미리보기">
+          <div class="landing-dashboard__header">
+            <div><span class="landing-dashboard__eyebrow">INVENTORY ANALYTICS</span><h3>전체 재고 종합 분석</h3></div>
+            <span class="landing-dashboard__sample"><i></i>예시 데이터</span>
           </div>
-          <h3 class="text-lg font-bold text-white mb-2">AI 기반 재고 진단</h3>
-          <p class="text-gray-400 text-xs leading-relaxed mb-6">
-            안전 재고 미달 품목과 장기 체류 재고를 자동 감지하고 최적의 프로모션 및 발주 수량을 실시간으로 제안합니다.
-          </p>
-          <a href="dashboard.html" class="inline-flex items-center text-xs font-semibold text-indigo-400 hover:text-indigo-300">
-            분석 대시보드 확인 <i class="fa-solid fa-arrow-right ml-1.5"></i>
-          </a>
-        </div>
-
-        <!-- FEATURE CARD 3 -->
-        <div class="bg-gray-900/60 border border-gray-800 p-8 rounded-3xl backdrop-blur-xl hover:border-blue-500/50 transition-all duration-300 group">
-          <div class="w-12 h-12 rounded-2xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center text-xl font-bold mb-6 group-hover:scale-110 transition-transform">
-            <i class="fa-solid fa-table-list"></i>
+          <div class="landing-dashboard__metrics">
+            <div class="landing-metric"><span>전체 관리 품목</span><strong>128 <small>개</small></strong></div>
+            <div class="landing-metric"><span>총 재고 자산</span><strong>₩ 24.8<small>백만</small></strong></div>
+            <div class="landing-metric landing-metric--risk"><span>위험 재고</span><strong>12 <small>개 품목</small></strong></div>
+            <div class="landing-metric landing-metric--aging"><span>과다 재고</span><strong>18 <small>개 품목</small></strong></div>
           </div>
+<<<<<<< HEAD
           <h3 class="text-lg font-bold text-white mb-2">실시간 재고 대장 관리</h3>
           <p class="text-gray-400 text-xs leading-relaxed mb-6">
             실시간 필터링, 검색, 신규 품목 등록 모달 기능으로 수천 개의 재고 품목 목록을 한눈에 체계적으로 조회/수정합니다.
@@ -127,6 +126,22 @@
           </a>
         </div>
 
+=======
+          <div class="landing-dashboard__charts">
+            <article class="landing-chart-panel">
+              <div class="landing-chart-panel__heading"><div><h4>재고 등급별 현황</h4><p>상태별 재고 비율</p></div><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></div>
+              <div class="landing-chart-panel__canvas landing-chart-panel__canvas--doughnut">
+                <canvas id="landingRiskChart" role="img" aria-label="위험, 장기, 주의, 정상 재고 비율을 나타내는 도넛 차트"></canvas>
+                <span class="landing-chart-center"><strong>128</strong><small>전체 품목</small></span>
+              </div>
+            </article>
+            <article class="landing-chart-panel">
+              <div class="landing-chart-panel__heading"><div><h4>위험 상품 TOP 5</h4><p>우선 확인이 필요한 품목</p></div><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+              <div class="landing-chart-panel__canvas"><canvas id="landingTopRiskChart" role="img" aria-label="위험도가 높은 상위 다섯 상품을 나타내는 가로 막대 차트"></canvas></div>
+            </article>
+          </div>
+        </div>
+>>>>>>> 84d7b6daaa3d1ba37d5e245e128bd27a487c88d5
       </div>
     </section>
 
@@ -142,6 +157,71 @@
       <p>© 2026 StockClear. All rights reserved.</p>
     </div>
   </footer>
-<script src="js/session-header.js?v=20260922-auth"></script>
+<script>
+  if (window.Chart) {
+    Chart.defaults.font.family = "Pretendard, sans-serif";
+    Chart.defaults.color = "#64748b";
+
+    new Chart(document.getElementById('landingRiskChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['위험 재고', '장기 재고', '주의 재고', '정상 재고'],
+        datasets: [{
+          data: [12, 18, 25, 45],
+          backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e'],
+          borderColor: '#ffffff',
+          borderWidth: 4,
+          hoverOffset: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { boxWidth: 9, boxHeight: 9, padding: 12, usePointStyle: true, font: { size: 10 } }
+          }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('landingTopRiskChart'), {
+      type: 'bar',
+      data: {
+        labels: ['무선 키보드', '보관 용기 세트', '데스크 조명', 'USB 허브', '모바일 액세서리'],
+        datasets: [{
+          data: [92, 84, 78, 71, 64],
+          backgroundColor: '#dc4b4b',
+          borderRadius: 5,
+          borderSkipped: false,
+          barThickness: 13
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: 100,
+            grid: { color: '#eef2f7' },
+            ticks: { stepSize: 25, font: { size: 10 } },
+            border: { display: false }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { font: { size: 10, weight: '500' } },
+            border: { display: false }
+          }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+</script>
+<script src="js/session-header.js?v=20261002-homepage"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome & SheetJS CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css?v=20260922-navfix">
+  <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
 </head>
 <body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -84,14 +84,13 @@
           <tr class="border-b border-gray-800 bg-gray-950/50 text-xs font-semibold text-gray-400 uppercase tracking-wider">
             <th class="sticky left-0 z-10 bg-gray-950 py-2 px-3 whitespace-nowrap"><button type="button" onclick="sortGrid('id')" title="코드순 정렬">내부 품목 코드 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 min-w-48"><button type="button" onclick="sortGrid('product_name')" title="품목명 정렬">품목명 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
-            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('stock_qty')" title="수량순 정렬">현재 수량 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('stock_qty')" title="기준 수량순 정렬">기준 수량 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 min-w-32 whitespace-nowrap">현재 수량</th>
             <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('purchase_price')" title="원가순 정렬">원가 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
-            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('selling_price')" title="판매가순 정렬">판매가 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th class="py-2 px-3 whitespace-nowrap">판매가</th>
             <th class="py-2 px-3 min-w-36"><button type="button" onclick="sortGrid('received_date')" title="입고일 정렬">입고일 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
-            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('sales_qty')" title="판매량순 정렬">업로드 판매량 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
-            <th class="py-2 px-3 whitespace-nowrap">조회일 시세</th>
-            <th class="py-2 px-3 whitespace-nowrap">해당일 판매량</th>
-            <th class="py-2 px-3">상태</th>
+            <th class="py-2 px-3 whitespace-nowrap">판매량</th>
+            <th id="statusSortHeader" class="py-2 px-3" aria-sort="none"><button type="button" onclick="sortGrid('status')" title="상태순 정렬">상태 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 text-right">관리</th>
           </tr>
         </thead>
@@ -181,7 +180,7 @@
                 </h3>
                 <div class="grid grid-cols-2 gap-4 text-xs">
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
-                    <span class="text-gray-400">현재 수량</span>
+                    <span class="text-gray-400">기준 수량</span>
                     <span class="text-gray-200 font-mono" id="detailStockQty">-</span>
                   </div>
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between">
@@ -301,6 +300,7 @@ function switchTab(tabName) {
     let inventoryData = [];
     let selectedInventoryId = null;
     const currentUploadId = new URLSearchParams(window.location.search).get('upload_id');
+    const DAILY_METRIC_END_DATE = '2026-09-30';
     const HISTORY_WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
     let dailyMetricsByItemId = new Map();
     let dailyMetricsRequestId = 0;
@@ -309,12 +309,13 @@ function switchTab(tabName) {
     const gridPageSize = 50;
     let gridSortField = null;
     let gridSortDirection = 1;
+    const riskSortOrder = { '정상': 0, '주의': 1, '위험': 2, '처분 권장': 3 };
     const pendingEdits = new Map();
     let savingEdits = false;
     const editableFields = ['product_name', 'stock_qty', 'purchase_price', 'selling_price', 'received_date', 'sales_qty'];
     const editFieldLabels = {
-      product_name: '품목명', stock_qty: '현재 수량', purchase_price: '원가',
-      selling_price: '판매가', received_date: '입고일', sales_qty: '업로드 판매량'
+      product_name: '품목명', stock_qty: '기준 수량', purchase_price: '원가',
+      selling_price: '기준 판매가', received_date: '입고일', sales_qty: '판매량'
     };
 
     function showGridValidationError(detail, items) {
@@ -393,6 +394,7 @@ function switchTab(tabName) {
     function sortGrid(field) {
       gridSortDirection = gridSortField === field ? -gridSortDirection : 1;
       gridSortField = field;
+      document.getElementById('statusSortHeader').setAttribute('aria-sort', field === 'status' ? (gridSortDirection === 1 ? 'ascending' : 'descending') : 'none');
       gridPage = 0;
       renderTable();
     }
@@ -546,22 +548,27 @@ function switchTab(tabName) {
       document.getElementById('historyWeekday').textContent = weekday;
     }
 
-    function updateHistoryDateRange() {
+    function updateHistoryDateRange(archiveBefore) {
       const datePicker = document.getElementById('historyDatePicker');
       const inboundDates = inventoryData
         .map((item) => item.date)
         .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value || ''))
         .sort();
 
-      if (inboundDates.length === 0) {
+      const firstDate = inboundDates.length ? addDaysToDateInputValue(inboundDates[0], 1) : null;
+      const dailyStart = firstDate && firstDate > archiveBefore ? firstDate : archiveBefore;
+      if (!firstDate || dailyStart > DAILY_METRIC_END_DATE) {
         datePicker.disabled = true;
-        document.getElementById('dailyDataStatus').textContent = '조회할 재고 데이터가 없습니다.';
+        datePicker.value = '';
+        document.getElementById('historyDateLabel').textContent = '-';
+        document.getElementById('historyWeekday').textContent = '';
+        document.getElementById('dailyDataStatus').textContent = '조회 가능한 일별 데이터가 없습니다.';
         return;
       }
 
       datePicker.disabled = false;
-      datePicker.min = inboundDates[0];
-      datePicker.max = addDaysToDateInputValue(inboundDates[inboundDates.length - 1], 30);
+      datePicker.min = dailyStart;
+      datePicker.max = DAILY_METRIC_END_DATE;
       if (!datePicker.value || datePicker.value < datePicker.min || datePicker.value > datePicker.max) {
         datePicker.value = datePicker.max;
       }
@@ -638,6 +645,9 @@ function switchTab(tabName) {
         (status === 'ALL' || item.status === status)
       );
       if (gridSortField) visibleItems.sort((left, right) => {
+        if (gridSortField === 'status') {
+          return gridSortDirection * ((riskSortOrder[left.status] ?? 4) - (riskSortOrder[right.status] ?? 4));
+        }
         const leftValue = gridSortField === 'id' ? left.id : pendingEdits.get(left.id)?.[gridSortField] ?? originalCellValue(left, gridSortField);
         const rightValue = gridSortField === 'id' ? right.id : pendingEdits.get(right.id)?.[gridSortField] ?? originalCellValue(right, gridSortField);
         const numeric = ['id', 'stock_qty', 'purchase_price', 'selling_price', 'sales_qty'].includes(gridSortField);
@@ -650,7 +660,7 @@ function switchTab(tabName) {
       document.getElementById('nextGridPage').disabled = gridPage + 1 === pages;
 
       if (visibleItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-gray-400">${inventoryData.length ? '검색 결과가 없습니다.' : '등록된 재고 데이터가 없습니다.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-400">${inventoryData.length ? '검색 결과가 없습니다.' : '등록된 재고 데이터가 없습니다.'}</td></tr>`;
       } else visibleItems.slice(gridPage * gridPageSize, (gridPage + 1) * gridPageSize).forEach((item) => {
         const riskStyles = getRiskStyles(item.status);
         const qtyClass = `${riskStyles.text} font-semibold`;
@@ -671,11 +681,10 @@ function switchTab(tabName) {
           </td>
           <td class="py-2 px-2">${cell('product_name', 'text', 'w-48')}</td>
           <td class="py-2 px-2 ${qtyClass}">${cell('stock_qty', 'number', 'w-24')}</td>
+          <td class="py-2 px-3 font-semibold text-gray-100 whitespace-nowrap">${dailyMetric?.remaining_stock_qty == null ? '-' : `${StockClear.formatNumber(dailyMetric.remaining_stock_qty)} 개`}</td>
           <td class="py-2 px-2">${cell('purchase_price', 'number', 'w-24')}</td>
-          <td class="py-2 px-2">${cell('selling_price', 'number', 'w-24')}</td>
-          <td class="py-2 px-2">${cell('received_date', 'text', 'w-36')}</td>
-          <td class="py-2 px-2">${cell('sales_qty', 'number', 'w-24')}</td>
           <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원` : '-'}</td>
+          <td class="py-2 px-2">${cell('received_date', 'text', 'w-36')}</td>
           <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
           <td class="py-2 px-3">
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}">${escapeHtml(item.statusText)}</span>
@@ -771,7 +780,7 @@ function switchTab(tabName) {
 
     async function loadInventoryData() {
       const tbody = document.getElementById('inventoryBody');
-      tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
       try {
         const inventoryUrl = currentUploadId
           ? `/api/inventory?upload_id=${encodeURIComponent(currentUploadId)}`
@@ -784,7 +793,7 @@ function switchTab(tabName) {
         if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
         const payload = await response.json();
         setInventoryData(Array.isArray(payload.items) ? payload.items : []);
-        updateHistoryDateRange();
+        updateHistoryDateRange(payload.daily_window_start);
         inventoryDataLoaded = true;
         if (currentUploadId) {
           document.getElementById('inventoryTitle').textContent = payload.upload_file_name
@@ -801,7 +810,7 @@ function switchTab(tabName) {
         await loadDailyInventoryData();
       } catch (error) {
         console.error('재고 데이터 로딩 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
       }
     }
 
