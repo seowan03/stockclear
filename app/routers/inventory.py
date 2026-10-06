@@ -92,6 +92,39 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
     if status:
         query = query.filter(AnalysisResult.risk_grade == status)
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
+    recommended_qty_by_item_id: dict[int, int] = {}
+    item_ids = [item.item_id for _, item in rows]
+    if item_ids:
+        ranked_daily_sales = db.query(
+            InventoryDailyMetric.item_id.label("item_id"),
+            InventoryDailyMetric.daily_sales_qty.label("daily_sales_qty"),
+            func.row_number().over(
+                partition_by=InventoryDailyMetric.item_id,
+                order_by=InventoryDailyMetric.business_date.desc(),
+            ).label("row_number"),
+        ).filter(
+            InventoryDailyMetric.item_id.in_(item_ids),
+            InventoryDailyMetric.business_date <= date.today(),
+        ).subquery()
+        daily_sales_stats = db.query(
+            ranked_daily_sales.c.item_id,
+            func.max(ranked_daily_sales.c.daily_sales_qty).label("max_daily_sales"),
+            func.avg(ranked_daily_sales.c.daily_sales_qty).label("average_daily_sales"),
+        ).filter(
+            ranked_daily_sales.c.row_number <= 30,
+        ).group_by(
+            ranked_daily_sales.c.item_id,
+        ).all()
+        recommended_qty_by_item_id = {
+            stats.item_id: calculate_safety_stock(
+                max_daily_sales=float(stats.max_daily_sales),
+                average_daily_sales=float(stats.average_daily_sales),
+                max_lead_time_days=5,
+                average_lead_time_days=2,
+            )
+            for stats in daily_sales_stats
+        }
+
     return {"upload_file_name": upload.file_name if upload else None, "items": [{
         "item_id": item.item_id,
         "version": item.version,
@@ -112,6 +145,7 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
         "depreciation_rate": float(analysis.fluctuation_rate or 0),
         "inventory_value": float(analysis.inventory_amount or 0),
         "risk_grade": analysis.risk_grade,
+        "recommended_qty": recommended_qty_by_item_id.get(item.item_id),
         "action_plans": analysis.action_plans,
         "ai_diagnosis": analysis.ai_diagnosis,
     } for analysis, item in rows]}
