@@ -150,8 +150,8 @@
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <label class="text-xs text-gray-400">최대 일판매량 (개)<input id="maxDailySales" type="number" min="0" max="1000000" step="any" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
                                     <label class="text-xs text-gray-400">평균 일판매량 (개)<input id="averageDailySales" type="number" min="0" max="1000000" step="any" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
-                                    <label class="text-xs text-gray-400">최대 리드타임 (일)<input id="maxLeadTime" type="number" min="0" max="365" step="any" value="5" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
-                                    <label class="text-xs text-gray-400">평균 리드타임 (일)<input id="averageLeadTime" type="number" min="0" max="365" step="any" value="2" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
+                                    <label class="text-xs text-gray-400">최대 조달 기간 (일)<input id="maxLeadTime" type="number" min="0" max="365" step="any" value="5" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
+                                    <label class="text-xs text-gray-400">평균 조달 기간 (일)<input id="averageLeadTime" type="number" min="0" max="365" step="any" value="2" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-3">
                                     <button id="calculateSafetyStock" type="submit" class="rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"><i class="fa-solid fa-calculator mr-1" aria-hidden="true"></i>계산</button>
@@ -296,7 +296,7 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        const recommendedQty = safetyStockResults.get(Number(item.item_id))?.recommended_qty;
+                        const recommendedQty = safetyStockResults.get(Number(item.item_id))?.recommended_qty ?? item.recommended_qty;
                         return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 whitespace-nowrap"><span data-safety-stock-id="${Number(item.item_id)}">${recommendedQty == null ? '-' : `${formatNumber(recommendedQty)}개`}</span></td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
                     }).join('')
                     : '<tr><td colspan="8" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
@@ -386,7 +386,8 @@
             document.getElementById('averageDailySales').value = inputs?.average_daily_sales ?? item.sales_speed ?? 0;
             document.getElementById('maxLeadTime').value = inputs?.max_lead_time_days ?? 5;
             document.getElementById('averageLeadTime').value = inputs?.average_lead_time_days ?? 2;
-            document.getElementById('exportDetailRecommendedQty').textContent = safetyStock ? `${formatNumber(safetyStock.recommended_qty)} 개` : '-';
+            const recommendedQty = safetyStock?.recommended_qty ?? item.recommended_qty;
+            document.getElementById('exportDetailRecommendedQty').textContent = recommendedQty == null ? '-' : `${formatNumber(recommendedQty)} 개`;
             document.getElementById('calculateSafetyStock').disabled = pendingSafetyStock.has(Number(itemId));
             document.getElementById('safetyStockSource').textContent = safetyStock
                 ? '직전 계산 입력값'

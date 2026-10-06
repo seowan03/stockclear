@@ -23,7 +23,26 @@ def calculate_safety_stock(
     if average_sales > maximum_sales or average_days > maximum_days:
         raise ValueError("Average values must not exceed maximum values.")
     safety_stock = maximum_sales * maximum_days - average_sales * average_days
-    return int(max(Decimal("0"), safety_stock).to_integral_value(rounding=ROUND_CEILING))
+    if safety_stock <= 0:
+        safety_stock = average_sales * average_days
+    return int(safety_stock.to_integral_value(rounding=ROUND_CEILING))
+
+
+def calculate_date_based_days_to_sell(
+    remaining_stock_qty: int | None,
+    weekly_sales_qty: int | None,
+    recorded_days: int,
+    window_days: int = 7,
+) -> int | None:
+    if remaining_stock_qty is None or remaining_stock_qty < 0:
+        return None
+    if remaining_stock_qty == 0:
+        return 0
+    if window_days <= 0 or recorded_days < window_days or weekly_sales_qty is None or weekly_sales_qty <= 0:
+        return None
+
+    average_daily_sales = Decimal(weekly_sales_qty) / Decimal(recorded_days)
+    return int((Decimal(remaining_stock_qty) / average_daily_sales).to_integral_value(rounding=ROUND_CEILING))
 
 
 def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
