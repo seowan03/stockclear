@@ -218,6 +218,42 @@ body[class*="bg-[#0b1120]"] [class*="bg-indigo-600/10"] {
 	background: #f1f5f9;
 }
 
+body.dashboard-page[class*="bg-[#0b1120]"] [data-dashboard-surface] {
+	background-color: #f8fafc !important;
+	border-color: #e2e8f0 !important;
+	box-shadow: none !important;
+	backdrop-filter: none !important;
+}
+body.dashboard-page[class*="bg-[#0b1120]"] [data-dashboard-surface]:hover {
+	border-color: #e2e8f0 !important;
+}
+
+:root {
+	--grade-normal: #0072B2;
+	--grade-risk: #E69F00;
+	--grade-caution: #009E73;
+	--grade-aging: #D55E00;
+}
+
+.grade-normal { color: var(--grade-normal) !important; }
+.grade-risk { color: var(--grade-risk) !important; }
+.grade-caution { color: var(--grade-caution) !important; }
+.grade-aging { color: var(--grade-aging) !important; }
+
+.grade-badge-normal,
+.grade-icon-normal { color: var(--grade-normal) !important; background-color: #e6f1f7 !important; border-color: #b7d4e4 !important; }
+.grade-badge-risk,
+.grade-icon-risk { color: var(--grade-risk) !important; background-color: #fbf1db !important; border-color: #f2d28f !important; }
+.grade-badge-caution,
+.grade-icon-caution { color: var(--grade-caution) !important; background-color: #e6f5f0 !important; border-color: #b4dfcf !important; }
+.grade-badge-aging,
+.grade-icon-aging { color: var(--grade-aging) !important; background-color: #fbeee7 !important; border-color: #edc4ae !important; }
+
+.grade-action-risk { background-color: var(--grade-risk) !important; }
+.grade-action-risk:hover { background-color: #c98b00 !important; }
+.grade-action-aging { background-color: var(--grade-aging) !important; }
+.grade-action-aging:hover { background-color: #b94f00 !important; }
+
 ::-webkit-scrollbar-thumb {
 	background: #cbd5e1;
 }

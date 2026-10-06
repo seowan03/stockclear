@@ -49,7 +49,7 @@
   <main class="flex-1 py-8 px-6 max-w-7xl mx-auto space-y-8 w-full">
     
     <!-- TOP BANNER / NAVIGATION BAR -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-2xl">
+    <div data-dashboard-surface class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-2xl">
       <div>
         <div class="flex items-center space-x-3">
           <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
@@ -70,7 +70,7 @@
 
     <!-- SUMMARY KPI CARDS -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">전체 관리 품목</span>
           <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
@@ -80,7 +80,7 @@
         <div id="totalSku" class="text-3xl font-black text-white tracking-tight">0 <span class="text-xs font-normal text-gray-400">개</span></div>
       </div>
 
-      <div class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">총 재고 자산</span>
           <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
@@ -90,24 +90,24 @@
         <div id="inventoryValue" class="text-3xl font-black text-white tracking-tight">₩ 0</div>
       </div>
 
-      <div class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">위험 재고</span>
-          <div class="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center border border-rose-500/20">
+          <div class="w-9 h-9 rounded-xl grade-icon-risk flex items-center justify-center border">
             <i class="fa-solid fa-triangle-exclamation text-sm"></i>
           </div>
         </div>
-        <div id="deficitCount" class="text-3xl font-black text-rose-400 tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
+        <div id="deficitCount" class="text-3xl font-black grade-risk tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
       </div>
 
-      <div class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">장기 재고</span>
-          <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+          <div class="w-9 h-9 rounded-xl grade-icon-aging flex items-center justify-center border">
             <i class="fa-solid fa-warehouse text-sm"></i>
           </div>
         </div>
-        <div id="staleCount" class="text-3xl font-black text-amber-400 tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
+        <div id="staleCount" class="text-3xl font-black grade-aging tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
       </div>
     </div>
 
@@ -115,7 +115,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       
       <!-- 도넛 차트 영역 -->
-      <div class="bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
+      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
         <div class="flex items-center justify-between mb-2">
           <div>
             <h3 class="font-bold text-white text-lg tracking-tight">재고 등급별 현황</h3>
@@ -126,12 +126,12 @@
         
         <!-- 바깥쪽 라벨을 위한 영역 높이 및 여백 확보 -->
         <div class="h-80 w-full flex items-center justify-center relative p-2">
-          <canvas id="trendChart"></canvas>g
+          <canvas id="trendChart"></canvas>
         </div>
       </div>
 
       <!-- 위험 상품 TOP 5 차트 영역 -->
-      <div class="bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
+      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
         <div class="flex items-center justify-between mb-2">
           <div>
             <h3 class="font-bold text-white text-lg tracking-tight">위험 상품 TOP 5</h3>
