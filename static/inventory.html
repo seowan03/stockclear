@@ -70,10 +70,10 @@
       <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="내부 품목 코드 또는 품목명 검색..." onkeyup="filterItems()">
       <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
         <option value="ALL">전체 상태 보기</option>
-        <option value="위험 재고">위험 재고</option>
-        <option value="장기 재고">장기 재고</option>
-        <option value="주의 재고">주의 재고</option>
-        <option value="정상 재고">정상 재고</option>
+        <option value="정상">정상</option>
+        <option value="주의">주의</option>
+        <option value="장기">장기</option>
+        <option value="악성">악성</option>
       </select>
     </div>
 
@@ -304,7 +304,7 @@ function switchTab(tabName) {
     const gridPageSize = 50;
     let gridSortField = null;
     let gridSortDirection = 1;
-    const riskSortOrder = { '정상 재고': 0, '주의 재고': 1, '장기 재고': 2, '위험 재고': 3 };
+    const riskSortOrder = { '정상': 0, '주의': 1, '장기': 2, '악성': 3 };
     const pendingEdits = new Map();
     let savingEdits = false;
     const editableFields = ['product_name', 'stock_qty', 'purchase_price', 'selling_price', 'received_date', 'sales_qty'];
@@ -461,7 +461,7 @@ function switchTab(tabName) {
     }
 
     function getRiskStyles(status) {
-      if (status === '위험 재고') {
+      if (status === '악성') {
         return {
           text: 'text-red-400',
           badge: 'bg-red-500/10 text-red-400 border border-red-500/20'
@@ -473,7 +473,7 @@ function switchTab(tabName) {
           badge: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
         };
       }
-      if (status === '장기 재고') {
+      if (status === '장기') {
         return {
           text: 'text-orange-400',
           badge: 'bg-orange-500/10 text-orange-400 border border-orange-500/20'

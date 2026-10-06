@@ -21,8 +21,8 @@
     const stockQty = number(item.stock_qty);
     const salesSpeed = number(item.sales_speed);
 
-    if (stockQty <= 0) return '처분 권장';
-    if (storageDays >= 60 || (salesSpeed === 0 && storageDays > 30)) return '장기 체류';
+    if (stockQty <= 0) return '악성';
+    if (storageDays >= 60 || (salesSpeed === 0 && storageDays > 30)) return '장기';
     if (storageDays >= 30) return '주의';
     return '정상';
   }
@@ -31,8 +31,8 @@
     return {
       '정상': 'text-emerald-400',
       '주의': 'text-yellow-400',
-      '장기 체류': 'text-orange-400',
-      '처분 권장': 'text-red-400'
+      '장기': 'text-orange-400',
+      '악성': 'text-red-400'
     }[status] || 'text-gray-400';
   }
 
