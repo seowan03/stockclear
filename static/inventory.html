@@ -466,7 +466,7 @@ function switchTab(tabName) {
           badge: 'bg-red-500/10 text-red-400 border border-red-500/20'
         };
       }
-      if (status === '주의 재고') {
+      if (status === '주의') {
         return {
           text: 'text-amber-400',
           badge: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -487,7 +487,6 @@ function switchTab(tabName) {
     function setInventoryData(sourceInventory) {
       inventoryData = sourceInventory.map((item) => {
       const statusText = StockClear.riskCategory(item);
-      const sourceStatus = item.risk_grade || '정상';
       return {
         id: Number(item.item_id),
         internalCode: String(item.item_id),
@@ -499,7 +498,6 @@ function switchTab(tabName) {
         purchasePrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
         sellingPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
         sellingPriceValue: StockClear.number(item.selling_price),
-        status: sourceStatus,
         category: statusText,
         statusText,
         icon: 'fa-box-open',

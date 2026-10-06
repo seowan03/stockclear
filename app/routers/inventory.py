@@ -54,9 +54,9 @@ def get_dashboard(upload_id: int | None = None, db: Session = Depends(get_db), c
     risk_count = aging_count = 0
     for analysis, _ in rows:
         counts[analysis.risk_grade] = counts.get(analysis.risk_grade, 0) + 1
-        if analysis.risk_grade in ("위험", "처분 권장"):
+        if analysis.risk_grade == "악성":
             risk_count += 1
-        if analysis.aging_days >= 60:
+        if analysis.risk_grade == "장기":
             aging_count += 1
     risk_items = sorted(({"product_name": item.product_name, "final_score": analysis.final_score} for analysis, item in rows), key=lambda value: value["final_score"], reverse=True)[:5]
     return {
@@ -285,8 +285,8 @@ def update_inventory_selling_batch(payload: InventorySellingBatchUpdate, db: Ses
 def get_strategy(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(AnalysisResult.risk_grade, func.count(AnalysisResult.result_id)).join(RawInventory, AnalysisResult.item_id == RawInventory.item_id).filter(RawInventory.user_id == current_user.user_id, RawInventory.is_deleted.is_(False)).group_by(AnalysisResult.risk_grade).all()
     active_items = query_user_analysis(db, current_user.user_id)
-    order_count = active_items.filter(AnalysisResult.risk_grade.in_(("위험", "처분 권장"))).count()
-    promotion_count = active_items.filter(AnalysisResult.aging_days >= 60).count()
+    order_count = active_items.filter(AnalysisResult.risk_grade == "악성").count()
+    promotion_count = active_items.filter(AnalysisResult.risk_grade == "장기").count()
     return {
         "groups": [{"type": grade, "title": RISK_GRADE_META.get(grade, {}).get("title", grade), "summary": RISK_GRADE_META.get(grade, {}).get("summary", ""), "count": count} for grade, count in rows],
         "order_count": order_count,
@@ -314,9 +314,9 @@ def create_strategy_action(action_type: str, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=422, detail="지원하지 않는 전략 작업입니다.")
     query = query_user_analysis(db, current_user.user_id)
     if action_type == "order":
-        query = query.filter(AnalysisResult.risk_grade.in_(("위험", "처분 권장")))
+        query = query.filter(AnalysisResult.risk_grade == "악성")
     else:
-        query = query.filter(RawInventory.is_deleted.is_(False), AnalysisResult.aging_days >= 60)
+        query = query.filter(RawInventory.is_deleted.is_(False), AnalysisResult.risk_grade == "장기")
     item_ids = [item.item_id for _, item in query.all()]
     if not item_ids:
         raise HTTPException(status_code=409, detail="처리할 대상 재고가 없습니다.")
@@ -411,8 +411,8 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         upload_file_id=upload.id if upload else None,
         upload_content_hash=upload.content_hash if upload else None,
     ).order_by(AnalysisResult.final_score.desc()).all()
-    risk_count = sum(analysis.risk_grade in ("위험", "처분 권장") for analysis, _ in rows)
-    aging_count = sum(analysis.aging_days >= 60 for analysis, _ in rows)
+    risk_count = sum(analysis.risk_grade == "악성" for analysis, _ in rows)
+    aging_count = sum(analysis.risk_grade == "장기" for analysis, _ in rows)
     diagnosed_rows = [
         (analysis, item)
         for analysis, item in rows
