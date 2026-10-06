@@ -460,27 +460,14 @@ function switchTab(tabName) {
     }
 
     function getRiskStyles(status) {
-      if (status === '악성') {
-        return {
-          text: 'text-red-400',
-          badge: 'bg-red-500/10 text-red-400 border border-red-500/20'
-        };
-      }
-      if (status === '주의') {
-        return {
-          text: 'text-amber-400',
-          badge: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-        };
-      }
-      if (status === '장기') {
-        return {
-          text: 'text-orange-400',
-          badge: 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-        };
-      }
       return {
         text: StockClear.statusClass(status),
-        badge: StockClear.statusBadgeClass(status)
+        badge: {
+          '정상': 'bg-emerald-500/10 border border-emerald-500/20',
+          '주의': 'bg-amber-500/10 border border-amber-500/20',
+          '장기': 'bg-orange-500/10 border border-orange-500/20',
+          '악성': 'bg-red-500/10 border border-red-500/20'
+        }[status] || 'bg-gray-800/70 border border-gray-700'
       };
     }
 
@@ -696,7 +683,7 @@ function switchTab(tabName) {
           <td class="py-2 px-2">${cell('received_date', 'text', 'w-36')}</td>
           <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
           <td class="py-2 px-3">
-            <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}">${escapeHtml(item.statusText)}</span>
+            <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge} ${riskStyles.text}">${escapeHtml(item.statusText)}</span>
             ${reorderNeeded ? '<span class="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300">발주 필요</span>' : ''}
           </td>
           <td class="py-2 px-3 text-right whitespace-nowrap space-x-2">
@@ -726,7 +713,7 @@ function switchTab(tabName) {
       
       const riskStyles = getRiskStyles(item.category);
       const badge = document.getElementById('modalItemBadge');
-      badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}`;
+      badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${riskStyles.badge} ${riskStyles.text}`;
 
       document.getElementById('modalItemIcon').className = `fa-solid ${item.icon || 'fa-box-open'} text-6xl text-gray-700`;
       document.getElementById('modalItemCode').innerText = item.internalCode;
