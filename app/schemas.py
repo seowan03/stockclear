@@ -46,16 +46,6 @@ class InventorySellingBatchUpdate(BaseModel):
     is_selling: bool = True
 
 
-# 판매사이트 내보내기 시 재고의 판매 여부를 갱신하는 요청 body 규격
-class InventorySellingUpdate(BaseModel):
-    is_selling: bool
-
-
-class InventorySellingBatchUpdate(BaseModel):
-    item_ids: list[int]
-    is_selling: bool = True
-
-
 # /api/ai-diagnose 요청 body를 검증하는 Pydantic 데이터 규격
 class InventoryItem(BaseModel):
     product_name: str

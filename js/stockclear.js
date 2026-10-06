@@ -16,7 +16,7 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  function classify(item) {
+  function riskCategory(item) {
     const storageDays = number(item.storage_days);
     const stockQty = number(item.stock_qty);
     const salesSpeed = number(item.sales_speed);
@@ -40,5 +40,5 @@
     return new Intl.NumberFormat('ko-KR').format(Math.round(number(value)));
   }
 
-  window.StockClear = { getInventory, number, classify, statusClass, formatNumber };
+  window.StockClear = { getInventory, number, riskCategory, statusClass, formatNumber };
 })();

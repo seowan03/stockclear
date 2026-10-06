@@ -52,7 +52,7 @@
 </div>
 
 <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-3xl space-y-4">
-    <h3 class="text-lg font-bold text-white">재고 상태 요약</h3>
+    <h3 class="text-lg font-bold text-white">재고 등급 요약</h3>
     <div class="space-y-2">
         <p id="reportOverview" class="text-sm text-gray-100 leading-relaxed">재고 현황을 불러오는 중입니다.</p>
         <p id="reportAdvice" class="text-sm text-gray-300 leading-relaxed"></p>
@@ -71,7 +71,7 @@
         <h3 class="text-base font-bold text-white"><i class="fa-solid fa-table-list text-blue-400 mr-2"></i>리포트 데이터 목록 미리보기</h3>
         <span class="text-xs text-gray-400" id="reportCount">총 0개 항목 선택됨</span>
     </div>
-    <p class="text-xs text-amber-300/80">더미 시세는 실제 시장 가격이 아닌 업로드 판매가를 기준으로 생성한 참고용 데모값입니다.</p>
+    <p class="text-xs text-amber-300/80">시세는 실제 시장 가격이 아닌 업로드 판매가를 기준으로 생성한 참고용 데모값입니다.</p>
     <div class="overflow-x-auto">
         <table id="reportTable" class="w-full text-left text-xs text-gray-300">
             <thead class="bg-gray-950 text-gray-400 border-b border-gray-800 uppercase">
@@ -84,7 +84,7 @@
                     <th class="py-3 px-4">권장 판매가</th>
                     <th class="py-3 px-4">현재 수량</th>
                     <th class="py-3 px-4">권장 수량</th>
-                    <th class="py-3 px-4">재고 상태</th>
+                    <th class="py-3 px-4">재고 등급</th>
                     <th class="py-3 px-4">AI 추천 조치</th>
                 </tr>
             </thead>
@@ -131,9 +131,7 @@
                         <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">내부 품목 코드</span><span id="exportDetailCode" class="text-blue-400 font-mono font-medium">-</span></div>
                         <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">입고일</span><span id="exportDetailDate" class="text-gray-200 font-medium">-</span></div>
                         <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">원가</span><span id="exportDetailPurchasePrice" class="text-gray-200 font-medium">-</span></div>
-                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">판매가</span><span id="exportDetailSellingPrice" class="text-gray-200 font-medium">-</span></div>
-                        <div class="flex justify-between py-1.5"><span class="text-gray-400">더미 시세(참고용)</span><span id="exportDetailMarketPrice" class="text-gray-200 font-medium">-</span></div>
-                        <p class="text-[11px] leading-relaxed text-amber-300/80">실제 시세가 아닌 판매가 기준으로 생성한 데모값입니다.</p>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">판매가 (시세)</span><span id="exportDetailSellingPrice" class="text-gray-200 font-medium">-</span></div>
                     </div>
                 </div>
                 <div class="lg:col-span-8">
@@ -185,6 +183,8 @@
 <script>
     let loadedItems = [];
     let inventoryDetailsPromise;
+    let activeExportItemId = null;
+    const pendingDiagnoses = new Set();
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -219,6 +219,12 @@
         return 'text-emerald-400';
     }
 
+    function getExportItemStatus(item) {
+        return typeof StockClear.riskCategory === 'function'
+            ? StockClear.riskCategory(item)
+            : item.risk_grade || '정상';
+    }
+
         async function loadExportData() {
             const tbody = document.getElementById('reportBody');
             try {
@@ -235,7 +241,7 @@
 
                 const summary = report.summary || {};
                 document.getElementById('reportSummary').textContent = summary.ai_summary
-                    || '저장된 AI 종합진단이 없습니다. 재고목록에서 품목별 진단을 실행해주세요.';
+                    || '저장된 AI 종합진단이 없습니다.';
                 const riskCount = loadedItems.filter((item) => ['위험', '처분 권장'].includes(item.risk_grade)).length;
                 const agingCount = loadedItems.filter((item) => Number(item.aging_days) >= 60).length;
                 const itemCount = loadedItems.length;
@@ -244,14 +250,14 @@
                     0,
                 );
                 document.getElementById('reportOverview').textContent =
-                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 ${riskCount.toLocaleString('ko-KR')}개가 위험·처분 권장 상태이며, ${agingCount.toLocaleString('ko-KR')}개는 60일 이상 보관 중입니다.`;
+                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 위험 재고는 ${riskCount.toLocaleString('ko-KR')}개, 장기 재고는 ${agingCount.toLocaleString('ko-KR')}개입니다.`;
                 document.getElementById('reportAdvice').textContent = riskCount
-                    ? '위험 품목의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
+                    ? '위험 재고의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
                     : agingCount
                         ? '장기 보관 품목의 판매 흐름을 확인하고 재고 회전 개선을 검토하세요.'
                         : '현재 분류 기준에서 우선 조치가 필요한 품목은 없습니다.';
                 document.getElementById('reportMetrics').textContent =
-                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  위험 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 체류 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
+                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  위험 재고 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 재고 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
                 const reportScopeNote = document.getElementById('reportScopeNote');
                 if (summary.scope === 'account_active_inventory' && report.upload_file_name) {
                     reportScopeNote.textContent = `AI 종합진단은 ${report.summary_source_file_name || '업로드 당시'}의 전체 누적 재고 기준이고, 위 집계와 표는 선택한 파일 기준입니다.`;
@@ -265,7 +271,7 @@
 
                 tbody.innerHTML = loadedItems.length
                     ? loadedItems.map((item, index) => {
-                        const status = item.risk_grade || '정상';
+                        const status = getExportItemStatus(item);
                         const mockMarketPrice = item.mock_market_price == null
                             ? '-'
                             : `${StockClear.formatNumber(item.mock_market_price)}원`;
@@ -273,7 +279,7 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4">-</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200" onclick="openExportItemDetail(${Number(item.item_id)}, 'analysis')"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4">-</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
                     }).join('')
                     : '<tr><td colspan="8" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
@@ -312,6 +318,7 @@
     }
 
     async function openExportItemDetail(itemId, initialTab = 'detail') {
+        activeExportItemId = Number(itemId);
         const modal = document.getElementById('exportDetailModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -320,10 +327,11 @@
 
         try {
             const items = await loadInventoryDetails();
+            if (activeExportItemId !== Number(itemId)) return;
             const item = items.find(row => Number(row.item_id) === Number(itemId));
             if (!item) throw new Error('해당 상품 정보를 찾을 수 없습니다.');
 
-            const status = item.risk_grade || '정상';
+            const status = getExportItemStatus(item);
             const statusClass = getStatusClass(status);
             const formatCurrency = value => value == null ? '-' : `₩ ${formatNumber(value)}`;
             const formatDays = value => value == null ? '-' : `${formatNumber(value)} 일`;
@@ -336,8 +344,7 @@
             document.getElementById('exportDetailCode').textContent = item.item_id;
             document.getElementById('exportDetailDate').textContent = item.received_date || '-';
             document.getElementById('exportDetailPurchasePrice').textContent = formatCurrency(item.purchase_price);
-            document.getElementById('exportDetailSellingPrice').textContent = formatCurrency(item.selling_price);
-            document.getElementById('exportDetailMarketPrice').textContent = formatCurrency(item.mock_market_price);
+            document.getElementById('exportDetailSellingPrice').textContent = formatCurrency(item.mock_market_price);
             document.getElementById('exportDetailStock').textContent = `${formatNumber(item.stock_qty)} 개`;
             document.getElementById('exportDetailSales').textContent = `${formatNumber(item.sales_qty)} 개`;
             document.getElementById('exportDetailInventoryValue').textContent = formatCurrency(item.inventory_value);
@@ -354,11 +361,67 @@
             document.getElementById('exportDetailDiagnosis').textContent = item.ai_diagnosis || item.action_plans || 'AI 진단 결과가 없습니다.';
             document.getElementById('exportDetailHistorySales').textContent = formatNumber(item.sales_qty);
         } catch (error) {
-            document.getElementById('exportDetailTitle').textContent = error.message || '상품 상세 정보를 불러오지 못했습니다.';
+            if (activeExportItemId === Number(itemId)) {
+                document.getElementById('exportDetailTitle').textContent = error.message || '상품 상세 정보를 불러오지 못했습니다.';
+            }
+        }
+    }
+
+    async function diagnoseExportItem(itemId, button) {
+        const id = Number(itemId);
+        if (pendingDiagnoses.has(id)) return;
+        pendingDiagnoses.add(id);
+        const originalLabel = button.innerHTML;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '진단 중...';
+
+        try {
+            await openExportItemDetail(id, 'analysis');
+            if (activeExportItemId === id) {
+                document.getElementById('exportDetailDiagnosis').textContent = 'AI 진단을 생성하는 중입니다.';
+            }
+            const response = await fetch(`/api/inventory/${id}/ai-diagnose`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            if (response.status === 401) {
+                window.location.href = 'signin.html';
+                return;
+            }
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'AI 진단을 생성하지 못했습니다.');
+
+            const item = loadedItems.find(row => Number(row.item_id) === id);
+            if (item) {
+                item.ai_diagnosis = result.judgment;
+                item.action_plans = result.action_plans;
+                item.recommended_price = result.recommended_price;
+            }
+            button.closest('tr').cells[3].textContent = result.recommended_price == null
+                ? '-'
+                : `${formatNumber(result.recommended_price)}원`;
+            inventoryDetailsPromise = undefined;
+            if (activeExportItemId === id) {
+                await openExportItemDetail(id, 'analysis');
+            }
+        } catch (error) {
+            const message = error.message || 'AI 진단을 생성하지 못했습니다.';
+            if (activeExportItemId === id) {
+                document.getElementById('exportDetailDiagnosis').textContent = message;
+            } else {
+                alert(message);
+            }
+        } finally {
+            pendingDiagnoses.delete(id);
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.innerHTML = originalLabel;
         }
     }
 
     function closeExportItemDetail() {
+        activeExportItemId = null;
         const modal = document.getElementById('exportDetailModal');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
