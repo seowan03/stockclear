@@ -70,10 +70,10 @@
       <input type="text" class="flex-1 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors" id="searchInput" placeholder="내부 품목 코드 또는 품목명 검색..." onkeyup="filterItems()">
       <select class="w-full md:w-48 bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:border-blue-500 transition-colors" id="statusFilter" onchange="filterItems()">
         <option value="ALL">전체 상태 보기</option>
-        <option value="위험 재고">위험 재고</option>
-        <option value="장기 재고">장기 재고</option>
-        <option value="주의 재고">주의 재고</option>
-        <option value="정상 재고">정상 재고</option>
+        <option value="정상">정상</option>
+        <option value="주의">주의</option>
+        <option value="장기">장기</option>
+        <option value="악성">악성</option>
       </select>
     </div>
 
@@ -86,7 +86,6 @@
             <th class="py-2 px-3 min-w-48"><button type="button" onclick="sortGrid('product_name')" title="품목명 정렬">품목명 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('stock_qty')" title="기준 수량순 정렬">기준 수량 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 min-w-32 whitespace-nowrap">현재 수량</th>
-            <th class="py-2 px-3 min-w-28"><button type="button" onclick="sortGrid('purchase_price')" title="원가순 정렬">원가 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 whitespace-nowrap">판매가</th>
             <th class="py-2 px-3 min-w-36"><button type="button" onclick="sortGrid('received_date')" title="입고일 정렬">입고일 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 whitespace-nowrap">판매량</th>
@@ -304,7 +303,7 @@ function switchTab(tabName) {
     const gridPageSize = 50;
     let gridSortField = null;
     let gridSortDirection = 1;
-    const riskSortOrder = { '정상 재고': 0, '주의 재고': 1, '장기 재고': 2, '위험 재고': 3 };
+    const riskSortOrder = { '정상': 0, '주의': 1, '장기': 2, '악성': 3 };
     const pendingEdits = new Map();
     let savingEdits = false;
     const editableFields = ['product_name', 'stock_qty', 'purchase_price', 'selling_price', 'received_date', 'sales_qty'];
@@ -461,7 +460,7 @@ function switchTab(tabName) {
     }
 
     function getRiskStyles(status) {
-      if (status === '위험 재고') {
+      if (status === '악성') {
         return {
           text: 'text-red-400',
           badge: 'bg-red-500/10 text-red-400 border border-red-500/20'
@@ -473,7 +472,7 @@ function switchTab(tabName) {
           badge: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
         };
       }
-      if (status === '장기 재고') {
+      if (status === '장기') {
         return {
           text: 'text-orange-400',
           badge: 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
@@ -661,7 +660,7 @@ function switchTab(tabName) {
       document.getElementById('nextGridPage').disabled = gridPage + 1 === pages;
 
       if (visibleItems.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-400">${inventoryData.length ? '검색 결과가 없습니다.' : '등록된 재고 데이터가 없습니다.'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-gray-400">${inventoryData.length ? '검색 결과가 없습니다.' : '등록된 재고 데이터가 없습니다.'}</td></tr>`;
       } else visibleItems.slice(gridPage * gridPageSize, (gridPage + 1) * gridPageSize).forEach((item) => {
         const riskStyles = getRiskStyles(item.category);
         const qtyClass = `${riskStyles.text} font-semibold`;
@@ -683,8 +682,7 @@ function switchTab(tabName) {
           <td class="py-2 px-2">${cell('product_name', 'text', 'w-48')}</td>
           <td class="py-2 px-2 ${qtyClass}">${cell('stock_qty', 'number', 'w-24')}</td>
           <td class="py-2 px-3 font-semibold text-gray-100 whitespace-nowrap">${dailyMetric?.remaining_stock_qty == null ? '-' : `${StockClear.formatNumber(dailyMetric.remaining_stock_qty)} 개`}</td>
-          <td class="py-2 px-2">${cell('purchase_price', 'number', 'w-24')}</td>
-          <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원` : '-'}</td>
+          <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric?.daily_selling_price == null ? item.sellingPrice : `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원`}</td>
           <td class="py-2 px-2">${cell('received_date', 'text', 'w-36')}</td>
           <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
           <td class="py-2 px-3">
@@ -780,7 +778,7 @@ function switchTab(tabName) {
 
     async function loadInventoryData() {
       const tbody = document.getElementById('inventoryBody');
-      tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-gray-400">재고 데이터를 불러오는 중...</td></tr>';
       try {
         const inventoryUrl = currentUploadId
           ? `/api/inventory?upload_id=${encodeURIComponent(currentUploadId)}`
@@ -823,7 +821,7 @@ function switchTab(tabName) {
         if (currentUploadId) {
           document.getElementById('allInventoryLink').classList.remove('hidden');
         }
-        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-rose-400">${escapeHtml(error.message || '재고 데이터를 불러오지 못했습니다.')}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-rose-400">${escapeHtml(error.message || '재고 데이터를 불러오지 못했습니다.')}</td></tr>`;
       }
     }
 

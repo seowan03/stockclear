@@ -174,6 +174,7 @@ def list_daily_inventory(
             "business_date": metric.business_date.isoformat(),
             "weekday": weekday_names[metric.business_date.weekday()],
             "daily_sales_qty": metric.daily_sales_qty,
+            "remaining_stock_qty": metric.remaining_stock_qty,
             "daily_selling_price": float(metric.daily_selling_price),
             "price_variation_rate": float(metric.price_variation_rate),
         } for metric, item in rows],
