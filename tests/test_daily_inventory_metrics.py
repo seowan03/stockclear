@@ -14,7 +14,7 @@ from sqlalchemy.pool import StaticPool
 import app.database as database
 import app.routers.upload as upload_router
 from app.main import app
-from app.analysis import calculate_safety_stock
+from app.analysis import calculate_date_based_days_to_sell, calculate_safety_stock
 from app.models import InventoryDailyMetric, RawInventory
 from app.services.daily_inventory_service import generate_daily_inventory_metrics
 from app.services.upload_service import REQUIRED_COLUMNS
@@ -35,6 +35,13 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
 
     def tearDown(self):
         self.engine.dispose()
+
+    def test_date_based_days_to_sell_requires_a_complete_seven_day_window(self):
+        self.assertEqual(calculate_date_based_days_to_sell(10, 14, 7), 5)
+        self.assertEqual(calculate_date_based_days_to_sell(0, 0, 1), 0)
+        self.assertIsNone(calculate_date_based_days_to_sell(10, 14, 6))
+        self.assertIsNone(calculate_date_based_days_to_sell(10, 0, 7))
+        self.assertIsNone(calculate_date_based_days_to_sell(None, 14, 7))
 
     def _csv_file(self, row):
         buffer = io.StringIO(newline="")
@@ -103,6 +110,8 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
                 average_lead_time_days=2,
             )
             self.assertEqual(item["recommended_qty"], expected_recommended_qty)
+            export_item = client.get("/api/export").json()["items"][0]
+            self.assertEqual(export_item["recommended_qty"], expected_recommended_qty)
 
             self.assertEqual(len(metrics), 31)
             expected_dates = [date(2026, 9, 1) + timedelta(days=offset) for offset in range(31)]
@@ -125,6 +134,9 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
             self.assertEqual(first_day_item["item_id"], item_id)
             self.assertEqual(first_day_item["daily_sales_qty"], metrics[0].daily_sales_qty)
             self.assertEqual(first_day_item["remaining_stock_qty"], metrics[0].remaining_stock_qty)
+            self.assertEqual(first_day_item["weekly_sales_qty"], metrics[0].daily_sales_qty)
+            self.assertEqual(first_day_item["weekly_sales_recorded_days"], 1)
+            self.assertIsNone(first_day_item["days_to_sell_on_date"])
             self.assertEqual(Decimal(str(first_day_item["daily_selling_price"])), metrics[0].daily_selling_price)
             self.assertEqual(first_day_item["weekday"], "화요일")
 
@@ -133,6 +145,22 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
                 params={"business_date": "2026-09-01", "upload_id": first_upload_id},
             )
             self.assertEqual(repeated_response.json(), first_day_response.json())
+            seventh_day_response = client.get(
+                "/api/inventory/daily",
+                params={"business_date": "2026-09-07", "upload_id": first_upload_id},
+            )
+            self.assertEqual(seventh_day_response.status_code, 200, seventh_day_response.text)
+            seventh_day_item = seventh_day_response.json()["items"][0]
+            self.assertEqual(seventh_day_item["weekly_sales_qty"], sum(metric.daily_sales_qty for metric in metrics[:7]))
+            self.assertEqual(seventh_day_item["weekly_sales_recorded_days"], 7)
+            self.assertEqual(
+                seventh_day_item["days_to_sell_on_date"],
+                calculate_date_based_days_to_sell(
+                    metrics[6].remaining_stock_qty,
+                    sum(metric.daily_sales_qty for metric in metrics[:7]),
+                    7,
+                ),
+            )
             self.assertEqual(
                 client.get("/api/inventory/daily", params={"business_date": "2026-10-02"}).json()["items"],
                 [],
@@ -247,6 +275,8 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
         self.assertIn("/api/inventory/daily?", source)
         self.assertIn("dailyMetric.daily_sales_qty", source)
         self.assertIn("dailyMetric.remaining_stock_qty", source)
+        self.assertIn("dailyMetric?.days_to_sell_on_date", source)
+        self.assertIn("조회일 기준 예상 소진기간", source)
         self.assertNotIn("getDailyDemoData", source)
 
 

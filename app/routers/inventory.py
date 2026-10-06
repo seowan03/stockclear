@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from app.analysis import calculate_safety_stock
+from app.analysis import calculate_date_based_days_to_sell, calculate_safety_stock
 from app.config import RISK_GRADE_META
 from app.database import get_db
 from app.models import AnalysisResult, InventoryDailyMetric, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
@@ -20,6 +20,41 @@ from app.services.inventory_service import (
 from app.services.mock_market_price import generate_mock_market_price
 
 router = APIRouter(tags=["inventory"])
+
+
+def _recommended_qty_by_item_id(db: Session, item_ids: list[int]) -> dict[int, int]:
+    if not item_ids:
+        return {}
+
+    ranked_daily_sales = db.query(
+        InventoryDailyMetric.item_id.label("item_id"),
+        InventoryDailyMetric.daily_sales_qty.label("daily_sales_qty"),
+        func.row_number().over(
+            partition_by=InventoryDailyMetric.item_id,
+            order_by=InventoryDailyMetric.business_date.desc(),
+        ).label("row_number"),
+    ).filter(
+        InventoryDailyMetric.item_id.in_(item_ids),
+        InventoryDailyMetric.business_date <= date.today(),
+    ).subquery()
+    daily_sales_stats = db.query(
+        ranked_daily_sales.c.item_id,
+        func.max(ranked_daily_sales.c.daily_sales_qty).label("max_daily_sales"),
+        func.avg(ranked_daily_sales.c.daily_sales_qty).label("average_daily_sales"),
+    ).filter(
+        ranked_daily_sales.c.row_number <= 30,
+    ).group_by(
+        ranked_daily_sales.c.item_id,
+    ).all()
+    return {
+        stats.item_id: calculate_safety_stock(
+            max_daily_sales=float(stats.max_daily_sales),
+            average_daily_sales=float(stats.average_daily_sales),
+            max_lead_time_days=5,
+            average_lead_time_days=2,
+        )
+        for stats in daily_sales_stats
+    }
 
 
 @router.get("/api/dashboard")
@@ -92,38 +127,10 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
     if status:
         query = query.filter(AnalysisResult.risk_grade == status)
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
-    recommended_qty_by_item_id: dict[int, int] = {}
-    item_ids = [item.item_id for _, item in rows]
-    if item_ids:
-        ranked_daily_sales = db.query(
-            InventoryDailyMetric.item_id.label("item_id"),
-            InventoryDailyMetric.daily_sales_qty.label("daily_sales_qty"),
-            func.row_number().over(
-                partition_by=InventoryDailyMetric.item_id,
-                order_by=InventoryDailyMetric.business_date.desc(),
-            ).label("row_number"),
-        ).filter(
-            InventoryDailyMetric.item_id.in_(item_ids),
-            InventoryDailyMetric.business_date <= date.today(),
-        ).subquery()
-        daily_sales_stats = db.query(
-            ranked_daily_sales.c.item_id,
-            func.max(ranked_daily_sales.c.daily_sales_qty).label("max_daily_sales"),
-            func.avg(ranked_daily_sales.c.daily_sales_qty).label("average_daily_sales"),
-        ).filter(
-            ranked_daily_sales.c.row_number <= 30,
-        ).group_by(
-            ranked_daily_sales.c.item_id,
-        ).all()
-        recommended_qty_by_item_id = {
-            stats.item_id: calculate_safety_stock(
-                max_daily_sales=float(stats.max_daily_sales),
-                average_daily_sales=float(stats.average_daily_sales),
-                max_lead_time_days=5,
-                average_lead_time_days=2,
-            )
-            for stats in daily_sales_stats
-        }
+    recommended_qty_by_item_id = _recommended_qty_by_item_id(
+        db,
+        [item.item_id for _, item in rows],
+    )
 
     return {"upload_file_name": upload.file_name if upload else None, "items": [{
         "item_id": item.item_id,
@@ -200,6 +207,35 @@ def list_daily_inventory(
 
     weekday_names = ("월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일")
     rows = query.order_by(RawInventory.item_id).all()
+    weekly_sales_by_item_id = {}
+    item_ids = [item.item_id for _, item in rows]
+    if item_ids:
+        weekly_sales_stats = db.query(
+            InventoryDailyMetric.item_id,
+            func.sum(InventoryDailyMetric.daily_sales_qty).label("weekly_sales_qty"),
+            func.count(InventoryDailyMetric.metric_id).label("recorded_days"),
+        ).filter(
+            InventoryDailyMetric.item_id.in_(item_ids),
+            InventoryDailyMetric.business_date >= business_date - timedelta(days=6),
+            InventoryDailyMetric.business_date <= business_date,
+        ).group_by(
+            InventoryDailyMetric.item_id,
+        ).all()
+        weekly_sales_by_item_id = {
+            stats.item_id: {
+                "weekly_sales_qty": int(stats.weekly_sales_qty or 0),
+                "weekly_sales_recorded_days": int(stats.recorded_days or 0),
+            }
+            for stats in weekly_sales_stats
+        }
+    date_based_days_to_sell_by_item_id = {
+        item.item_id: calculate_date_based_days_to_sell(
+            remaining_stock_qty=metric.remaining_stock_qty,
+            weekly_sales_qty=weekly_sales_by_item_id.get(item.item_id, {}).get("weekly_sales_qty"),
+            recorded_days=weekly_sales_by_item_id.get(item.item_id, {}).get("weekly_sales_recorded_days", 0),
+        )
+        for metric, item in rows
+    }
     return {
         "business_date": business_date.isoformat(),
         "weekday": weekday_names[business_date.weekday()],
@@ -210,6 +246,9 @@ def list_daily_inventory(
             "weekday": weekday_names[metric.business_date.weekday()],
             "daily_sales_qty": metric.daily_sales_qty,
             "remaining_stock_qty": metric.remaining_stock_qty,
+            "weekly_sales_qty": weekly_sales_by_item_id.get(item.item_id, {}).get("weekly_sales_qty"),
+            "weekly_sales_recorded_days": weekly_sales_by_item_id.get(item.item_id, {}).get("weekly_sales_recorded_days", 0),
+            "days_to_sell_on_date": date_based_days_to_sell_by_item_id[item.item_id],
             "daily_selling_price": float(metric.daily_selling_price),
             "price_variation_rate": float(metric.price_variation_rate),
         } for metric, item in rows],
@@ -445,6 +484,10 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         upload_file_id=upload.id if upload else None,
         upload_content_hash=upload.content_hash if upload else None,
     ).order_by(AnalysisResult.final_score.desc()).all()
+    recommended_qty_by_item_id = _recommended_qty_by_item_id(
+        db,
+        [item.item_id for _, item in rows],
+    )
     risk_count = sum(analysis.risk_grade == "악성" for analysis, _ in rows)
     aging_count = sum(analysis.risk_grade == "장기" for analysis, _ in rows)
     diagnosed_rows = [
@@ -533,6 +576,7 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         "depreciation_rate": float(analysis.fluctuation_rate or 0),
         "inventory_value": float(analysis.inventory_amount or 0),
         "risk_grade": analysis.risk_grade,
+        "recommended_qty": recommended_qty_by_item_id.get(item.item_id),
         "action_plans": analysis.action_plans,
         "ai_diagnosis": analysis.ai_diagnosis,
     } for analysis, item in rows]
