@@ -90,7 +90,7 @@
             <th class="py-2 px-3 whitespace-nowrap">판매가</th>
             <th class="py-2 px-3 min-w-36"><button type="button" onclick="sortGrid('received_date')" title="입고일 정렬">입고일 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 whitespace-nowrap">판매량</th>
-            <th id="statusSortHeader" class="py-2 px-3" aria-sort="none"><button type="button" onclick="sortGrid('status')" title="상태순 정렬">상태 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
+            <th id="statusSortHeader" class="py-2 px-3" aria-sort="none"><button type="button" onclick="sortGrid('status')" title="재고 등급순 정렬">재고 등급 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 text-right">관리</th>
           </tr>
         </thead>
@@ -158,12 +158,8 @@
                 <span class="text-gray-200 font-medium" id="modalOrigPrice">-</span>
               </div>
               <div class="flex justify-between py-1.5">
-                <span class="text-gray-400">판매가</span>
+                <span class="text-gray-400">판매가 (시세)</span>
                 <span class="text-gray-200 font-medium" id="modalCurrPrice">-</span>
-              </div>
-              <div class="flex justify-between py-1.5 border-t border-gray-800/50">
-                <span class="text-gray-400">시세</span>
-                <span class="text-gray-200 font-medium" id="modalMockMarketPrice">-</span>
               </div>
             </div>
           </div>
@@ -504,7 +500,6 @@ function switchTab(tabName) {
         purchasePrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
         sellingPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
         sellingPriceValue: StockClear.number(item.selling_price),
-        mockMarketPriceValue: StockClear.number(item.mock_market_price),
         status: sourceStatus,
         category: statusText,
         statusText,
@@ -516,8 +511,7 @@ function switchTab(tabName) {
         aiDiagnosis: formatRecommendationText(item.ai_diagnosis || ''),
         actionPlans: formatRecommendationText(item.action_plans || ''),
         origPrice: `${StockClear.formatNumber(item.purchase_price)} 원`,
-        currPrice: `${StockClear.formatNumber(item.selling_price)} 원`,
-        mockMarketPrice: item.mock_market_price == null
+        currPrice: item.mock_market_price == null
           ? '-'
           : `${StockClear.formatNumber(item.mock_market_price)} 원`,
         exhaust: `${StockClear.formatNumber(item.days_to_sell)} 일`,
@@ -730,7 +724,6 @@ function switchTab(tabName) {
       document.getElementById('modalDate').innerText = item.date || '-';
       document.getElementById('modalOrigPrice').innerText = item.origPrice || '-';
       document.getElementById('modalCurrPrice').innerText = item.currPrice || '-';
-      document.getElementById('modalMockMarketPrice').innerText = item.mockMarketPrice;
       document.getElementById('detailStockQty').innerText = `${StockClear.formatNumber(item.currentQty)} 개`;
       document.getElementById('detailSalesQty').innerText = `${StockClear.formatNumber(item.salesQty)} 개`;
       document.getElementById('detailInventoryValue').innerText = `₩ ${StockClear.formatNumber(item.inventoryValue)}`;
@@ -797,7 +790,17 @@ function switchTab(tabName) {
           window.location.href = 'signin.html';
           return;
         }
-        if (!response.ok) throw new Error('재고 데이터를 불러오지 못했습니다.');
+        if (!response.ok) {
+          let detail = '';
+          try {
+            const errorPayload = await response.json();
+            detail = typeof errorPayload.detail === 'string' ? errorPayload.detail : '';
+          } catch (error) {
+            // The server may return a non-JSON error response.
+          }
+          const message = detail || `재고 데이터를 불러오지 못했습니다. (HTTP ${response.status})`;
+          throw new Error(message);
+        }
         const payload = await response.json();
         setInventoryData(Array.isArray(payload.items) ? payload.items : []);
         updateHistoryDateRange(payload.daily_window_start);
@@ -817,7 +820,10 @@ function switchTab(tabName) {
         await loadDailyInventoryData();
       } catch (error) {
         console.error('재고 데이터 로딩 실패:', error);
-        tbody.innerHTML = '<tr><td colspan="10" class="py-8 text-center text-rose-400">재고 데이터를 불러오지 못했습니다.</td></tr>';
+        if (currentUploadId) {
+          document.getElementById('allInventoryLink').classList.remove('hidden');
+        }
+        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-rose-400">${escapeHtml(error.message || '재고 데이터를 불러오지 못했습니다.')}</td></tr>`;
       }
     }
 
