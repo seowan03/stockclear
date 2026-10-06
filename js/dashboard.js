@@ -62,10 +62,10 @@ function renderTrendChart(items) {
   if (existingChart) existingChart.destroy();
 
   const categories = [
-    { name: '위험 재고', count: 0, color: '#EF4444' },
-    { name: '장기 재고', count: 0, color: '#F97316' },
-    { name: '주의 재고', count: 0, color: '#EAB308' },
-    { name: '정상 재고', count: 0, color: '#22C55E' }
+    { name: '위험 재고', count: 0, color: '#E69F00' },
+    { name: '장기 재고', count: 0, color: '#D55E00' },
+    { name: '주의 재고', count: 0, color: '#009E73' },
+    { name: '정상 재고', count: 0, color: '#0072B2' }
   ];
 
   items.forEach(item => {
@@ -167,9 +167,10 @@ function renderCategoryChart(items) {
       datasets: [{
         label: '위험도 점수',
         data: items.map(item => item.final_score),
-        backgroundColor: '#B91C1C',
+        backgroundColor: '#E69F00',
         borderRadius: 8,
-        borderSkipped: false
+        borderSkipped: false,
+        barThickness: 13
       }]
     },
     options: {
