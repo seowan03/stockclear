@@ -31,8 +31,11 @@ class SafetyStockTests(unittest.TestCase):
     def test_no_sales(self):
         self.assertEqual(calculate_safety_stock(0, 0), 0)
 
-    def test_zero_buffer(self):
-        self.assertEqual(calculate_safety_stock(4, 4, 2, 2), 0)
+    def test_zero_buffer_uses_average_lead_time_demand(self):
+        self.assertEqual(calculate_safety_stock(4, 4, 2, 2), 8)
+
+    def test_fallback_demand_rounds_up(self):
+        self.assertEqual(calculate_safety_stock(0.2, 0.2, 7, 7), 2)
 
     def test_invalid_values(self):
         for values in [(-1, 0), (math.nan, 0), (math.inf, 0), (1, 0, -1, 0)]:
@@ -108,6 +111,12 @@ class SafetyStockTests(unittest.TestCase):
                 self.assertEqual(response.json()["recommended_qty"], 42)
                 payload.update(max_lead_time_days=7, average_lead_time_days=3)
                 self.assertEqual(client.post("/api/inventory/1/safety-stock", json=payload).json()["recommended_qty"], 58)
+                fallback = client.post("/api/inventory/1/safety-stock", json={
+                    "max_daily_sales": 4, "average_daily_sales": 4,
+                    "max_lead_time_days": 2, "average_lead_time_days": 2,
+                })
+                self.assertEqual(fallback.status_code, 200, fallback.text)
+                self.assertEqual(fallback.json()["recommended_qty"], 8)
                 self.assertEqual(client.post("/api/inventory/2/safety-stock", json=payload).status_code, 404)
                 for invalid in [dict(payload, average_lead_time_days=8), dict(payload, max_daily_sales=-1), dict(payload, average_daily_sales=11)]:
                     self.assertEqual(client.post("/api/inventory/1/safety-stock", json=invalid).status_code, 422)

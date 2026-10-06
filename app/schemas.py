@@ -49,7 +49,7 @@ class SafetyStockCalculation(BaseModel):
         if self.average_daily_sales > self.max_daily_sales:
             raise ValueError("평균 일판매량은 최대 일판매량보다 클 수 없습니다.")
         if self.average_lead_time_days > self.max_lead_time_days:
-            raise ValueError("평균 리드타임은 최대 리드타임보다 클 수 없습니다.")
+            raise ValueError("평균 조달 기간은 최대 조달 기간보다 클 수 없습니다.")
         return self
 
 
