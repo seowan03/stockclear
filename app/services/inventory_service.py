@@ -266,9 +266,9 @@ def make_user_summary_input(db: Session, user_id: int) -> dict:
     for analysis, _ in rows:
         grade = analysis.risk_grade or "미분류"
         risk_grade_counts[grade] = risk_grade_counts.get(grade, 0) + 1
-        if grade in ("위험", "처분 권장"):
+        if grade == "악성":
             risk_count += 1
-        if (analysis.aging_days or 0) >= 60:
+        if grade == "장기":
             aging_count += 1
         if analysis.ai_diagnosis or analysis.action_plans:
             diagnosed_count += 1

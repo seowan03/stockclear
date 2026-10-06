@@ -19,9 +19,9 @@
   // riskCategory와 classify 지원
   function riskCategory(item) {
     const status = String(item.risk_grade ?? item.status ?? '');
-    if (status === '위험' || status === '처분 권장' || status === '위험 재고' || status === '악성') return '위험 재고';
+    if (status === '위험' || status === '처분 권장' || status === '위험 재고') return '위험 재고';
     if (status === '주의' || status === '주의 재고') return '주의 재고';
-    if (status === '장기 체류' || status === '장기 재고' || status === '장기' || number(item.storage_days ?? item.aging_days) >= 60) return '장기 재고';
+    if (status === '장기 체류' || status === '장기 재고' || number(item.storage_days ?? item.aging_days) >= 60) return '장기 재고';
     
     // 조건 수치 기반 처리
     const storageDays = number(item.storage_days);
@@ -50,13 +50,6 @@
     }[status] || 'text-gray-400';
   }
 
-  function statusBadgeClass(status) {
-    const colorClass = statusClass(status);
-    return colorClass.startsWith('grade-')
-      ? `grade-badge-${colorClass.slice('grade-'.length)}`
-      : colorClass;
-  }
-
   function formatNumber(value) {
     return new Intl.NumberFormat('ko-KR').format(Math.round(number(value)));
   }
@@ -68,7 +61,6 @@
     classify: riskCategory, 
     riskCategory, 
     statusClass, 
-    statusBadgeClass,
     formatNumber 
   };
 })();

@@ -62,24 +62,15 @@ function renderTrendChart(items) {
   if (existingChart) existingChart.destroy();
 
   const categories = [
-    { name: '위험 재고', count: 0, color: '#E69F00' },
-    { name: '장기 재고', count: 0, color: '#D55E00' },
-    { name: '주의 재고', count: 0, color: '#009E73' },
-    { name: '정상 재고', count: 0, color: '#0072B2' }
+    { name: '위험 재고', count: 0, color: '#EF4444' },
+    { name: '장기 재고', count: 0, color: '#F97316' },
+    { name: '주의 재고', count: 0, color: '#EAB308' },
+    { name: '정상 재고', count: 0, color: '#22C55E' }
   ];
 
   items.forEach(item => {
-    const isAging = Number(item.storage_days) >= 60;
-
-    if (item.risk_grade === '위험' || item.risk_grade === '처분 권장') {
-      categories[0].count += 1;
-    } else if (item.risk_grade === '주의') {
-      categories[2].count += 1;
-    } else if (isAging) {
-      categories[1].count += 1;
-    } else {
-      categories[3].count += 1;
-    }
+    const category = categories.find(candidate => candidate.name === item.risk_grade);
+    if (category) category.count += 1;
   });
 
   // 필터링 없이 전체 categories 4개를 모두 전달

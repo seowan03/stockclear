@@ -169,6 +169,26 @@ def ensure_analysis_results_recommended_price_column():
             conn.execute(text("ALTER TABLE analysis_results ADD COLUMN recommended_price NUMERIC(12, 2) NULL"))
 
 
+def ensure_analysis_risk_grade_values():
+    inspector = inspect(engine)
+    if "analysis_results" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("analysis_results")}
+    if not {"risk_grade", "final_score"}.issubset(columns):
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text(
+            "UPDATE analysis_results SET risk_grade = CASE "
+            "WHEN COALESCE(final_score, 0) >= 70 THEN '악성' "
+            "WHEN COALESCE(final_score, 0) >= 45 THEN '장기' "
+            "WHEN COALESCE(final_score, 0) >= 25 THEN '주의' "
+            "ELSE '정상' END "
+            "WHERE risk_grade IS NULL "
+            "OR risk_grade NOT IN ('정상', '주의', '장기', '악성')"
+        ))
+
+
 def init_db():
     """
     startup 시 호출할 통합 DB 초기화 함수.
@@ -185,3 +205,4 @@ def init_db():
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
     ensure_raw_inventory_mock_market_price_column()
     ensure_analysis_results_recommended_price_column()
+    ensure_analysis_risk_grade_values()

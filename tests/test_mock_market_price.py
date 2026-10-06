@@ -201,7 +201,7 @@ class MockMarketPriceTests(unittest.TestCase):
         saved = session.query(RawInventory).one()
         mock_market_price = float(saved.mock_market_price)
         ai_result = {
-            "status": "양호",
+            "status": "정상",
             "recommended_discount": 0,
             "recommended_price": mock_market_price,
             "comment": "시세 하한 적용",

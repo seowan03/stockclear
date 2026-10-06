@@ -52,10 +52,12 @@ def _rule_based_strategy(data: dict[str, Any]) -> dict[str, Any]:
     sales_speed = float(data.get("sales_speed") or 0)
     days_to_sell = float(data.get("days_to_sell") or 0)
     if storage_days >= 90 or days_to_sell >= 90 or (stock_qty > 0 and sales_speed <= 0):
-        return {"status": "악성재고 위험", "recommended_discount": 30, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
+        return {"status": "악성", "recommended_discount": 30, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
+    if storage_days >= 60 or days_to_sell >= 60:
+        return {"status": "장기", "recommended_discount": 10, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
     if storage_days >= 45 or days_to_sell >= 45:
         return {"status": "주의", "recommended_discount": 10, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
-    return {"status": "양호", "recommended_discount": 0, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
+    return {"status": "정상", "recommended_discount": 0, "comment": "AI 진단을 사용할 수 없어 규칙 기반으로 판단했습니다."}
 
 
 def _ensure_sentence_ending(value: str) -> str:
