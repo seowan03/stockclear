@@ -140,10 +140,24 @@
                             <h3 class="text-sm font-bold text-white"><i class="fa-solid fa-boxes-packing text-blue-500 mr-2"></i>업로드 재고 정보</h3>
                             <div class="grid grid-cols-2 gap-4 text-xs">
                                 <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">현재 수량</span><span id="exportDetailStock" class="text-gray-200 font-mono">-</span></div>
-                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">권장 수량</span><span class="text-gray-200 font-mono">-</span></div>
+                                <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">권장 수량</span><span id="exportDetailRecommendedQty" class="text-gray-200 font-mono">-</span></div>
                                 <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">업로드 판매량</span><span id="exportDetailSales" class="text-gray-200 font-mono">-</span></div>
                                 <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800 flex justify-between"><span class="text-gray-400">재고 금액</span><span id="exportDetailInventoryValue" class="text-gray-200 font-medium">-</span></div>
                             </div>
+                            <form id="safetyStockForm" onsubmit="calculateExportSafetyStock(event)" class="border-t border-gray-800 pt-4 space-y-4">
+                                <h4 class="text-sm font-semibold text-gray-200">권장 수량</h4>
+                                <p id="safetyStockSource" class="text-xs text-gray-400" role="status"></p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <label class="text-xs text-gray-400">최대 일판매량 (개)<input id="maxDailySales" type="number" min="0" max="1000000" step="any" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
+                                    <label class="text-xs text-gray-400">평균 일판매량 (개)<input id="averageDailySales" type="number" min="0" max="1000000" step="any" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
+                                    <label class="text-xs text-gray-400">최대 리드타임 (일)<input id="maxLeadTime" type="number" min="0" max="365" step="any" value="5" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
+                                    <label class="text-xs text-gray-400">평균 리드타임 (일)<input id="averageLeadTime" type="number" min="0" max="365" step="any" value="2" required class="mt-1 block w-full rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100"></label>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <button id="calculateSafetyStock" type="submit" class="rounded bg-blue-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"><i class="fa-solid fa-calculator mr-1" aria-hidden="true"></i>계산</button>
+                                    <span id="safetyStockStatus" class="text-xs text-gray-400" role="status" aria-live="polite"></span>
+                                </div>
+                            </form>
                         </div>
                     </div>
                     <div id="exportAnalysisTab" class="space-y-6">
@@ -185,6 +199,8 @@
     let inventoryDetailsPromise;
     let activeExportItemId = null;
     const pendingDiagnoses = new Set();
+    const safetyStockResults = new Map();
+    const pendingSafetyStock = new Set();
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -280,7 +296,8 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4">-</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
+                        const recommendedQty = safetyStockResults.get(Number(item.item_id))?.recommended_qty;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 whitespace-nowrap"><span data-safety-stock-id="${Number(item.item_id)}">${recommendedQty == null ? '-' : `${formatNumber(recommendedQty)}개`}</span><button type="button" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')" title="권장 수량 계산" aria-label="권장 수량 계산" class="ml-2 p-1 text-blue-400"><i class="fa-solid fa-calculator" aria-hidden="true"></i></button></td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
                     }).join('')
                     : '<tr><td colspan="8" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
@@ -324,10 +341,25 @@
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.getElementById('exportDetailTitle').textContent = '상세 정보를 불러오는 중입니다.';
+        document.getElementById('safetyStockForm').reset();
+        document.getElementById('calculateSafetyStock').disabled = true;
+        document.getElementById('exportDetailRecommendedQty').textContent = '-';
+        document.getElementById('safetyStockStatus').textContent = '';
+        document.getElementById('safetyStockSource').textContent = '일별 판매량 조회 중...';
         switchExportDetailTab(initialTab);
 
         try {
-            const items = await loadInventoryDetails();
+            const [items, salesResponse] = await Promise.all([
+                loadInventoryDetails(),
+                fetch(`/api/inventory/${Number(itemId)}/safety-stock`, { credentials: 'include' })
+            ]);
+            if (activeExportItemId !== Number(itemId)) return;
+            if (salesResponse.status === 401) {
+                window.location.href = 'signin.html';
+                return;
+            }
+            if (!salesResponse.ok) throw new Error('일별 판매량 초기값을 불러오지 못했습니다.');
+            const salesDefaults = await salesResponse.json();
             if (activeExportItemId !== Number(itemId)) return;
             const item = items.find(row => Number(row.item_id) === Number(itemId));
             if (!item) throw new Error('해당 상품 정보를 찾을 수 없습니다.');
@@ -348,6 +380,19 @@
             document.getElementById('exportDetailPurchasePrice').textContent = formatCurrency(item.purchase_price);
             document.getElementById('exportDetailSellingPrice').textContent = formatCurrency(item.mock_market_price);
             document.getElementById('exportDetailStock').textContent = `${formatNumber(item.stock_qty)} 개`;
+            const safetyStock = safetyStockResults.get(Number(itemId));
+            const inputs = safetyStock?.inputs ?? salesDefaults.inputs;
+            document.getElementById('maxDailySales').value = inputs?.max_daily_sales ?? '';
+            document.getElementById('averageDailySales').value = inputs?.average_daily_sales ?? item.sales_speed ?? 0;
+            document.getElementById('maxLeadTime').value = inputs?.max_lead_time_days ?? 5;
+            document.getElementById('averageLeadTime').value = inputs?.average_lead_time_days ?? 2;
+            document.getElementById('exportDetailRecommendedQty').textContent = safetyStock ? `${formatNumber(safetyStock.recommended_qty)} 개` : '-';
+            document.getElementById('calculateSafetyStock').disabled = pendingSafetyStock.has(Number(itemId));
+            document.getElementById('safetyStockSource').textContent = safetyStock
+                ? '직전 계산 입력값'
+                : salesDefaults.recorded_days
+                    ? `일별 데모 데이터 ${salesDefaults.recorded_days}일 · ${salesDefaults.window_start} ~ ${salesDefaults.window_end}`
+                    : '일별 기록 없음 · 평균은 추정값';
             document.getElementById('exportDetailSales').textContent = `${formatNumber(item.sales_qty)} 개`;
             document.getElementById('exportDetailInventoryValue').textContent = formatCurrency(item.inventory_value);
             document.getElementById('exportDetailDaysToSell').textContent = formatDays(item.days_to_sell);
@@ -366,6 +411,49 @@
             if (activeExportItemId === Number(itemId)) {
                 document.getElementById('exportDetailTitle').textContent = error.message || '상품 상세 정보를 불러오지 못했습니다.';
             }
+        }
+    }
+
+    async function calculateExportSafetyStock(event) {
+        event.preventDefault();
+        const id = activeExportItemId;
+        if (id == null || pendingSafetyStock.has(id)) return;
+        const payload = {
+            max_daily_sales: Number(document.getElementById('maxDailySales').value),
+            average_daily_sales: Number(document.getElementById('averageDailySales').value),
+            max_lead_time_days: Number(document.getElementById('maxLeadTime').value),
+            average_lead_time_days: Number(document.getElementById('averageLeadTime').value)
+        };
+        pendingSafetyStock.add(id);
+        document.getElementById('calculateSafetyStock').disabled = true;
+        document.getElementById('safetyStockStatus').textContent = '계산 중...';
+        try {
+            const response = await fetch(`/api/inventory/${id}/safety-stock`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.status === 401) {
+                window.location.href = 'signin.html';
+                return;
+            }
+            const result = await response.json();
+            if (!response.ok) {
+                const detail = Array.isArray(result.detail) ? result.detail[0]?.msg : result.detail;
+                throw new Error(detail || '권장 수량을 계산하지 못했습니다.');
+            }
+            safetyStockResults.set(id, result);
+            const cell = document.querySelector(`[data-safety-stock-id="${id}"]`);
+            if (cell) cell.textContent = `${formatNumber(result.recommended_qty)}개`;
+            if (activeExportItemId === id) {
+                document.getElementById('exportDetailRecommendedQty').textContent = `${formatNumber(result.recommended_qty)} 개`;
+                document.getElementById('safetyStockStatus').textContent = `안전재고 ${formatNumber(result.recommended_qty)}개`;
+            }
+        } catch (error) {
+            if (activeExportItemId === id) document.getElementById('safetyStockStatus').textContent = error.message;
+        } finally {
+            pendingSafetyStock.delete(id);
+            if (activeExportItemId === id) document.getElementById('calculateSafetyStock').disabled = false;
         }
     }
 

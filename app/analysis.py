@@ -1,8 +1,29 @@
+from decimal import Decimal, ROUND_CEILING
+
 import numpy as np
 import pandas as pd
 
 # 재고량/원가/판매가/판매량은 논리적으로 음수가 될 수 없는 값
 NON_NEGATIVE_COLUMNS = ["재고량", "원가", "판매가", "판매량"]
+
+
+def calculate_safety_stock(
+    max_daily_sales: float,
+    average_daily_sales: float,
+    max_lead_time_days: float = 5,
+    average_lead_time_days: float = 2,
+) -> int:
+    values = tuple(Decimal(str(value)) for value in (
+        max_daily_sales, average_daily_sales,
+        max_lead_time_days, average_lead_time_days,
+    ))
+    if any(not value.is_finite() or value < 0 for value in values):
+        raise ValueError("Sales and lead times must be finite and non-negative.")
+    maximum_sales, average_sales, maximum_days, average_days = values
+    if average_sales > maximum_sales or average_days > maximum_days:
+        raise ValueError("Average values must not exceed maximum values.")
+    safety_stock = maximum_sales * maximum_days - average_sales * average_days
+    return int(max(Decimal("0"), safety_stock).to_integral_value(rounding=ROUND_CEILING))
 
 
 def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:

@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class InventoryGridEdit(BaseModel):
@@ -34,6 +34,23 @@ class InventoryGridEdit(BaseModel):
 
 class InventoryGridBatchUpdate(BaseModel):
     items: list[InventoryGridEdit] = Field(min_length=1, max_length=500)
+
+
+class SafetyStockCalculation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_daily_sales: float = Field(ge=0, le=1_000_000, allow_inf_nan=False)
+    average_daily_sales: float = Field(ge=0, le=1_000_000, allow_inf_nan=False)
+    max_lead_time_days: float = Field(default=5, ge=0, le=365, allow_inf_nan=False)
+    average_lead_time_days: float = Field(default=2, ge=0, le=365, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def check_averages(self):
+        if self.average_daily_sales > self.max_daily_sales:
+            raise ValueError("평균 일판매량은 최대 일판매량보다 클 수 없습니다.")
+        if self.average_lead_time_days > self.max_lead_time_days:
+            raise ValueError("평균 리드타임은 최대 리드타임보다 클 수 없습니다.")
+        return self
 
 
 # 판매사이트 내보내기 시 재고의 판매 여부를 갱신하는 요청 body 규격

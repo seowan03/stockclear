@@ -1,14 +1,15 @@
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
+from app.analysis import calculate_safety_stock
 from app.config import RISK_GRADE_META
 from app.database import get_db
 from app.models import AnalysisResult, InventoryDailyMetric, RawInventory, StrategyAction, UploadAnalysisSummary, UploadHistory, User
-from app.schemas import InventoryGridBatchUpdate, InventorySellingBatchUpdate, InventorySellingUpdate
+from app.schemas import InventoryGridBatchUpdate, InventorySellingBatchUpdate, InventorySellingUpdate, SafetyStockCalculation
 from app.security import get_current_user
 from app.services.inventory_service import (
     make_user_summary_input,
@@ -328,6 +329,66 @@ def create_strategy_action(action_type: str, db: Session = Depends(get_db), curr
     db.commit()
     db.refresh(action)
     return {"action_id": action.action_id, "action_type": action.action_type, "status": action.status, "item_count": len(item_ids)}
+
+
+@router.get("/api/inventory/{item_id}/safety-stock")
+def get_inventory_safety_stock_inputs(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = query_user_analysis(db, current_user.user_id).filter(RawInventory.item_id == item_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
+    analysis, _ = row
+    metrics = db.query(InventoryDailyMetric).filter(
+        InventoryDailyMetric.item_id == item_id,
+        InventoryDailyMetric.business_date <= date.today(),
+    )
+    latest_date = metrics.with_entities(func.max(InventoryDailyMetric.business_date)).scalar()
+    window_start = latest_date - timedelta(days=29) if latest_date else None
+    recorded_days = 0
+    maximum_sales = None
+    average_sales = float(analysis.sales_velocity or 0)
+    if latest_date:
+        recorded_days, maximum_sales, average_sales = metrics.filter(
+            InventoryDailyMetric.business_date >= window_start,
+        ).with_entities(
+            func.count(InventoryDailyMetric.metric_id),
+            func.max(InventoryDailyMetric.daily_sales_qty),
+            func.avg(InventoryDailyMetric.daily_sales_qty),
+        ).one()
+    return {
+        "item_id": item_id,
+        "inputs": {
+            "max_daily_sales": maximum_sales,
+            "average_daily_sales": float(average_sales),
+            "max_lead_time_days": 5,
+            "average_lead_time_days": 2,
+        },
+        "recorded_days": recorded_days,
+        "window_start": window_start.isoformat() if window_start else None,
+        "window_end": latest_date.isoformat() if latest_date else None,
+        "source": "stored_daily_demo" if recorded_days else "estimate",
+    }
+
+
+@router.post("/api/inventory/{item_id}/safety-stock")
+def calculate_inventory_safety_stock(
+    item_id: int,
+    payload: SafetyStockCalculation,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = query_user_analysis(db, current_user.user_id).filter(RawInventory.item_id == item_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="해당 재고를 찾을 수 없습니다.")
+    return {
+        "item_id": item_id,
+        "recommended_qty": calculate_safety_stock(**payload.model_dump()),
+        "inputs": payload.model_dump(),
+        "source": "manual",
+    }
 
 
 @router.get("/api/export")
