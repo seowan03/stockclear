@@ -49,17 +49,21 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
         )
 
     def test_numpy_generation_is_deterministic_for_item_and_date(self):
-        first = generate_daily_inventory_metrics(9, 31, date(2026, 9, 1), 150)
-        repeated = generate_daily_inventory_metrics(9, 31, date(2026, 9, 1), 150)
+        first = generate_daily_inventory_metrics(9, 31, date(2026, 9, 1), 150, base_stock_qty=10)
+        repeated = generate_daily_inventory_metrics(9, 31, date(2026, 9, 1), 150, base_stock_qty=10)
         first_values = [
-            (row.business_date, row.daily_sales_qty, row.daily_selling_price, row.price_variation_rate)
+            (row.business_date, row.daily_sales_qty, row.remaining_stock_qty, row.daily_selling_price, row.price_variation_rate)
             for row in first
         ]
         repeated_values = [
-            (row.business_date, row.daily_sales_qty, row.daily_selling_price, row.price_variation_rate)
+            (row.business_date, row.daily_sales_qty, row.remaining_stock_qty, row.daily_selling_price, row.price_variation_rate)
             for row in repeated
         ]
         self.assertEqual(first_values, repeated_values)
+        remaining_stock_qty = 10
+        for metric in first:
+            remaining_stock_qty = max(0, remaining_stock_qty - metric.daily_sales_qty)
+            self.assertEqual(metric.remaining_stock_qty, remaining_stock_qty)
 
     def test_upload_generates_and_upsert_replaces_31_daily_metrics(self):
         with (
@@ -111,6 +115,7 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
             first_day_item = first_day_response.json()["items"][0]
             self.assertEqual(first_day_item["item_id"], item_id)
             self.assertEqual(first_day_item["daily_sales_qty"], metrics[0].daily_sales_qty)
+            self.assertEqual(first_day_item["remaining_stock_qty"], metrics[0].remaining_stock_qty)
             self.assertEqual(Decimal(str(first_day_item["daily_selling_price"])), metrics[0].daily_selling_price)
             self.assertEqual(first_day_item["weekday"], "화요일")
 
@@ -232,6 +237,7 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
         source = inventory_page.read_text(encoding="utf-8")
         self.assertIn("/api/inventory/daily?", source)
         self.assertIn("dailyMetric.daily_sales_qty", source)
+        self.assertIn("dailyMetric.remaining_stock_qty", source)
         self.assertNotIn("getDailyDemoData", source)
 
 
