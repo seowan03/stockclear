@@ -43,6 +43,19 @@
     }[status] || 'text-gray-400';
   }
 
+  function statusBadgeClass(status) {
+  if (['악성', '위험', '처분 권장', '위험 재고'].includes(status)) {
+    return 'bg-red-500/10 text-red-400 border border-red-500/20';
+  }
+  if (['주의', '주의 재고'].includes(status)) {
+    return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+  }
+  if (['장기', '장기 체류', '장기 재고'].includes(status)) {
+    return 'bg-orange-500/10 text-orange-400 border border-orange-500/20';
+  }
+  return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+  }
+
   function formatNumber(value) {
     return new Intl.NumberFormat('ko-KR').format(Math.round(number(value)));
   }
@@ -54,6 +67,7 @@
     classify: riskCategory, 
     riskCategory, 
     statusClass, 
+    statusBadgeClass,
     formatNumber 
   };
 })();
