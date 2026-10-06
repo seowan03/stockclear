@@ -184,6 +184,8 @@
 <script>
     let loadedItems = [];
     let inventoryDetailsPromise;
+    let activeExportItemId = null;
+    const pendingDiagnoses = new Set();
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -218,6 +220,12 @@
         return 'text-emerald-400';
     }
 
+    function getExportItemStatus(item) {
+        return typeof StockClear.riskCategory === 'function'
+            ? StockClear.riskCategory(item)
+            : item.risk_grade || '정상';
+    }
+
         async function loadExportData() {
             const tbody = document.getElementById('reportBody');
             try {
@@ -234,7 +242,7 @@
 
                 const summary = report.summary || {};
                 document.getElementById('reportSummary').textContent = summary.ai_summary
-                    || '저장된 AI 종합진단이 없습니다. 재고목록에서 품목별 진단을 실행해주세요.';
+                    || '저장된 AI 종합진단이 없습니다.';
                 const riskCount = loadedItems.filter((item) => ['위험', '처분 권장'].includes(item.risk_grade)).length;
                 const agingCount = loadedItems.filter((item) => Number(item.aging_days) >= 60).length;
                 const itemCount = loadedItems.length;
@@ -264,7 +272,7 @@
 
                 tbody.innerHTML = loadedItems.length
                     ? loadedItems.map((item, index) => {
-                        const status = StockClear.riskCategory(item);
+                        const status = getExportItemStatus(item);
                         const mockMarketPrice = item.mock_market_price == null
                             ? '-'
                             : `${StockClear.formatNumber(item.mock_market_price)}원`;
@@ -272,7 +280,7 @@
                             ? '-'
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4">-</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200" onclick="openExportItemDetail(${Number(item.item_id)}, 'analysis')"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4">-</td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
                     }).join('')
                     : '<tr><td colspan="8" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {
@@ -311,6 +319,7 @@
     }
 
     async function openExportItemDetail(itemId, initialTab = 'detail') {
+        activeExportItemId = Number(itemId);
         const modal = document.getElementById('exportDetailModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -319,10 +328,11 @@
 
         try {
             const items = await loadInventoryDetails();
+            if (activeExportItemId !== Number(itemId)) return;
             const item = items.find(row => Number(row.item_id) === Number(itemId));
             if (!item) throw new Error('해당 상품 정보를 찾을 수 없습니다.');
 
-            const status = StockClear.riskCategory(item);
+            const status = getExportItemStatus(item);
             const statusClass = getStatusClass(status);
             const formatCurrency = value => value == null ? '-' : `₩ ${formatNumber(value)}`;
             const formatDays = value => value == null ? '-' : `${formatNumber(value)} 일`;
@@ -353,11 +363,67 @@
             document.getElementById('exportDetailDiagnosis').textContent = item.ai_diagnosis || item.action_plans || 'AI 진단 결과가 없습니다.';
             document.getElementById('exportDetailHistorySales').textContent = formatNumber(item.sales_qty);
         } catch (error) {
-            document.getElementById('exportDetailTitle').textContent = error.message || '상품 상세 정보를 불러오지 못했습니다.';
+            if (activeExportItemId === Number(itemId)) {
+                document.getElementById('exportDetailTitle').textContent = error.message || '상품 상세 정보를 불러오지 못했습니다.';
+            }
+        }
+    }
+
+    async function diagnoseExportItem(itemId, button) {
+        const id = Number(itemId);
+        if (pendingDiagnoses.has(id)) return;
+        pendingDiagnoses.add(id);
+        const originalLabel = button.innerHTML;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.textContent = '진단 중...';
+
+        try {
+            await openExportItemDetail(id, 'analysis');
+            if (activeExportItemId === id) {
+                document.getElementById('exportDetailDiagnosis').textContent = 'AI 진단을 생성하는 중입니다.';
+            }
+            const response = await fetch(`/api/inventory/${id}/ai-diagnose`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            if (response.status === 401) {
+                window.location.href = 'signin.html';
+                return;
+            }
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'AI 진단을 생성하지 못했습니다.');
+
+            const item = loadedItems.find(row => Number(row.item_id) === id);
+            if (item) {
+                item.ai_diagnosis = result.judgment;
+                item.action_plans = result.action_plans;
+                item.recommended_price = result.recommended_price;
+            }
+            button.closest('tr').cells[3].textContent = result.recommended_price == null
+                ? '-'
+                : `${formatNumber(result.recommended_price)}원`;
+            inventoryDetailsPromise = undefined;
+            if (activeExportItemId === id) {
+                await openExportItemDetail(id, 'analysis');
+            }
+        } catch (error) {
+            const message = error.message || 'AI 진단을 생성하지 못했습니다.';
+            if (activeExportItemId === id) {
+                document.getElementById('exportDetailDiagnosis').textContent = message;
+            } else {
+                alert(message);
+            }
+        } finally {
+            pendingDiagnoses.delete(id);
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            button.innerHTML = originalLabel;
         }
     }
 
     function closeExportItemDetail() {
+        activeExportItemId = null;
         const modal = document.getElementById('exportDetailModal');
         modal.classList.add('hidden');
         modal.classList.remove('flex');
