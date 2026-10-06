@@ -270,6 +270,18 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
             self.assertEqual(second_user_daily.status_code, 200)
             self.assertEqual([row["item_id"] for row in second_user_daily.json()["items"]], [second_item_id])
 
+            for asset_path in (
+                "/css/base.css",
+                "/css/style.css",
+                "/css/sellpage.css",
+                "/js/site-navigation.js",
+                "/js/session-header.js",
+                "/js/stockclear.js",
+                "/js/sellpage.js",
+            ):
+                with self.subTest(asset_path=asset_path):
+                    self.assertEqual(client.get(asset_path).status_code, 200)
+
         inventory_page = Path(__file__).resolve().parents[1] / "static" / "inventory.html"
         source = inventory_page.read_text(encoding="utf-8")
         self.assertIn("/api/inventory/daily?", source)
