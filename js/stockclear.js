@@ -41,10 +41,17 @@
 
   function statusClass(status) {
     return {
-      '정상': 'text-emerald-400',
-      '주의': 'text-yellow-400',
-      '장기': 'text-orange-400',
-      '악성': 'text-red-400'
+      '정상': 'grade-normal',
+      '정상 재고': 'grade-normal',
+      '주의': 'grade-caution',
+      '주의 재고': 'grade-caution',
+      '장기': 'grade-aging',
+      '장기 체류': 'grade-aging',
+      '장기 재고': 'grade-aging',
+      '악성': 'grade-risk',
+      '위험': 'grade-risk',
+      '처분 권장': 'grade-risk',
+      '위험 재고': 'grade-risk'
     }[status] || 'text-gray-400';
   }
 
