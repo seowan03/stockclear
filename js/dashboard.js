@@ -95,7 +95,7 @@ function renderTrendChart(items) {
       layout: {
         padding: {
           top: 55,
-          bottom: 35,
+          bottom: 70,
           left: 45,
           right: 45
         }
@@ -115,6 +115,7 @@ function renderTrendChart(items) {
           }
         },
         datalabels: {
+          clamp: true,
           anchor: 'end',
           align: 'end',
           offset: 12,
@@ -158,7 +159,7 @@ function renderCategoryChart(items) {
       datasets: [{
         label: '위험도 점수',
         data: items.map(item => item.final_score),
-        backgroundColor: '#B91C1C',
+        backgroundColor: '#EF4444',
         borderRadius: 8,
         borderSkipped: false
       }]
@@ -169,8 +170,10 @@ function renderCategoryChart(items) {
       indexAxis: 'y',
       scales: {
         x: {
+          beginAtZero: true,
+          max: 100,
           grid: { color: 'rgba(15, 23, 42, 0.10)' },
-          ticks: { color: '#475569', font: { family: 'Pretendard' } }
+          ticks: { stepSize: 20, color: '#475569', font: { family: 'Pretendard' } }
         },
         y: {
           grid: { display: false },

@@ -8,7 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
+  <link rel="stylesheet" href="/css/style.css?v=20261006-assets">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Chart.js DataLabels Plugin -->
@@ -35,8 +35,8 @@
       </a>
 
       <nav class="site-navigation" aria-label="주요 메뉴"></nav>
-      <script src="js/site-navigation.js?v=20260922-navfix"></script>
-      <script src="js/session-header.js?v=20260922-auth"></script>
+      <script src="/js/site-navigation.js?v=20260922-navfix"></script>
+      <script src="/js/session-header.js?v=20260922-auth"></script>
 
       <div class="flex items-center space-x-3">
         <a href="signin.html" class="text-xs font-semibold text-gray-400 hover:text-white transition-colors px-3 py-2">로그인</a>
@@ -125,7 +125,7 @@
         </div>
         
         <!-- 바깥쪽 라벨을 위한 영역 높이 및 여백 확보 -->
-        <div class="h-80 w-full flex items-center justify-center relative p-2">
+        <div class="h-96 w-full flex items-center justify-center relative p-2">
           <canvas id="trendChart"></canvas>
         </div>
       </div>
@@ -147,7 +147,7 @@
 
   </main>
 
-  <script src="../js/stockclear.js"></script>
-  <script src="../js/dashboard.js"></script>
+  <script src="/js/stockclear.js"></script>
+  <script src="/js/dashboard.js?v=20261006-chart-fix"></script>
 </body>
 </html>
