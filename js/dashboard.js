@@ -62,10 +62,10 @@ function renderTrendChart(items) {
   if (existingChart) existingChart.destroy();
 
   const categories = [
-    { name: '위험 재고', count: 0, color: '#EF4444' },
-    { name: '장기 재고', count: 0, color: '#F97316' },
-    { name: '주의 재고', count: 0, color: '#EAB308' },
-    { name: '정상 재고', count: 0, color: '#22C55E' }
+    { name: '악성', count: 0, color: '#EF4444' },
+    { name: '장기', count: 0, color: '#F97316' },
+    { name: '주의', count: 0, color: '#EAB308' },
+    { name: '정상', count: 0, color: '#22C55E' }
   ];
 
   items.forEach(item => {
