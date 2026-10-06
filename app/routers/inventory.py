@@ -54,9 +54,9 @@ def get_dashboard(upload_id: int | None = None, db: Session = Depends(get_db), c
     risk_count = aging_count = 0
     for analysis, _ in rows:
         counts[analysis.risk_grade] = counts.get(analysis.risk_grade, 0) + 1
-        if analysis.risk_grade in ("위험", "처분 권장"):
+        if analysis.risk_grade == "악성":
             risk_count += 1
-        if analysis.aging_days >= 60:
+        if analysis.risk_grade == "장기":
             aging_count += 1
     risk_items = sorted(({"product_name": item.product_name, "final_score": analysis.final_score} for analysis, item in rows), key=lambda value: value["final_score"], reverse=True)[:5]
     return {
@@ -92,6 +92,39 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
     if status:
         query = query.filter(AnalysisResult.risk_grade == status)
     rows = query.order_by(AnalysisResult.final_score.desc()).all()
+    recommended_qty_by_item_id: dict[int, int] = {}
+    item_ids = [item.item_id for _, item in rows]
+    if item_ids:
+        ranked_daily_sales = db.query(
+            InventoryDailyMetric.item_id.label("item_id"),
+            InventoryDailyMetric.daily_sales_qty.label("daily_sales_qty"),
+            func.row_number().over(
+                partition_by=InventoryDailyMetric.item_id,
+                order_by=InventoryDailyMetric.business_date.desc(),
+            ).label("row_number"),
+        ).filter(
+            InventoryDailyMetric.item_id.in_(item_ids),
+            InventoryDailyMetric.business_date <= date.today(),
+        ).subquery()
+        daily_sales_stats = db.query(
+            ranked_daily_sales.c.item_id,
+            func.max(ranked_daily_sales.c.daily_sales_qty).label("max_daily_sales"),
+            func.avg(ranked_daily_sales.c.daily_sales_qty).label("average_daily_sales"),
+        ).filter(
+            ranked_daily_sales.c.row_number <= 30,
+        ).group_by(
+            ranked_daily_sales.c.item_id,
+        ).all()
+        recommended_qty_by_item_id = {
+            stats.item_id: calculate_safety_stock(
+                max_daily_sales=float(stats.max_daily_sales),
+                average_daily_sales=float(stats.average_daily_sales),
+                max_lead_time_days=5,
+                average_lead_time_days=2,
+            )
+            for stats in daily_sales_stats
+        }
+
     return {"upload_file_name": upload.file_name if upload else None, "items": [{
         "item_id": item.item_id,
         "version": item.version,
@@ -112,6 +145,7 @@ def list_inventory(search: str = "", status: str = "", upload_id: int | None = N
         "depreciation_rate": float(analysis.fluctuation_rate or 0),
         "inventory_value": float(analysis.inventory_amount or 0),
         "risk_grade": analysis.risk_grade,
+        "recommended_qty": recommended_qty_by_item_id.get(item.item_id),
         "action_plans": analysis.action_plans,
         "ai_diagnosis": analysis.ai_diagnosis,
     } for analysis, item in rows]}
@@ -285,8 +319,8 @@ def update_inventory_selling_batch(payload: InventorySellingBatchUpdate, db: Ses
 def get_strategy(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     rows = db.query(AnalysisResult.risk_grade, func.count(AnalysisResult.result_id)).join(RawInventory, AnalysisResult.item_id == RawInventory.item_id).filter(RawInventory.user_id == current_user.user_id, RawInventory.is_deleted.is_(False)).group_by(AnalysisResult.risk_grade).all()
     active_items = query_user_analysis(db, current_user.user_id)
-    order_count = active_items.filter(AnalysisResult.risk_grade.in_(("위험", "처분 권장"))).count()
-    promotion_count = active_items.filter(AnalysisResult.aging_days >= 60).count()
+    order_count = active_items.filter(AnalysisResult.risk_grade == "악성").count()
+    promotion_count = active_items.filter(AnalysisResult.risk_grade == "장기").count()
     return {
         "groups": [{"type": grade, "title": RISK_GRADE_META.get(grade, {}).get("title", grade), "summary": RISK_GRADE_META.get(grade, {}).get("summary", ""), "count": count} for grade, count in rows],
         "order_count": order_count,
@@ -314,9 +348,9 @@ def create_strategy_action(action_type: str, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=422, detail="지원하지 않는 전략 작업입니다.")
     query = query_user_analysis(db, current_user.user_id)
     if action_type == "order":
-        query = query.filter(AnalysisResult.risk_grade.in_(("위험", "처분 권장")))
+        query = query.filter(AnalysisResult.risk_grade == "악성")
     else:
-        query = query.filter(RawInventory.is_deleted.is_(False), AnalysisResult.aging_days >= 60)
+        query = query.filter(RawInventory.is_deleted.is_(False), AnalysisResult.risk_grade == "장기")
     item_ids = [item.item_id for _, item in query.all()]
     if not item_ids:
         raise HTTPException(status_code=409, detail="처리할 대상 재고가 없습니다.")
@@ -411,8 +445,8 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         upload_file_id=upload.id if upload else None,
         upload_content_hash=upload.content_hash if upload else None,
     ).order_by(AnalysisResult.final_score.desc()).all()
-    risk_count = sum(analysis.risk_grade in ("위험", "처분 권장") for analysis, _ in rows)
-    aging_count = sum(analysis.aging_days >= 60 for analysis, _ in rows)
+    risk_count = sum(analysis.risk_grade == "악성" for analysis, _ in rows)
+    aging_count = sum(analysis.risk_grade == "장기" for analysis, _ in rows)
     diagnosed_rows = [
         (analysis, item)
         for analysis, item in rows

@@ -230,9 +230,9 @@
         if (typeof StockClear !== 'undefined' && StockClear.statusClass) {
             return StockClear.statusClass(status);
         }
-        if (status === '처분 권장' || status === '위험' || status === '위험 재고') return 'grade-risk';
-        if (status === '주의' || status === '주의 재고') return 'grade-caution';
-        if (status === '장기 체류' || status === '장기 재고') return 'grade-aging';
+        if (status === '악성') return 'grade-risk';
+        if (status === '주의') return 'grade-caution';
+        if (status === '장기') return 'grade-aging';
         return 'grade-normal';
     }
 
@@ -259,22 +259,22 @@
                 const summary = report.summary || {};
                 document.getElementById('reportSummary').textContent = summary.ai_summary
                     || '저장된 AI 종합진단이 없습니다.';
-                const riskCount = loadedItems.filter((item) => ['위험', '처분 권장'].includes(item.risk_grade)).length;
-                const agingCount = loadedItems.filter((item) => Number(item.aging_days) >= 60).length;
+                const riskCount = loadedItems.filter((item) => item.risk_grade === '악성').length;
+                const agingCount = loadedItems.filter((item) => item.risk_grade === '장기').length;
                 const itemCount = loadedItems.length;
                 const inventoryValue = loadedItems.reduce(
                     (total, item) => total + Number(item.stock_qty || 0) * Number(item.purchase_price || 0),
                     0,
                 );
                 document.getElementById('reportOverview').textContent =
-                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 위험 재고는 ${riskCount.toLocaleString('ko-KR')}개, 장기 재고는 ${agingCount.toLocaleString('ko-KR')}개입니다.`;
+                    `${itemCount.toLocaleString('ko-KR')}개 품목 중 악성 등급은 ${riskCount.toLocaleString('ko-KR')}개, 장기 등급은 ${agingCount.toLocaleString('ko-KR')}개입니다.`;
                 document.getElementById('reportAdvice').textContent = riskCount
-                    ? '위험 재고의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
+                    ? '악성 등급 품목의 판매가와 시세를 확인하고, 원가 이하가 되지 않는 범위에서 할인 여부를 검토하세요.'
                     : agingCount
                         ? '장기 보관 품목의 판매 흐름을 확인하고 재고 회전 개선을 검토하세요.'
                         : '현재 분류 기준에서 우선 조치가 필요한 품목은 없습니다.';
                 document.getElementById('reportMetrics').textContent =
-                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  위험 재고 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 재고 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
+                    `전체 ${itemCount.toLocaleString('ko-KR')}개  ·  악성 ${riskCount.toLocaleString('ko-KR')}개  ·  장기 ${agingCount.toLocaleString('ko-KR')}개  ·  총 재고 자산 ${formatNumber(inventoryValue)}원`;
                 const reportScopeNote = document.getElementById('reportScopeNote');
                 if (summary.scope === 'account_active_inventory' && report.upload_file_name) {
                     reportScopeNote.textContent = `AI 종합진단은 ${report.summary_source_file_name || '업로드 당시'}의 전체 누적 재고 기준이고, 위 집계와 표는 선택한 파일 기준입니다.`;
@@ -297,7 +297,7 @@
                             : `${StockClear.formatNumber(item.recommended_price)}원`;
 
                         const recommendedQty = safetyStockResults.get(Number(item.item_id))?.recommended_qty;
-                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 whitespace-nowrap"><span data-safety-stock-id="${Number(item.item_id)}">${recommendedQty == null ? '-' : `${formatNumber(recommendedQty)}개`}</span><button type="button" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')" title="권장 수량 계산" aria-label="권장 수량 계산" class="ml-2 p-1 text-blue-400"><i class="fa-solid fa-calculator" aria-hidden="true"></i></button></td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
+                        return `<tr class="hover:bg-gray-800/40"><td class="py-3 px-4 text-center"><input type="checkbox" class="item-checkbox w-4 h-4 rounded bg-gray-800 border-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer" data-index="${index}"></td><td class="py-3 px-4 font-semibold text-white"><button type="button" class="text-left hover:text-blue-300 hover:underline" onclick="openExportItemDetail(${Number(item.item_id)}, 'detail')">${escapeHtml(item.product_name || '-')}</button></td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${mockMarketPrice}</td><td class="py-3 px-4 whitespace-nowrap tabular-nums">${recommendedPrice}</td><td class="py-3 px-4">${StockClear.formatNumber(item.stock_qty)}개</td><td class="py-3 px-4 whitespace-nowrap"><span data-safety-stock-id="${Number(item.item_id)}">${recommendedQty == null ? '-' : `${formatNumber(recommendedQty)}개`}</span></td><td class="py-3 px-4 ${StockClear.statusClass(status)} font-bold">${escapeHtml(status)}</td><td class="py-3 px-4 text-left"><button type="button" class="inline-flex items-center gap-1.5 px-0 py-0 text-xs font-semibold text-blue-300 transition-colors hover:text-blue-200 disabled:opacity-50" onclick="diagnoseExportItem(${Number(item.item_id)}, this)"><i class="fa-solid fa-wand-magic-sparkles"></i>AI 진단</button></td></tr>`;
                     }).join('')
                     : '<tr><td colspan="8" class="py-8 text-center text-gray-500">내보낼 재고 데이터가 없습니다.</td></tr>';
             } catch (error) {

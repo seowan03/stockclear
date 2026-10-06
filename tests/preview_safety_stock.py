@@ -35,7 +35,7 @@ def prepare_preview():
         db.flush()
         for item_id, name, stock, average, grade in [
             (1, "테스트 무선 마우스", 30, 4, "주의"),
-            (2, "테스트 키보드", 12, 1.2, "위험"),
+            (2, "테스트 키보드", 12, 1.2, "악성"),
         ]:
             db.add(RawInventory(
                 item_id=item_id, user_id=1, upload_file_id=1, product_name=name,
