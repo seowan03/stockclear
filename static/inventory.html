@@ -86,7 +86,7 @@
             <th class="py-2 px-3 min-w-48"><button type="button" onclick="sortGrid('product_name')" title="품목명 정렬">품목명 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 min-w-28 whitespace-nowrap">권장 수량</th>
             <th class="py-2 px-3 min-w-32 whitespace-nowrap">현재 수량</th>
-            <th class="py-2 px-3 whitespace-nowrap">판매가</th>
+            <th class="py-2 px-3 whitespace-nowrap">날짜별 판매가</th>
             <th class="py-2 px-3 min-w-36"><button type="button" onclick="sortGrid('received_date')" title="입고일 정렬">입고일 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
             <th class="py-2 px-3 whitespace-nowrap">판매량</th>
             <th id="statusSortHeader" class="py-2 px-3" aria-sort="none"><button type="button" onclick="sortGrid('status')" title="재고 등급순 정렬">재고 등급 <i class="fa-solid fa-sort" aria-hidden="true"></i></button></th>
@@ -197,7 +197,7 @@
                 </h3>
                 
                 <div class="grid grid-cols-2 gap-3 text-xs">
-                  <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">예상 소진 기간</span><span class="text-gray-200 font-semibold" id="valExhaust">-</span></div>
+                  <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">조회일 기준 예상 소진기간</span><span class="text-gray-200 font-semibold" id="valExhaust">-</span></div>
                   <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">감가율</span><span class="text-gray-200 font-semibold" id="valDepreciation">-</span></div>
                   <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">보관 기간</span><span class="text-gray-200 font-semibold" id="valStorage">-</span></div>
                   <div class="flex justify-between gap-2 border-b border-gray-800/60 py-2"><span class="text-gray-400">재고 금액</span><span class="text-gray-200 font-semibold" id="valRatio">-</span></div>
@@ -484,6 +484,16 @@ function switchTab(tabName) {
       };
     }
 
+    function needsReorder(item, dailyMetric) {
+      if (dailyMetric?.remaining_stock_qty == null) return false;
+
+      const currentQty = StockClear.number(dailyMetric.remaining_stock_qty);
+      if (item.recommendedQty != null) return currentQty <= item.recommendedQty;
+
+      return Number(dailyMetric.weekly_sales_recorded_days) === 7
+        && currentQty <= StockClear.number(dailyMetric.weekly_sales_qty);
+    }
+
     function setInventoryData(sourceInventory) {
       inventoryData = sourceInventory.map((item) => {
       const statusText = StockClear.riskCategory(item);
@@ -664,6 +674,7 @@ function switchTab(tabName) {
         const riskStyles = getRiskStyles(item.category);
         const qtyClass = `${riskStyles.text} font-semibold`;
         const dailyMetric = dailyMetricsByItemId.get(item.id);
+        const reorderNeeded = needsReorder(item, dailyMetric);
 
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-gray-800/30 transition-colors';
@@ -680,12 +691,13 @@ function switchTab(tabName) {
           </td>
           <td class="py-2 px-2">${cell('product_name', 'text', 'w-48')}</td>
           <td class="py-2 px-3 ${qtyClass} whitespace-nowrap">${item.recommendedQty == null ? '-' : `${StockClear.formatNumber(item.recommendedQty)} 개`}</td>
-          <td class="py-2 px-3 font-semibold text-gray-100 whitespace-nowrap">${dailyMetric?.remaining_stock_qty == null ? '-' : `${StockClear.formatNumber(dailyMetric.remaining_stock_qty)} 개`}</td>
+          <td class="py-2 px-3 font-semibold text-gray-100 whitespace-nowrap">${dailyMetric?.remaining_stock_qty == null ? '0 개' : `${StockClear.formatNumber(dailyMetric.remaining_stock_qty)} 개`}</td>
           <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric?.daily_selling_price == null ? item.sellingPrice : `${StockClear.formatNumber(dailyMetric.daily_selling_price)} 원`}</td>
           <td class="py-2 px-2">${cell('received_date', 'text', 'w-36')}</td>
           <td class="py-2 px-3 text-gray-300 whitespace-nowrap">${dailyMetric ? `${StockClear.formatNumber(dailyMetric.daily_sales_qty)} 개` : '-'}</td>
           <td class="py-2 px-3">
             <span class="inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${riskStyles.badge}">${escapeHtml(item.statusText)}</span>
+            ${reorderNeeded ? '<span class="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-300">발주 필요</span>' : ''}
           </td>
           <td class="py-2 px-3 text-right whitespace-nowrap space-x-2">
             <button class="p-2 text-gray-400 hover:text-red-400 transition-colors" onclick="deleteInventoryItem(${item.id})" title="삭제">
@@ -726,7 +738,11 @@ function switchTab(tabName) {
       document.getElementById('detailInventoryValue').innerText = `₩ ${StockClear.formatNumber(item.inventoryValue)}`;
       document.getElementById('historySalesQty').innerText = StockClear.formatNumber(item.salesQty);
 
-      document.getElementById('valExhaust').innerText = item.exhaust || '-';
+      const dailyMetric = dailyMetricsByItemId.get(item.id);
+      const dateBasedDaysToSell = dailyMetric?.days_to_sell_on_date;
+      document.getElementById('valExhaust').innerText = dateBasedDaysToSell == null
+        ? '산출 불가'
+        : `${StockClear.formatNumber(dateBasedDaysToSell)} 일`;
       document.getElementById('valDepreciation').innerText = item.depreciation || '-';
       document.getElementById('valStorage').innerText = item.storage || '-';
       document.getElementById('valRatio').innerText = `₩ ${StockClear.formatNumber(item.inventoryValue)}`;

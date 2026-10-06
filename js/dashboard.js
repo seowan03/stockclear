@@ -158,9 +158,10 @@ function renderCategoryChart(items) {
       datasets: [{
         label: '위험도 점수',
         data: items.map(item => item.final_score),
-        backgroundColor: '#B91C1C',
+        backgroundColor: '#E69F00',
         borderRadius: 8,
-        borderSkipped: false
+        borderSkipped: false,
+        barThickness: 13
       }]
     },
     options: {
