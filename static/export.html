@@ -52,7 +52,7 @@
 </div>
 
 <div class="bg-gray-900/80 border border-gray-800 p-6 rounded-3xl space-y-4">
-    <h3 class="text-lg font-bold text-white">재고 상태 요약</h3>
+    <h3 class="text-lg font-bold text-white">재고 등급 요약</h3>
     <div class="space-y-2">
         <p id="reportOverview" class="text-sm text-gray-100 leading-relaxed">재고 현황을 불러오는 중입니다.</p>
         <p id="reportAdvice" class="text-sm text-gray-300 leading-relaxed"></p>
@@ -84,7 +84,7 @@
                     <th class="py-3 px-4">권장 판매가</th>
                     <th class="py-3 px-4">현재 수량</th>
                     <th class="py-3 px-4">권장 수량</th>
-                    <th class="py-3 px-4">재고 상태</th>
+                    <th class="py-3 px-4">재고 등급</th>
                     <th class="py-3 px-4">AI 추천 조치</th>
                 </tr>
             </thead>
@@ -131,8 +131,7 @@
                         <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">내부 품목 코드</span><span id="exportDetailCode" class="text-blue-400 font-mono font-medium">-</span></div>
                         <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">입고일</span><span id="exportDetailDate" class="text-gray-200 font-medium">-</span></div>
                         <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">원가</span><span id="exportDetailPurchasePrice" class="text-gray-200 font-medium">-</span></div>
-                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">판매가</span><span id="exportDetailSellingPrice" class="text-gray-200 font-medium">-</span></div>
-                        <div class="flex justify-between py-1.5"><span class="text-gray-400">시세</span><span id="exportDetailMarketPrice" class="text-gray-200 font-medium">-</span></div>
+                        <div class="flex justify-between py-1.5 border-b border-gray-800/50"><span class="text-gray-400">판매가 (시세)</span><span id="exportDetailSellingPrice" class="text-gray-200 font-medium">-</span></div>
                     </div>
                 </div>
                 <div class="lg:col-span-8">
@@ -345,8 +344,7 @@
             document.getElementById('exportDetailCode').textContent = item.item_id;
             document.getElementById('exportDetailDate').textContent = item.received_date || '-';
             document.getElementById('exportDetailPurchasePrice').textContent = formatCurrency(item.purchase_price);
-            document.getElementById('exportDetailSellingPrice').textContent = formatCurrency(item.selling_price);
-            document.getElementById('exportDetailMarketPrice').textContent = formatCurrency(item.mock_market_price);
+            document.getElementById('exportDetailSellingPrice').textContent = formatCurrency(item.mock_market_price);
             document.getElementById('exportDetailStock').textContent = `${formatNumber(item.stock_qty)} 개`;
             document.getElementById('exportDetailSales').textContent = `${formatNumber(item.sales_qty)} 개`;
             document.getElementById('exportDetailInventoryValue').textContent = formatCurrency(item.inventory_value);
