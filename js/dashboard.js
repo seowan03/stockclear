@@ -92,7 +92,7 @@ function renderTrendChart(items) {
       datasets: [{
         data: categories.map(category => category.count),
         backgroundColor: categories.map(category => category.color),
-        borderColor: '#0b1120',
+        borderColor: '#ffffff',
         borderWidth: 3,
         hoverOffset: 6
       }]
@@ -114,7 +114,7 @@ function renderTrendChart(items) {
           display: true,
           position: 'right',
           labels: {
-            color: '#9CA3AF',
+            color: '#475569',
             boxWidth: 14,
             padding: 12,
             generateLabels: chart => Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart).map(label => ({
@@ -127,7 +127,7 @@ function renderTrendChart(items) {
           anchor: 'end',
           align: 'end',
           offset: 12,
-          color: '#E5E7EB',
+          color: '#1e293b',
           textAlign: 'center',
           font: {
             family: 'Pretendard',
@@ -178,12 +178,12 @@ function renderCategoryChart(items) {
       indexAxis: 'y',
       scales: {
         x: {
-          grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#9CA3AF', font: { family: 'Pretendard' } }
+          grid: { color: 'rgba(15, 23, 42, 0.10)' },
+          ticks: { color: '#475569', font: { family: 'Pretendard' } }
         },
         y: {
           grid: { display: false },
-          ticks: { color: '#E5E7EB', font: { family: 'Pretendard', weight: '600' } }
+          ticks: { color: '#1e293b', font: { family: 'Pretendard', weight: '600' } }
         }
       },
       plugins: {
