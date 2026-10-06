@@ -312,6 +312,7 @@ html.auth-document {
 .auth-mode-switch button { margin-bottom: -1px; padding: 0 0 11px; border: 0; border-bottom: 2px solid transparent; color: #64748b; background: transparent; font-size: 0.84rem; font-weight: 650; cursor: pointer; }
 .auth-mode-switch button.is-active { border-bottom-color: #2563eb; color: #2563eb; }
 .auth-error { margin-top: 16px; padding: 10px 12px; border: 1px solid #fecaca; border-radius: 8px; color: #b91c1c; background: #fef2f2; font-size: 0.78rem; }
+.auth-success { border-color: #bbf7d0; color: #047857; background: #f0fdf4; }
 .auth-form { display: grid; gap: 16px; margin-top: 22px; }
 .auth-form label { display: block; margin-bottom: 7px; color: #334155; font-size: 0.78rem; font-weight: 650; }
 .auth-form input[type="text"],
@@ -321,10 +322,17 @@ html.auth-document {
 .auth-form input[type="text"]:focus,
 .auth-form input[type="email"]:focus,
 .auth-form input[type="password"]:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+.auth-hint { margin-top: 6px; color: #94a3b8; font-size: 0.72rem; }
+.auth-password-checklist { display: grid; gap: 4px; margin: 7px 0 0; padding: 0; list-style: none; }
+.auth-password-checklist li { display: inline-flex; align-items: center; gap: 6px; color: #94a3b8; font-size: 0.72rem; transition: color 0.15s ease; }
+.auth-password-checklist li i { font-size: 0.72rem; color: #cbd5e1; }
+.auth-password-checklist li.is-met { color: #047857; }
+.auth-password-checklist li.is-met i { color: #16a34a; }
 .auth-options { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -2px; }
 .auth-options label { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: #64748b; font-size: 0.73rem; font-weight: 500; }
 .auth-options input { accent-color: #2563eb; }
-.auth-forgot { color: #64748b; font-size: 0.73rem; }
+.auth-forgot { border: 0; padding: 0; color: #64748b; background: transparent; font-size: 0.73rem; cursor: pointer; }
+.auth-forgot:hover { color: #2563eb; text-decoration: underline; }
 .auth-submit { width: 100%; min-height: 46px; border: 0; border-radius: 7px; color: #ffffff; background: #2563eb; font-size: 0.84rem; font-weight: 750; cursor: pointer; transition: background 0.18s ease, transform 0.18s ease; }
 .auth-submit:hover { background: #1d4ed8; }
 .auth-submit:active { transform: translateY(1px); }
