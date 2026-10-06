@@ -14,6 +14,7 @@ from sqlalchemy.pool import StaticPool
 import app.database as database
 import app.routers.upload as upload_router
 from app.main import app
+from app.analysis import calculate_safety_stock
 from app.models import InventoryDailyMetric, RawInventory
 from app.services.daily_inventory_service import generate_daily_inventory_metrics
 from app.services.upload_service import REQUIRED_COLUMNS
@@ -94,6 +95,14 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
                 self.assertEqual(stored_inventory.stock_qty, 10)
                 self.assertEqual(stored_inventory.sales_qty, 4)
                 self.assertEqual(stored_inventory.market_price, Decimal("150.00"))
+
+            expected_recommended_qty = calculate_safety_stock(
+                max_daily_sales=max(metric.daily_sales_qty for metric in metrics[-30:]),
+                average_daily_sales=sum(metric.daily_sales_qty for metric in metrics[-30:]) / 30,
+                max_lead_time_days=5,
+                average_lead_time_days=2,
+            )
+            self.assertEqual(item["recommended_qty"], expected_recommended_qty)
 
             self.assertEqual(len(metrics), 31)
             expected_dates = [date(2026, 9, 1) + timedelta(days=offset) for offset in range(31)]

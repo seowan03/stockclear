@@ -19,11 +19,16 @@
   // riskCategory와 classify 지원
   function riskCategory(item) {
     const status = String(item.risk_grade ?? item.status ?? '');
-    if (status === '위험' || status === '처분 권장' || status === '위험 재고') return '위험 재고';
-    if (status === '주의' || status === '주의 재고') return '주의 재고';
-    if (status === '장기 체류' || status === '장기 재고' || number(item.storage_days ?? item.aging_days) >= 60) return '장기 재고';
-    
-    // 조건 수치 기반 처리
+    if (['정상', '주의', '장기', '악성'].includes(status)) return status;
+
+    const score = Number(item.final_score);
+    if (Number.isFinite(score) && item.final_score != null) {
+      if (score >= 70) return '악성';
+      if (score >= 45) return '장기';
+      if (score >= 25) return '주의';
+      return '정상';
+    }
+
     const storageDays = number(item.storage_days);
     const stockQty = number(item.stock_qty);
     const salesSpeed = number(item.sales_speed);
@@ -43,6 +48,15 @@
     }[status] || 'text-gray-400';
   }
 
+  function statusBadgeClass(status) {
+    return {
+      '정상': 'grade-badge-normal',
+      '주의': 'grade-badge-caution',
+      '장기': 'grade-badge-aging',
+      '악성': 'grade-badge-risk'
+    }[status] || 'grade-badge-normal';
+  }
+
   function formatNumber(value) {
     return new Intl.NumberFormat('ko-KR').format(Math.round(number(value)));
   }
@@ -53,7 +67,8 @@
     number, 
     classify: riskCategory, 
     riskCategory, 
-    statusClass, 
+    statusClass,
+    statusBadgeClass,
     formatNumber 
   };
 })();

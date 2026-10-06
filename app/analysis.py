@@ -157,7 +157,7 @@ def _classify_risk(df: pd.DataFrame):
 
     grade = np.select(
         [final_score >= 70, final_score >= 45, final_score >= 25],
-        ["처분 권장", "위험", "주의"],
+        ["악성", "장기", "주의"],
         default="정상",
     )
 

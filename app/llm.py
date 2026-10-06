@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class AIStrategy(BaseModel):
-    status: str
+    status: Literal["정상", "주의", "장기", "악성"]
     recommended_discount: float = Field(ge=0, le=100)
     comment: str
 
@@ -40,7 +40,7 @@ def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
 
     반드시 아래 JSON 형식으로만 답변해주세요. 다른 부가 설명 텍스트는 절대 포함하지 마세요.
     {{
-        "status": "악성재고 위험 / 주의 / 양호 중 택1",
+        "status": "정상 / 주의 / 장기 / 악성 중 택1",
         "recommended_discount": 30,
         "comment": "보관 기간이 길어 회전율이 낮으므로 30% 일괄 할인을 권장합니다"
     }}
