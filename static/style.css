@@ -745,10 +745,10 @@ body.inventory-page {
 .landing-ai-focus__grades { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 18px; }
 .landing-ai-focus__grades span { padding: 5px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 700; }
 .landing-ai-focus__grades i { color: #94a3b8; font-size: 0.55rem; }
-.landing-ai-focus__grades .is-normal { color: #047857; background: #ecfdf5; }
-.landing-ai-focus__grades .is-caution { color: #a16207; background: #fefce8; }
-.landing-ai-focus__grades .is-risk { color: #b91c1c; background: #fef2f2; }
-.landing-ai-focus__grades .is-aging { color: #c2410c; background: #fff7ed; }
+.landing-ai-focus__grades .is-normal { color: #0072B2; background: #e6f1f7; }
+.landing-ai-focus__grades .is-caution { color: #009E73; background: #e6f5f0; }
+.landing-ai-focus__grades .is-risk { color: #E69F00; background: #fbf1db; }
+.landing-ai-focus__grades .is-aging { color: #D55E00; background: #fbeee7; }
 .landing-ai-focus__link { display: inline-flex; align-items: center; gap: 8px; width: fit-content; margin-top: auto; padding-top: 18px; color: #2563eb; font-size: 0.8rem; font-weight: 750; text-decoration: none; }
 .landing-ai-focus__link:hover { color: #1d4ed8; }
 
@@ -763,8 +763,8 @@ body.inventory-page {
 .landing-metric > span { display: block; overflow: hidden; color: #64748b; font-size: 0.68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .landing-metric strong { display: block; margin-top: 8px; color: #172554; font-size: 1.2rem; font-weight: 800; white-space: nowrap; }
 .landing-metric small { color: #64748b; font-size: 0.65rem; font-weight: 500; }
-.landing-metric--risk strong { color: #dc2626; }
-.landing-metric--aging strong { color: #c2410c; }
+.landing-metric--risk strong { color: #E69F00; }
+.landing-metric--aging strong { color: #D55E00; }
 .landing-dashboard__charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 .landing-chart-panel { min-width: 0; padding: 16px 15px 12px; border: 1px solid #edf0f5; border-radius: 12px; background: #ffffff; }
 .landing-chart-panel__heading h4 { color: #1e293b; font-size: 0.82rem; font-weight: 750; }

@@ -214,9 +214,10 @@
         if (typeof StockClear !== 'undefined' && StockClear.statusClass) {
             return StockClear.statusClass(status);
         }
-        if (status === '처분 권장' || status === '위험') return 'text-rose-400';
-        if (status === '주의') return 'text-amber-400';
-        return 'text-emerald-400';
+        if (status === '처분 권장' || status === '위험' || status === '위험 재고') return 'grade-risk';
+        if (status === '주의' || status === '주의 재고') return 'grade-caution';
+        if (status === '장기 체류' || status === '장기 재고') return 'grade-aging';
+        return 'grade-normal';
     }
 
     function getExportItemStatus(item) {
@@ -340,7 +341,8 @@
             document.getElementById('exportDetailTitle').textContent = item.product_name || '이름 없음';
             const badge = document.getElementById('exportDetailBadge');
             badge.textContent = status;
-            badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${statusClass} bg-gray-800/70 border border-gray-700`;
+            const badgeClass = StockClear.statusBadgeClass(status);
+            badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${badgeClass} border`;
             document.getElementById('exportDetailCode').textContent = item.item_id;
             document.getElementById('exportDetailDate').textContent = item.received_date || '-';
             document.getElementById('exportDetailPurchasePrice').textContent = formatCurrency(item.purchase_price);

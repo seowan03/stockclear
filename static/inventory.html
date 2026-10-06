@@ -124,7 +124,7 @@
         <!-- 상품 제목 및 상태 바 -->
         <div class="flex items-center space-x-4">
           <h2 class="text-2xl font-bold text-white" id="modalItemTitle">무선 마우스 A형</h2>
-          <span class="px-3 py-1 text-xs font-semibold rounded-full bg-red-500/10 text-red-400 border border-red-500/20" id="modalItemBadge">결품 위험</span>
+          <span class="px-3 py-1 text-xs font-semibold rounded-full grade-badge-risk border" id="modalItemBadge">결품 위험</span>
         </div>
 
         <!-- 탭 버튼 영역 -->
@@ -206,11 +206,11 @@
                 <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800/80 mt-4 text-center">
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800">
                     <span class="text-[11px] text-gray-400 block mb-1">최종 위험도</span>
-                    <span class="text-xl font-extrabold text-red-400" id="finalRiskScore">-</span>
+                    <span class="text-xl font-extrabold grade-risk" id="finalRiskScore">-</span>
                   </div>
                   <div class="bg-gray-900/90 p-3 rounded-xl border border-gray-800">
                     <span class="text-[11px] text-gray-400 block mb-1">등급</span>
-                    <span class="text-xl font-extrabold text-red-500" id="finalRiskGrade">-</span>
+                    <span class="text-xl font-extrabold grade-risk" id="finalRiskGrade">-</span>
                   </div>
                 </div>
               </div>
@@ -479,8 +479,8 @@ function switchTab(tabName) {
         };
       }
       return {
-        text: 'text-emerald-400',
-        badge: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+        text: StockClear.statusClass(status),
+        badge: StockClear.statusBadgeClass(status)
       };
     }
 
