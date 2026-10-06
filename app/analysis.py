@@ -23,9 +23,7 @@ def calculate_safety_stock(
     if average_sales > maximum_sales or average_days > maximum_days:
         raise ValueError("Average values must not exceed maximum values.")
     safety_stock = maximum_sales * maximum_days - average_sales * average_days
-    if safety_stock <= 0:
-        safety_stock = average_sales * average_days
-    return int(safety_stock.to_integral_value(rounding=ROUND_CEILING))
+    return int(max(Decimal("0"), safety_stock).to_integral_value(rounding=ROUND_CEILING))
 
 
 def calculate_date_based_days_to_sell(
