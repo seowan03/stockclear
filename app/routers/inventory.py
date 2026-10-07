@@ -275,6 +275,8 @@ def refresh_inventory_market_price(
 
     item.mock_market_price = new_market_price
     analysis.recommended_price = None
+    analysis.diagnosis_input_hash = None
+    analysis.diagnosis_cache = None
     stale_message = "더미 시세가 갱신되었습니다. 새 시세 기준으로 AI 진단을 다시 실행해주세요."
     analysis.ai_diagnosis = stale_message
     analysis.action_plans = stale_message

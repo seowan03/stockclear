@@ -9,11 +9,23 @@ from app.config import OPENAI_API_KEY
 
 logger = logging.getLogger(__name__)
 
+STRATEGY_METRIC_ALIASES = {
+    "storage_days": "보관 기간",
+    "sales_speed": "업로드 판매 속도",
+    "sales_velocity_uploaded_basis": "업로드 판매 속도",
+    "days_to_sell": "예상 소진 기간",
+    "depreciation_rate": "원가 대비 판매가 차이",
+    "fluctuation_rate": "원가 대비 판매가 차이",
+}
+
 
 class AIStrategy(BaseModel):
-    status: Literal["정상", "주의", "장기", "악성"]
-    recommended_discount: float = Field(ge=0, le=100)
-    comment: str
+    evidence: list["AIStrategyEvidence"] = Field(max_length=4)
+
+
+class AIStrategyEvidence(BaseModel):
+    metric: Literal["보관 기간", "업로드 판매 속도", "예상 소진 기간", "원가 대비 판매가 차이"]
+    meaning: str = Field(min_length=1, max_length=240)
 
 
 def _get_client(timeout: float = 20.0, max_retries: int = 1) -> OpenAI:
@@ -23,28 +35,8 @@ def _get_client(timeout: float = 20.0, max_retries: int = 1) -> OpenAI:
 
 
 def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
-    """
-    재고 데이터를 받아 GPT-4o-mini를 통해 처방전을 반환하는 함수
-    """
-    prompt = f"""
-    당신은 직매입 중심의 중소 규모 이커머스 셀러를 위한 전문 재고 컨설턴트입니다.
-    셀러가 미리 사입해 둔 재고가 창고에 묶여 현금 흐름이 막히는 것을 방지하고, 원가 방어 및 창고 회전율을 높일 수 있는 실전 처방전을 내려주세요
-
-    [재고 데이터]
-    - 상품명: {product_data.get('product_name','알 수 없음')}
-    - 보관 기간: {product_data.get('storage_days', 0)}일
-    - 현재 재고량: {product_data.get('stock_qty', 0)}개
-    - 원가(사입가): {product_data.get('purchase_price', 0)}원
-    - 현재 기준 시세: {product_data.get('current_market_price', product_data.get('mock_market_price', product_data.get('selling_price', 0)))}원
-    - 현재 기준 시세: {product_data.get('current_market_price', product_data.get('mock_market_price', product_data.get('selling_price', 0)))}원
-
-    반드시 아래 JSON 형식으로만 답변해주세요. 다른 부가 설명 텍스트는 절대 포함하지 마세요.
-    {{
-        "status": "정상 / 주의 / 장기 / 악성 중 택1",
-        "recommended_discount": 30,
-        "comment": "보관 기간이 길어 회전율이 낮으므로 30% 일괄 할인을 권장합니다"
-    }}
-    """
+    """Return structured explanations only; the server owns risk and pricing decisions."""
+    prompt = json.dumps(product_data, ensure_ascii=False)
 
     try:
         response = _get_client().chat.completions.create(
@@ -52,32 +44,54 @@ def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
             messages=[
                 {
                     "role": "system",
-                    "content": "당신은 이커머스 직매입 재고 관리 전문가입니다. 정확한 JSON 형식으로만 응답합니다.",
+                    "content": (
+                        "당신은 품목별 재고 진단 설명을 작성합니다. 사용자 메시지는 서버가 만든 "
+                        "정규화 입력입니다. 입력된 위험등급과 위험점수는 서버 확정값이므로 변경하지 말고, "
+                        "등급이나 할인율을 새로 결정하지 마세요. 보관 기간, 업로드 판매 속도, "
+                        "예상 소진 기간, 원가 대비 판매가 차이 중 입력에 있는 항목만 설명하세요. "
+                        "숫자·가격·상품 속성·원인·판매 추세를 입력에 없는 형태로 만들지 마세요. "
+                        "업로드 누계 판매량을 실거래 추세로, 모의 시세를 시장 가격으로 표현하지 마세요. "
+                        "실제 주문 이력이나 비용 자료가 없으면 할인 효과, 이익, 절감액, 발주량을 "
+                        "추정하거나 지시하지 마세요. 다음 JSON 필드만 정확히 반환하세요: "
+                        "evidence[{metric,meaning}]. "
+                        "evidence.metric은 반드시 다음 네 문자열 중 하나를 그대로 사용하세요: "
+                        "'보관 기간', '업로드 판매 속도', '예상 소진 기간', '원가 대비 판매가 차이'. "
+                        "입력 JSON의 영문 키(storage_days, sales_velocity_uploaded_basis, days_to_sell, "
+                        "depreciation_rate)를 metric 값으로 반환하지 마세요. 예시: "
+                        "{\"evidence\":[{\"metric\":\"보관 기간\",\"meaning\":\"보관 기간이 길어 소진 상태를 확인할 필요가 있습니다.\"}]}. "
+                        "지표의 숫자 값은 반환하지 마세요."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
             response_format={"type": "json_object"},
+            max_tokens=1000,
         )
 
         result_content = response.choices[0].message.content
         if not result_content:
             raise ValueError("OpenAI returned an empty response")
 
-        result = AIStrategy.model_validate(json.loads(result_content))
+        result_data = json.loads(result_content)
+        if isinstance(result_data, dict) and isinstance(result_data.get("evidence"), list):
+            for evidence in result_data["evidence"]:
+                if isinstance(evidence, dict):
+                    metric = evidence.get("metric")
+                    evidence["metric"] = STRATEGY_METRIC_ALIASES.get(metric, metric)
+
+        result = AIStrategy.model_validate(result_data)
         return result.model_dump()
 
     except (json.JSONDecodeError, ValidationError, RuntimeError, ValueError):
         logger.exception("AI strategy response validation failed")
         return {
             "status": "분석 오류",
-            "recommended_discount": 0,
             "comment": "AI 분석을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         }
     except Exception:
         logger.exception("AI strategy request failed")
         return {
             "status": "분석 오류",
-            "recommended_discount": 0,
             "comment": "AI 분석 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
         }
 

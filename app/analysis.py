@@ -166,13 +166,30 @@ def analyze_inventory(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def calculate_risk_score_components(storage_days, days_to_sell, depreciation_rate):
+    """Return the component scores used by the stored inventory risk score."""
+    aging_score = np.minimum(np.asarray(storage_days, dtype=float) / 90 * 40, 40)
+    turnover_score = np.minimum(np.asarray(days_to_sell, dtype=float) / 180 * 30, 30)
+    depreciation_score = np.clip(np.asarray(depreciation_rate, dtype=float) / 50 * 30, 0, 30)
+    return {
+        "storage_score": aging_score,
+        "turnover_score": turnover_score,
+        "depreciation_score": depreciation_score,
+    }
+
+
 def _classify_risk(df: pd.DataFrame):
     """보관기간·예상소진기간·감가율을 0~100점 위험점수로 환산해 4단계 등급을 매긴다."""
-    aging_score = (df["보관기간"] / 90 * 40).clip(upper=40)
-    turnover_score = (df["예상소진기간"] / 180 * 30).clip(upper=30)
-    depreciation_score = (df["감가율"] / 50 * 30).clip(lower=0, upper=30)
+    components = calculate_risk_score_components(
+        df["보관기간"],
+        df["예상소진기간"],
+        df["감가율"],
+    )
+    aging_score = components["storage_score"]
+    turnover_score = components["turnover_score"]
+    depreciation_score = components["depreciation_score"]
 
-    final_score = (aging_score + turnover_score + depreciation_score).clip(lower=0, upper=100)
+    final_score = np.clip(aging_score + turnover_score + depreciation_score, 0, 100)
 
     grade = np.select(
         [final_score >= 70, final_score >= 45, final_score >= 25],

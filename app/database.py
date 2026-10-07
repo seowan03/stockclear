@@ -169,6 +169,18 @@ def ensure_analysis_results_recommended_price_column():
             conn.execute(text("ALTER TABLE analysis_results ADD COLUMN recommended_price NUMERIC(12, 2) NULL"))
 
 
+def ensure_analysis_results_diagnosis_cache_columns():
+    inspector = inspect(engine)
+    if "analysis_results" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("analysis_results")}
+    with engine.begin() as conn:
+        if "diagnosis_input_hash" not in columns:
+            conn.execute(text("ALTER TABLE analysis_results ADD COLUMN diagnosis_input_hash VARCHAR(64) NULL"))
+        if "diagnosis_cache" not in columns:
+            conn.execute(text("ALTER TABLE analysis_results ADD COLUMN diagnosis_cache TEXT NULL"))
+
+
 def ensure_analysis_risk_grade_values():
     inspector = inspect(engine)
     if "analysis_results" not in inspector.get_table_names():
@@ -205,4 +217,5 @@ def init_db():
     ensure_raw_inventory_upload_file_id_column()  # 신규 컬럼 보정 구문
     ensure_raw_inventory_mock_market_price_column()
     ensure_analysis_results_recommended_price_column()
+    ensure_analysis_results_diagnosis_cache_columns()
     ensure_analysis_risk_grade_values()
