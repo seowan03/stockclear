@@ -34,8 +34,9 @@ def generate_daily_inventory_metrics(
         )
         seed = int.from_bytes(hashlib.sha256(seed_material.encode("utf-8")).digest()[:8], "big")
         rng = np.random.default_rng(seed)
-        daily_sales_qty = int(rng.integers(0, 21))
-        remaining_stock_qty = max(0, remaining_stock_qty - daily_sales_qty)
+        requested_daily_sales_qty = int(rng.integers(0, 21))
+        daily_sales_qty = min(requested_daily_sales_qty, remaining_stock_qty)
+        remaining_stock_qty -= daily_sales_qty
         requested_variation = float(rng.uniform(PRICE_VARIATION_MIN, PRICE_VARIATION_MAX))
 
         if base_price == 0:
