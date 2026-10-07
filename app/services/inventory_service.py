@@ -258,45 +258,100 @@ def query_user_analysis(
 
 
 def make_user_summary_input(db: Session, user_id: int) -> dict:
-    rows = query_user_analysis(db, user_id).all()
-    risk_grade_counts: dict[str, int] = {}
-    risk_count = aging_count = diagnosed_count = 0
+    grades = ("정상", "주의", "장기", "악성")
+    rows = db.query(RawInventory, AnalysisResult).outerjoin(
+        AnalysisResult,
+        AnalysisResult.item_id == RawInventory.item_id,
+    ).filter(
+        RawInventory.user_id == user_id,
+        RawInventory.is_deleted.is_(False),
+    ).all()
+    total_count = len(rows)
+    risk_grade_counts = {grade: 0 for grade in grades}
+    inventory_value_by_grade = {grade: 0.0 for grade in grades}
+    unclassified_count = diagnosed_count = 0
     inventory_value = 0.0
+    analysis_timestamps = []
+    analyzed_rows = []
 
-    for analysis, _ in rows:
-        grade = analysis.risk_grade or "미분류"
-        risk_grade_counts[grade] = risk_grade_counts.get(grade, 0) + 1
-        if grade == "악성":
-            risk_count += 1
-        if grade == "장기":
-            aging_count += 1
+    for item, analysis in rows:
+        if analysis is None:
+            unclassified_count += 1
+            continue
+
+        grade = analysis.risk_grade
+        amount = float(analysis.inventory_amount or 0)
+        if grade in risk_grade_counts:
+            risk_grade_counts[grade] += 1
+            inventory_value_by_grade[grade] += amount
+        else:
+            unclassified_count += 1
+        inventory_value += amount
         if analysis.ai_diagnosis or analysis.action_plans:
             diagnosed_count += 1
-        inventory_value += float(analysis.inventory_amount or 0)
+        if analysis.updated_at:
+            analysis_timestamps.append(analysis.updated_at)
+        analyzed_rows.append((item, analysis))
 
-    top_rows = sorted(
-        rows,
-        key=lambda pair: float(pair[0].final_score or 0),
+    risk_grade_counts["미분류"] = unclassified_count
+    inventory_value_by_grade["미분류"] = sum(
+        float(analysis.inventory_amount or 0)
+        for _, analysis in analyzed_rows
+        if analysis.risk_grade not in grades
+    )
+    data_as_of = max(analysis_timestamps).isoformat() if analysis_timestamps else None
+    priority_rows = sorted(
+        analyzed_rows,
+        key=lambda pair: (float(pair[1].final_score or 0), pair[0].item_id),
         reverse=True,
-    )[:3]
+    )[:5]
+    priority_items = [
+        {
+            "item_id": item.item_id,
+            "product_name": item.product_name,
+            "stock_qty": item.stock_qty,
+            "inventory_value_cost_basis": round(float(analysis.inventory_amount or 0)),
+            "risk_grade": analysis.risk_grade or "미분류",
+            "risk_score": round(float(analysis.final_score or 0), 1),
+            "storage_days": analysis.aging_days or 0,
+            "days_to_sell": analysis.days_to_sell or 0,
+            "depreciation_rate": round(float(analysis.fluctuation_rate or 0), 1),
+        }
+        for item, analysis in priority_rows
+    ]
+    risk_count = risk_grade_counts["악성"]
+    aging_count = risk_grade_counts["장기"]
+    overview = {
+        "total_count": total_count,
+        "inventory_value_cost_basis": round(inventory_value),
+        "risk_grade_counts": risk_grade_counts,
+        "risk_grade_share_percent": {
+            grade: round(risk_grade_counts[grade] / total_count * 100, 1) if total_count else None
+            for grade in grades
+        },
+        "inventory_value_by_grade": {
+            grade: round(amount) for grade, amount in inventory_value_by_grade.items()
+        },
+        "unclassified_count": unclassified_count,
+    }
     return {
         "scope": "account_active_inventory",
-        "total_count": len(rows),
+        "data_as_of": data_as_of,
+        "overview": overview,
+        "priority_items": priority_items,
+        "data_quality": {
+            "sales_source": "uploaded_aggregate",
+            "daily_sales_is_demo": True,
+            "actual_order_history_available": False,
+            "actual_lead_time_available": False,
+            "analysis_as_of": data_as_of,
+        },
+        "total_count": total_count,
         "inventory_value": round(inventory_value),
         "risk_count": risk_count,
         "aging_count": aging_count,
         "risk_grade_counts": risk_grade_counts,
         "diagnosed_count": diagnosed_count,
-        "top_risk_items": [
-            {
-                "risk_grade": analysis.risk_grade or "미분류",
-                "risk_score": round(float(analysis.final_score or 0), 1),
-                "storage_days": analysis.aging_days or 0,
-                "days_to_sell": analysis.days_to_sell or 0,
-                "depreciation_rate": round(float(analysis.fluctuation_rate or 0), 1),
-            }
-            for analysis, _ in top_rows
-        ],
     }
 
 

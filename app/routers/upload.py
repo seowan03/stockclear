@@ -1,13 +1,14 @@
 import asyncio
 import json
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.llm import get_upload_diagnosis_summary
-from app.models import UploadAnalysisSummary, User
+from app.models import UploadAnalysisSummary, UploadHistory, User
 from app.security import get_current_user
 from app.services.inventory_service import make_user_summary_input, save_inventory_analysis, save_upload_history
 from app.services.upload_service import (
@@ -41,7 +42,10 @@ async def _generate_and_save_upload_summary(
             ensure_ascii=False,
         )
         summary_text = await asyncio.wait_for(
-            asyncio.to_thread(get_upload_diagnosis_summary, summary_input),
+            asyncio.to_thread(
+                get_upload_diagnosis_summary,
+                {"scope": summary_scope, **summary_input},
+            ),
             timeout=UPLOAD_SUMMARY_TIMEOUT_SECONDS,
         )
         status = "complete"
@@ -49,19 +53,53 @@ async def _generate_and_save_upload_summary(
         logger.exception("Upload AI summary generation failed", extra={"upload_id": upload_id})
 
     try:
-        db.add(UploadAnalysisSummary(
-            upload_id=upload_id,
-            user_id=user_id,
-            status=status,
-            summary_text=summary_text,
-            summary_data=summary_data,
-        ))
+        summary_row = db.query(UploadAnalysisSummary).filter(
+            UploadAnalysisSummary.upload_id == upload_id,
+            UploadAnalysisSummary.user_id == user_id,
+        ).first()
+        if summary_row is None:
+            summary_row = UploadAnalysisSummary(
+                upload_id=upload_id,
+                user_id=user_id,
+            )
+            db.add(summary_row)
+        summary_row.status = status
+        summary_row.summary_text = summary_text
+        summary_row.summary_data = summary_data
+        summary_row.generated_at = datetime.utcnow()
         db.commit()
     except Exception:
         db.rollback()
         logger.exception("Upload AI summary persistence failed", extra={"upload_id": upload_id})
         return "failed"
     return status
+
+
+@router.post("/api/upload/{upload_id}/summary/retry")
+async def retry_upload_summary(
+    upload_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    upload = db.query(UploadHistory).filter(
+        UploadHistory.id == upload_id,
+        UploadHistory.user_id == current_user.user_id,
+        UploadHistory.status == "성공",
+    ).with_for_update().first()
+    if upload is None:
+        raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+
+    summary_row = db.query(UploadAnalysisSummary).filter(
+        UploadAnalysisSummary.upload_id == upload_id,
+        UploadAnalysisSummary.user_id == current_user.user_id,
+    ).with_for_update().first()
+    if summary_row is None or summary_row.status != "failed":
+        raise HTTPException(status_code=409, detail="다시 생성할 실패 상태의 AI 종합진단이 없습니다.")
+
+    summary_row.status = "generating"
+    db.commit()
+    status = await _generate_and_save_upload_summary(db, upload_id, current_user.user_id)
+    return {"status": status}
 
 
 @router.post("/api/upload")
