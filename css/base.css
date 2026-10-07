@@ -763,24 +763,20 @@ body.inventory-page {
 .landing-metric > span { display: block; overflow: hidden; color: #64748b; font-size: 0.68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .landing-metric strong { display: block; margin-top: 8px; color: #172554; font-size: 1.2rem; font-weight: 800; white-space: nowrap; }
 .landing-metric small { color: #64748b; font-size: 0.65rem; font-weight: 500; }
-.landing-metric--risk strong { color: #E69F00; }
-.landing-metric--aging strong { color: #D55E00; }
+.landing-metric--risk strong { color: #EF4444; }
+.landing-metric--aging strong { color: #F97316; }
 .landing-dashboard__charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 .landing-chart-panel { min-width: 0; padding: 16px 15px 12px; border: 1px solid #edf0f5; border-radius: 12px; background: #ffffff; }
 .landing-chart-panel__heading h4 { color: #1e293b; font-size: 0.82rem; font-weight: 750; }
 .landing-chart-panel__heading p { margin-top: 4px; color: #94a3b8; font-size: 0.67rem; }
 .landing-chart-panel__heading > i { color: #64748b; font-size: 0.9rem; }
-.landing-chart-panel__canvas { position: relative; height: 224px; margin-top: 12px; }
-.landing-chart-center { position: absolute; top: 39%; left: 50%; display: grid; justify-items: center; transform: translate(-50%, -50%); pointer-events: none; }
-.landing-chart-center strong { color: #172554; font-size: 1.25rem; font-weight: 800; }
-.landing-chart-center small { margin-top: 2px; color: #94a3b8; font-size: 0.62rem; }
-
+.landing-chart-panel__canvas { position: relative; height: 320px; margin-top: 12px; }
 @media (max-width: 1100px) {
   .landing-page .site-navigation { display: none; }
   .landing-page main > section:first-child { padding-top: 120px; }
   .landing-showcase__layout { grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr); gap: 28px; }
   .landing-dashboard__charts { grid-template-columns: 1fr; }
-  .landing-chart-panel__canvas { height: 205px; }
+  .landing-chart-panel__canvas { height: 280px; }
 }
 
 @media (max-width: 760px) {
