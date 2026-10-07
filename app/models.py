@@ -131,3 +131,14 @@ class StrategyAction(Base):
   status = Column(String(30), nullable=False, default="기록됨")
   item_ids = Column(Text, nullable=False)
   created_at = Column(DateTime, server_default=func.now())
+
+
+class CustomerInquiry(Base):
+  __tablename__ = "customer_inquiries"
+
+  inquiry_id = Column(Integer, primary_key=True, autoincrement=True)
+  user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+  inquiry_type = Column(String(30), nullable=False)
+  subject = Column(String(50), nullable=False)
+  content = Column(Text, nullable=False)
+  created_at = Column(DateTime, server_default=func.now(), nullable=False)
