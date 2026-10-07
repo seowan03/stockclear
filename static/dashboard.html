@@ -8,7 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/css/style.css?v=20261007-risk-item-popover">
+  <link rel="stylesheet" href="/css/style.css?v=20261007-dashboard-cross-grid-fix">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Chart.js DataLabels Plugin -->
@@ -114,53 +114,81 @@
     </div>
 
     <!-- VISUAL CHARTS SECTION -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      
-      <!-- 도넛 차트 영역 -->
-      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-2">
-          <div>
-            <h3 class="font-bold text-white text-lg tracking-tight">재고 등급별 현황</h3>
-            <p class="text-xs text-gray-400 mt-0.5">상태별 재고 비율 분석</p>
+    <div class="dashboard-analytics-grid">
+        <section data-dashboard-surface class="dashboard-grade-panel dashboard-analytics-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="inventoryGradeTitle">
+          <div class="dashboard-insight-heading">
+            <div>
+              <h3 id="inventoryGradeTitle" class="font-bold text-white text-lg tracking-tight">재고 등급별 현황</h3>
+              <p class="text-xs text-gray-400 mt-0.5">상태별 재고 비율 분석</p>
+            </div>
+            <span class="text-xs px-2.5 py-1 bg-gray-800/80 text-gray-300 rounded-lg border border-gray-700/50">실시간 반영</span>
           </div>
-          <span class="text-xs px-2.5 py-1 bg-gray-800/80 text-gray-300 rounded-lg border border-gray-700/50">실시간 반영</span>
-        </div>
-        
-        <!-- 바깥쪽 라벨을 위한 영역 높이 및 여백 확보 -->
-        <div class="h-96 w-full flex items-center justify-center relative p-2">
-          <canvas id="trendChart"></canvas>
-        </div>
-      </div>
+          <div class="dashboard-grade-chart">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </section>
 
-      <!-- 위험 상품 차트 영역 -->
-      <div data-dashboard-surface class="dashboard-risk-chart bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
-        <div class="flex items-center justify-between mb-2">
-          <div>
-            <h3 class="font-bold text-white text-lg tracking-tight">위험 상품 List</h3>
-            <p class="text-xs text-gray-400 mt-0.5">우선 조치 필요 재고</p>
+        <section data-dashboard-surface class="dashboard-analytics-panel dashboard-popular-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="popularItemsTitle">
+          <div class="dashboard-insight-heading">
+            <div>
+              <h3 id="popularItemsTitle" class="font-bold text-white text-lg tracking-tight"><i class="fa-solid fa-fire" aria-hidden="true"></i> 인기 판매 상품 TOP 3</h3>
+              <p class="text-xs text-gray-400 mt-0.5">최근 30일 판매량 기준</p>
+            </div>
+            <span class="dashboard-period-label">최근 30일</span>
           </div>
-          <div class="dashboard-risk-list-control">
-            <button id="riskItemsToggle" class="dashboard-risk-list-toggle" type="button" aria-expanded="false" aria-controls="riskItemsPanel">
-              <i class="fa-solid fa-list" aria-hidden="true"></i><span>더보기</span>
-            </button>
-            <div id="riskItemsPanel" class="dashboard-risk-list-panel" hidden>
-              <div class="dashboard-risk-list-panel__header">
-                <strong>위험도 높은 상품</strong>
-                <span id="riskItemsTotal" class="dashboard-risk-list-panel__total"></span>
+          <ol id="popularProductsList" class="dashboard-popular-list" aria-live="polite"></ol>
+        </section>
+
+        <section data-dashboard-surface class="dashboard-risk-chart dashboard-analytics-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="riskItemsTitle">
+          <div class="dashboard-insight-heading">
+            <div>
+              <h3 id="riskItemsTitle" class="font-bold text-white text-lg tracking-tight">위험 상품 List</h3>
+              <p class="text-xs text-gray-400 mt-0.5">우선 조치 필요 재고</p>
+            </div>
+            <div class="dashboard-risk-list-control">
+              <button id="riskItemsToggle" class="dashboard-risk-list-toggle" type="button" aria-expanded="false" aria-controls="riskItemsPanel">
+                <i class="fa-solid fa-list" aria-hidden="true"></i><span>더보기</span>
+              </button>
+              <div id="riskItemsPanel" class="dashboard-risk-list-panel" hidden>
+                <div class="dashboard-risk-list-panel__header">
+                  <strong>위험도 높은 상품</strong>
+                  <span id="riskItemsTotal" class="dashboard-risk-list-panel__total"></span>
+                </div>
+                <ol id="riskItemsList" class="dashboard-risk-list"></ol>
               </div>
-              <ol id="riskItemsList" class="dashboard-risk-list"></ol>
             </div>
           </div>
-        </div>
-        <div class="h-80 flex items-center justify-center p-2">
-          <canvas id="categoryChart"></canvas>
-        </div>
-      </div>
+          <div class="dashboard-risk-chart-canvas">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </section>
+
+        <section data-dashboard-surface class="dashboard-analytics-panel dashboard-sales-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="salesTrendTitle">
+          <div class="dashboard-insight-heading dashboard-sales-heading">
+            <div>
+              <h3 id="salesTrendTitle" class="font-bold text-white text-lg tracking-tight">품목별 판매 추이 분석</h3>
+              <p class="text-xs text-gray-400 mt-0.5">선택한 상품의 일별 판매량</p>
+            </div>
+            <label class="dashboard-product-picker">
+              <span class="sr-only">판매 추이를 볼 상품 선택</span>
+              <select id="salesTrendProductSelect" aria-label="판매 추이를 볼 상품 선택"></select>
+            </label>
+          </div>
+          <div class="dashboard-sales-controls" role="group" aria-label="판매 추이 기간">
+            <button type="button" class="is-active" data-sales-days="7" aria-pressed="true">7일</button>
+            <button type="button" data-sales-days="30" aria-pressed="false">30일</button>
+            <span id="salesTrendSummary" class="dashboard-sales-summary"></span>
+          </div>
+          <div id="salesTrendEmpty" class="dashboard-sales-empty" hidden>선택한 기간에 판매 기록이 없습니다.</div>
+          <div class="dashboard-sales-chart">
+            <canvas id="salesTrendChart" aria-label="선택한 상품의 날짜별 판매량 라인차트"></canvas>
+          </div>
+        </section>
     </div>
 
   </main>
 
   <script src="/js/stockclear.js"></script>
-  <script src="/js/dashboard.js?v=20261007-risk-items-list"></script>
+  <script src="/js/dashboard.js?v=20261007-sales-insights"></script>
 </body>
 </html>
