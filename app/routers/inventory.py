@@ -591,6 +591,7 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
             "ai_summary_status": ai_summary_status,
             "scope": summary_scope,
             "as_of": summary_as_of,
+            "summary_upload_id": summary_upload.id if summary_upload else None,
         },
         "upload_file_name": upload.file_name if upload else None,
         "summary_source_file_name": summary_upload.file_name if summary_upload else None,
