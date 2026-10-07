@@ -8,10 +8,11 @@
   <!-- Tailwind CSS & FontAwesome CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- 분리된 외부 스타일시트 연결 -->
-  <link rel="stylesheet" href="css/style.css?v=20261002-all-pages">
+  <link rel="stylesheet" href="/css/style.css?v=20261006-customer-center">
 </head>
 <body class="landing-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased relative">
 
@@ -27,8 +28,8 @@
       </a>
       
       <nav class="site-navigation" aria-label="주요 메뉴"></nav>
-      <script src="js/site-navigation.js?v=20260922-navfix"></script>
-      <script src="js/session-header.js?v=20260922-auth"></script>
+      <script src="/js/site-navigation.js?v=20261006-customer-center"></script>
+      <script src="/js/session-header.js?v=20260922-auth"></script>
 
       <div class="flex items-center space-x-3">
         <a href="signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
@@ -112,7 +113,7 @@
           </div>
           <div class="landing-dashboard__metrics">
             <div class="landing-metric"><span>전체 관리 품목</span><strong>128 <small>개</small></strong></div>
-            <div class="landing-metric"><span>총 재고 자산</span><strong>₩ 24.8<small>백만</small></strong></div>
+            <div class="landing-metric"><span>총 재고 자산</span><strong>₩ 24,800,000</strong></div>
             <div class="landing-metric landing-metric--risk"><span>악성 재고</span><strong>12 <small>개 품목</small></strong></div>
             <div class="landing-metric landing-metric--aging"><span>장기 재고</span><strong>18 <small>개 품목</small></strong></div>
           </div>
@@ -121,7 +122,6 @@
               <div class="landing-chart-panel__heading"><div><h4>재고 등급별 현황</h4><p>상태별 재고 비율</p></div><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></div>
               <div class="landing-chart-panel__canvas landing-chart-panel__canvas--doughnut">
                 <canvas id="landingRiskChart" role="img" aria-label="악성, 장기, 주의, 정상 등급 비율을 나타내는 도넛 차트"></canvas>
-                <span class="landing-chart-center"><strong>128</strong><small>전체 품목</small></span>
               </div>
             </article>
             <article class="landing-chart-panel">
@@ -147,6 +147,7 @@
   </footer>
 <script>
   if (window.Chart) {
+    if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
     Chart.defaults.font.family = "Pretendard, sans-serif";
     Chart.defaults.color = "#64748b";
 
@@ -156,7 +157,7 @@
         labels: ['악성', '장기', '주의', '정상'],
         datasets: [{
           data: [12, 18, 25, 45],
-          backgroundColor: ['#E69F00', '#D55E00', '#009E73', '#0072B2'],
+          backgroundColor: ['#EF4444', '#F97316', '#EAB308', '#22C55E'],
           borderColor: '#ffffff',
           borderWidth: 4,
           hoverOffset: 5
@@ -165,11 +166,37 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '68%',
+        cutout: '70%',
+        layout: {
+          padding: { top: 55, bottom: 70, left: 45, right: 0 }
+        },
         plugins: {
           legend: {
-            position: 'bottom',
-            labels: { boxWidth: 9, boxHeight: 9, padding: 12, usePointStyle: true, font: { size: 10 } }
+            position: 'right',
+            labels: {
+              boxWidth: 14,
+              padding: 12,
+              usePointStyle: true,
+              font: { size: 10 },
+              generateLabels: chart => Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart).map(label => ({
+                ...label,
+                text: `${label.text} (${chart.data.datasets[0].data[label.index]})`
+              }))
+            }
+          },
+          datalabels: {
+            clamp: true,
+            anchor: 'end',
+            align: 'end',
+            offset: 12,
+            color: '#1e293b',
+            textAlign: 'center',
+            font: { family: 'Pretendard', size: 13, weight: 'bold' },
+            formatter: (value, context) => {
+              const total = context.chart.data.datasets[0].data.reduce((sum, count) => sum + count, 0);
+              const percentage = total > 0 ? (value / total * 100).toFixed(1) : '0.0';
+              return `${context.chart.data.labels[context.dataIndex]}\n${percentage}%`;
+            }
           }
         }
       }
@@ -181,7 +208,7 @@
         labels: ['무선 키보드', '보관 용기 세트', '데스크 조명', 'USB 허브', '모바일 액세서리'],
         datasets: [{
           data: [92, 84, 78, 71, 64],
-          backgroundColor: '#E69F00',
+          backgroundColor: '#EF4444',
           borderRadius: 5,
           borderSkipped: false,
           barThickness: 13
@@ -210,6 +237,5 @@
     });
   }
 </script>
-<script src="js/session-header.js?v=20261002-homepage"></script>
 </body>
 </html>
