@@ -19,5 +19,16 @@
         : item.href;
       return `<a href="${scopedHref}" class="site-navigation__item${isActive ? ' is-active' : ''}" style="--navigation-item-width: ${item.width}"><i class="fa-solid ${item.icon}" aria-hidden="true"></i><span>${item.label}</span></a>`;
     }).join('');
+
+    let supportLink = navigation.nextElementSibling;
+    if (!supportLink?.classList.contains('site-navigation-support')) {
+      supportLink = document.createElement('a');
+      supportLink.className = 'site-navigation-support';
+      supportLink.innerHTML = '<i class="fa-solid fa-headset" aria-hidden="true"></i><span>고객센터</span>';
+      navigation.insertAdjacentElement('afterend', supportLink);
+    }
+    supportLink.href = '/customer-center.html';
+    supportLink.classList.toggle('is-active', currentPage === 'customer-center.html');
+    supportLink.setAttribute('aria-label', '고객센터');
   });
 })();

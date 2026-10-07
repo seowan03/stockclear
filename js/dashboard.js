@@ -39,6 +39,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById('inventoryValue').textContent = `₩ ${Number(dashboard.inventory_value || 0).toLocaleString('ko-KR')}`;
     document.getElementById('deficitCount').innerHTML = `${Number(dashboard.risk_count || 0).toLocaleString('ko-KR')} <span class="text-xs font-normal text-gray-400">개 품목</span>`;
     document.getElementById('staleCount').innerHTML = `${Number(dashboard.aging_count || 0).toLocaleString('ko-KR')} <span class="text-xs font-normal text-gray-400">개 품목</span>`;
+    renderInventoryGradePopover('deficitItemsPopover', '악성', inventoryItems);
+    renderInventoryGradePopover('staleItemsPopover', '장기', inventoryItems);
 
     if (!inventoryItems.length && !riskItems.length) {
       showErrorMessage('분석된 재고 데이터가 없습니다. 먼저 재고 파일을 업로드해주세요.');
@@ -47,11 +49,115 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderTrendChart(inventoryItems);
     renderCategoryChart(riskItems);
+    renderRiskItemsList(inventoryItems.length ? inventoryItems : riskItems);
   } catch (error) {
     console.error('Dashboard Load Error:', error);
     showErrorMessage('대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 });
+
+function renderRiskItemsList(items) {
+  const list = document.getElementById('riskItemsList');
+  const toggle = document.getElementById('riskItemsToggle');
+  const panel = document.getElementById('riskItemsPanel');
+  const total = document.getElementById('riskItemsTotal');
+  if (!list || !toggle || !panel || !total) return;
+
+  const sortedItems = [...items].sort((firstItem, secondItem) =>
+    Number(secondItem.final_score || 0) - Number(firstItem.final_score || 0)
+  );
+  total.textContent = `${sortedItems.length}개`;
+  list.replaceChildren();
+
+  if (!sortedItems.length) {
+    const emptyItem = document.createElement('li');
+    emptyItem.className = 'dashboard-risk-list__empty';
+    emptyItem.textContent = '표시할 상품이 없습니다.';
+    list.append(emptyItem);
+  } else {
+    sortedItems.forEach((item, index) => {
+      const row = document.createElement('li');
+      row.className = 'dashboard-risk-list__item';
+
+      const rank = document.createElement('span');
+      rank.className = 'dashboard-risk-list__rank';
+      rank.textContent = String(index + 1).padStart(2, '0');
+
+      const name = document.createElement('span');
+      name.className = 'dashboard-risk-list__name';
+      name.textContent = item.product_name || '이름 없는 품목';
+
+      const details = document.createElement('span');
+      details.className = 'dashboard-risk-list__details';
+      details.textContent = `${item.risk_grade || '미분류'} · ${Number(item.final_score || 0).toLocaleString('ko-KR')}점`;
+
+      row.append(rank, name, details);
+      list.append(row);
+    });
+  }
+
+  toggle.addEventListener('click', () => {
+    const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!isExpanded));
+    panel.hidden = isExpanded;
+  });
+
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.dashboard-risk-list-control')) {
+      toggle.setAttribute('aria-expanded', 'false');
+      panel.hidden = true;
+    }
+  });
+
+  toggle.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      toggle.setAttribute('aria-expanded', 'false');
+      panel.hidden = true;
+      toggle.focus();
+    }
+  });
+}
+
+function renderInventoryGradePopover(popoverId, grade, inventoryItems) {
+  const popover = document.getElementById(popoverId);
+  if (!popover) return;
+
+  const matchingItems = inventoryItems.filter(item => item.risk_grade === grade);
+  const title = document.createElement('p');
+  title.className = 'dashboard-items-popover__title';
+  title.textContent = `${grade} 재고 품목 (${matchingItems.length}개)`;
+  popover.replaceChildren(title);
+
+  if (!matchingItems.length) {
+    const emptyMessage = document.createElement('p');
+    emptyMessage.className = 'dashboard-items-popover__empty';
+    emptyMessage.textContent = '해당 등급의 재고가 없습니다.';
+    popover.append(emptyMessage);
+    return;
+  }
+
+  const list = document.createElement('ul');
+  list.className = 'dashboard-items-popover__list';
+  matchingItems.forEach(item => {
+    const listItem = document.createElement('li');
+    listItem.className = 'dashboard-items-popover__item';
+
+    const productName = document.createElement('span');
+    productName.className = 'dashboard-items-popover__name';
+    productName.textContent = item.product_name || '이름 없는 품목';
+
+    const quantity = document.createElement('span');
+    quantity.className = 'dashboard-items-popover__quantity';
+    const stockQuantity = item.stock_qty;
+    quantity.textContent = stockQuantity === null || stockQuantity === undefined || stockQuantity === ''
+      ? '수량 정보 없음'
+      : `${Number(stockQuantity).toLocaleString('ko-KR')}개`;
+
+    listItem.append(productName, quantity);
+    list.append(listItem);
+  });
+  popover.append(list);
+}
 
 // 도넛 차트 (항상 4개 범주 표시)
 function renderTrendChart(items) {
@@ -161,7 +267,8 @@ function renderCategoryChart(items) {
         data: items.map(item => item.final_score),
         backgroundColor: '#EF4444',
         borderRadius: 8,
-        borderSkipped: false
+        borderSkipped: false,
+        barThickness: 13
       }]
     },
     options: {
