@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockClear - 고객센터</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css?v=20261007-inquiry-form">
+  <link rel="stylesheet" href="/css/customer-center.css?v=20261007-inquiry-form">
+</head>
+<body class="bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
+  <header class="bg-[#0b1120]/90 backdrop-blur-md border-b border-gray-800/80 text-white sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/mainpage.html" class="flex items-center space-x-3 cursor-pointer">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xl shadow-lg shadow-blue-500/50">S</div>
+        <span class="font-extrabold text-xl tracking-tight text-white">Stock<span class="text-blue-500">Clear</span></span>
+      </a>
+      <nav class="site-navigation" aria-label="주요 메뉴"></nav>
+      <script src="/js/site-navigation.js?v=20261006-customer-center"></script>
+      <script src="/js/session-header.js?v=20261022-auth"></script>
+      <div class="flex items-center space-x-3">
+        <a href="/signin.html" class="text-xs font-semibold text-gray-300 hover:text-white transition-colors px-3 py-2">로그인</a>
+        <a href="/signin.html" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-600/30 transition-all">회원가입</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-10 space-y-10">
+    <section class="border-b border-gray-800 pb-6">
+      <p class="text-xs font-bold uppercase tracking-wider text-blue-400">STOCKCLEAR HELP</p>
+      <h1 class="mt-2 text-3xl font-extrabold text-white">고객센터</h1>
+      <p class="mt-2 text-sm text-gray-400">서비스 이용 중 자주 묻는 내용을 확인하세요.</p>
+    </section>
+
+    <section aria-labelledby="faq-title" class="space-y-4">
+      <h2 id="faq-title" class="text-lg font-bold text-white">자주 묻는 질문</h2>
+      <div class="divide-y divide-gray-800 border-y border-gray-800">
+        <details class="py-5">
+          <summary class="cursor-pointer text-sm font-semibold text-gray-200">재고 파일은 어떤 형식으로 올릴 수 있나요?</summary>
+          <p class="mt-3 text-sm leading-6 text-gray-400">`.xlsx`, `.csv` 파일을 지원하며 최대 크기는 10MB입니다. 첫 행에는 상품명, 재고량, 원가, 입고일, 판매가, 판매량 컬럼을 포함해야 합니다.</p>
+        </details>
+        <details class="py-5">
+          <summary class="cursor-pointer text-sm font-semibold text-gray-200">업로드한 파일과 분석 결과는 어디서 확인하나요?</summary>
+          <p class="mt-3 text-sm leading-6 text-gray-400"><a href="/history.html" class="text-blue-400 hover:text-blue-300">업로드 기록</a>에서 업로드 내역을 확인하고, <a href="/dashboard.html" class="text-blue-400 hover:text-blue-300">대시보드</a>에서 분석 요약을 볼 수 있습니다.</p>
+        </details>
+        <details class="py-5">
+          <summary class="cursor-pointer text-sm font-semibold text-gray-200">재고 목록에서 상품 정보를 수정할 수 있나요?</summary>
+          <p class="mt-3 text-sm leading-6 text-gray-400"><a href="/inventory.html" class="text-blue-400 hover:text-blue-300">재고 목록</a>에서 상품 정보를 확인하고 수정할 수 있습니다. 저장되지 않은 변경사항은 페이지를 나가기 전에 저장해주세요.</p>
+        </details>
+        <details class="py-5">
+          <summary class="cursor-pointer text-sm font-semibold text-gray-200">분석 리포트를 저장하거나 인쇄할 수 있나요?</summary>
+          <p class="mt-3 text-sm leading-6 text-gray-400"><a href="/export.html" class="text-blue-400 hover:text-blue-300">내보내기</a> 페이지에서 리포트를 확인하고 인쇄 또는 PDF 저장을 이용할 수 있습니다.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="border-t border-gray-800 pt-6" aria-labelledby="contact-title">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 id="contact-title" class="text-base font-bold text-white">문의하기</h2>
+          <p class="mt-2 text-sm leading-6 text-gray-400">서비스 이용 중 궁금한 점이나 도움이 필요한 내용을 남겨주세요.</p>
+        </div>
+        <button id="openInquiryForm" class="inquiry-open-button" type="button">
+          <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> 문의 남기기
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="inquiryDialog" class="inquiry-dialog" aria-labelledby="inquiryDialogTitle">
+    <div class="inquiry-dialog__heading">
+      <div>
+        <p class="inquiry-dialog__eyebrow">STOCKCLEAR SUPPORT</p>
+        <h2 id="inquiryDialogTitle">문의하기</h2>
+      </div>
+      <button id="closeInquiryForm" class="inquiry-dialog__close" type="button" aria-label="문의 창 닫기">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+    </div>
+    <p class="inquiry-dialog__description">문의 유형을 선택하고 내용을 자세히 작성해주세요.</p>
+    <form id="inquiryForm" class="inquiry-form">
+      <label class="inquiry-form__field">
+        <span>문의 유형</span>
+        <select name="inquiry_type" required>
+          <option value="" selected disabled>문의 유형 선택</option>
+          <option value="이용 안내">이용 안내</option>
+          <option value="구매 안내">구매 안내</option>
+          <option value="환불 안내">환불 안내</option>
+          <option value="기타 문의">기타 문의</option>
+        </select>
+      </label>
+      <label class="inquiry-form__field">
+        <span>문의 제목</span>
+        <input name="subject" type="text" maxlength="50" placeholder="제목은 최대 50자까지 입력할 수 있습니다." required>
+      </label>
+      <label class="inquiry-form__field inquiry-form__field--content">
+        <span>문의 내용</span>
+        <textarea name="content" maxlength="5000" rows="7" placeholder="문의하실 내용을 입력해주세요." required></textarea>
+      </label>
+      <p id="inquiryStatus" class="inquiry-form__status" role="status" aria-live="polite"></p>
+      <div class="inquiry-form__actions">
+        <button id="cancelInquiryForm" class="inquiry-form__cancel" type="button">취소</button>
+        <button id="submitInquiry" class="inquiry-form__submit" type="submit">
+          <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> 문의 접수
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <footer class="bg-gray-950 border-t border-gray-800/80 py-8 px-6 text-center text-xs text-gray-500">
+    <p>© 2026 StockClear. All rights reserved.</p>
+  </footer>
+  <script src="/js/customer-center.js?v=20261007-inquiry-form"></script>
+</body>
+</html>

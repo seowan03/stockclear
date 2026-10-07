@@ -8,7 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="/css/style.css?v=20261006-assets">
+  <link rel="stylesheet" href="/css/style.css?v=20261007-risk-item-popover">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Chart.js DataLabels Plugin -->
@@ -35,7 +35,7 @@
       </a>
 
       <nav class="site-navigation" aria-label="주요 메뉴"></nav>
-      <script src="/js/site-navigation.js?v=20260922-navfix"></script>
+      <script src="/js/site-navigation.js?v=20261006-customer-center"></script>
       <script src="/js/session-header.js?v=20260922-auth"></script>
 
       <div class="flex items-center space-x-3">
@@ -70,7 +70,7 @@
 
     <!-- SUMMARY KPI CARDS -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">전체 관리 품목</span>
           <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
@@ -90,7 +90,7 @@
         <div id="inventoryValue" class="text-3xl font-black text-white tracking-tight">₩ 0</div>
       </div>
 
-      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">악성 재고</span>
           <div class="w-9 h-9 rounded-xl grade-icon-risk flex items-center justify-center border">
@@ -98,9 +98,10 @@
           </div>
         </div>
         <div id="deficitCount" class="text-3xl font-black grade-risk tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
+        <div id="deficitItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
       </div>
 
-      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
+      <div data-dashboard-surface tabindex="0" role="group" aria-label="장기 재고 상세" aria-describedby="staleItemsPopover" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">장기 재고</span>
           <div class="w-9 h-9 rounded-xl grade-icon-aging flex items-center justify-center border">
@@ -108,6 +109,7 @@
           </div>
         </div>
         <div id="staleCount" class="text-3xl font-black grade-aging tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
+        <div id="staleItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
       </div>
     </div>
 
@@ -130,14 +132,25 @@
         </div>
       </div>
 
-      <!-- 위험 상품 TOP 5 차트 영역 -->
-      <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
+      <!-- 위험 상품 차트 영역 -->
+      <div data-dashboard-surface class="dashboard-risk-chart bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl flex flex-col justify-between">
         <div class="flex items-center justify-between mb-2">
           <div>
-            <h3 class="font-bold text-white text-lg tracking-tight">위험 상품 TOP 5</h3>
+            <h3 class="font-bold text-white text-lg tracking-tight">위험 상품 List</h3>
             <p class="text-xs text-gray-400 mt-0.5">우선 조치 필요 재고</p>
           </div>
-          <span class="text-xs text-gray-400 bg-gray-800/50 px-2 py-1 rounded">위험도 점수 기준</span>
+          <div class="dashboard-risk-list-control">
+            <button id="riskItemsToggle" class="dashboard-risk-list-toggle" type="button" aria-expanded="false" aria-controls="riskItemsPanel">
+              <i class="fa-solid fa-list" aria-hidden="true"></i><span>더보기</span>
+            </button>
+            <div id="riskItemsPanel" class="dashboard-risk-list-panel" hidden>
+              <div class="dashboard-risk-list-panel__header">
+                <strong>위험도 높은 상품</strong>
+                <span id="riskItemsTotal" class="dashboard-risk-list-panel__total"></span>
+              </div>
+              <ol id="riskItemsList" class="dashboard-risk-list"></ol>
+            </div>
+          </div>
         </div>
         <div class="h-80 flex items-center justify-center p-2">
           <canvas id="categoryChart"></canvas>
@@ -148,6 +161,6 @@
   </main>
 
   <script src="/js/stockclear.js"></script>
-  <script src="/js/dashboard.js?v=20261006-chart-fix"></script>
+  <script src="/js/dashboard.js?v=20261007-risk-items-list"></script>
 </body>
 </html>
