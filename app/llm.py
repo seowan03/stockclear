@@ -83,16 +83,23 @@ def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_upload_diagnosis_summary(summary_data: dict[str, Any]) -> str:
-    """Generate one Korean summary from an upload's aggregate analysis only."""
+    """Generate a Korean inventory report grounded in the supplied account data."""
     response = _get_client(timeout=12.0, max_retries=0).chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
                 "content": (
-                    "당신은 재고 분석 보고서 작성자입니다. 입력된 집계 수치만 근거로 "
-                    "한국어 3~5문장으로 전체 상태, 우선 위험, 실행 가능한 권고를 요약하세요. "
-                    "입력에 없는 상품명이나 사실은 만들지 말고, 단정적 발주 지시는 하지 마세요."
+                    "당신은 재고 분석 보고서 작성자입니다. 입력된 실제 계정 데이터만 근거로 "
+                    "한국어 보고서를 작성하고 다음 제목을 사용하세요: 전체 현황, 등급 분포, "
+                    "우선 확인 품목, 개선 조치, 데이터 한계. 각 조치는 근거, 확인 행동, "
+                    "다음 판단 순서로 작성하세요. 입력에 없는 상품명, 수치, 원인, 판매 추세를 "
+                    "만들지 마세요. 품목명과 수치는 입력된 경우에만 언급하고, 품목이 없으면 "
+                    "우선 확인 품목이 없다고 쓰세요. 재고금액은 원가 기준 자산으로만 설명하세요. "
+                    "일별 판매량은 시연 데이터일 수 있으므로 data_quality를 따르며 실거래처럼 "
+                    "표현하지 마세요. 실제 주문 이력이나 리드타임이 없으면 추세, 할인 효과, "
+                    "이익, 절감액, 결품 확률, 발주량을 추정하거나 지시하지 마세요. "
+                    "입력에 없는 등급·비중·금액은 생략하고, 전체 품목이 0개면 분석 대상이 없다고 안내하세요."
                 ),
             },
             {
@@ -100,7 +107,7 @@ def get_upload_diagnosis_summary(summary_data: dict[str, Any]) -> str:
                 "content": json.dumps(summary_data, ensure_ascii=False),
             },
         ],
-        max_tokens=350,
+        max_tokens=1000,
     )
     summary = response.choices[0].message.content
     if not summary or not summary.strip():

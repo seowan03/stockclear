@@ -63,6 +63,10 @@
         <summary class="cursor-pointer text-sm font-medium text-blue-300 hover:text-blue-200">AI 종합진단 전문 보기</summary>
         <p id="reportSummary" class="mt-3 whitespace-pre-line break-words text-sm leading-relaxed text-gray-300">AI 진단 요약을 불러오는 중입니다.</p>
     </details>
+    <button id="retrySummaryButton" type="button" onclick="retryUploadSummary()" class="hidden no-print inline-flex items-center gap-2 rounded-md border border-amber-700 px-3 py-2 text-sm font-semibold text-amber-200 transition-colors hover:bg-amber-950/50 disabled:cursor-wait disabled:opacity-50">
+        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+        <span id="retrySummaryLabel">AI 종합진단 다시 생성</span>
+    </button>
 </div>
 
 <!-- 내보내기 대상 데이터 미리보기 테이블 -->
@@ -198,6 +202,7 @@
     let loadedItems = [];
     let inventoryDetailsPromise;
     let activeExportItemId = null;
+    let summaryUploadId = null;
     const pendingDiagnoses = new Set();
     const safetyStockResults = new Map();
     const pendingSafetyStock = new Set();
@@ -257,6 +262,11 @@
                 document.getElementById('reportCount').textContent = `총 ${loadedItems.length.toLocaleString('ko-KR')}개 항목 선택됨`;
 
                 const summary = report.summary || {};
+                summaryUploadId = summary.summary_upload_id || null;
+                document.getElementById('retrySummaryButton').classList.toggle(
+                    'hidden',
+                    summary.ai_summary_status !== 'failed' || !summaryUploadId,
+                );
                 document.getElementById('reportSummary').textContent = summary.ai_summary
                     || '저장된 AI 종합진단이 없습니다.';
                 const riskCount = loadedItems.filter((item) => item.risk_grade === '악성').length;
@@ -303,6 +313,37 @@
             } catch (error) {
                 console.error('내보내기 데이터 로딩 실패:', error);
                 tbody.innerHTML = '<tr><td colspan="8" class="py-8 text-center text-rose-400">데이터를 불러오지 못했습니다.</td></tr>';
+            }
+        }
+
+        async function retryUploadSummary() {
+            const button = document.getElementById('retrySummaryButton');
+            const label = document.getElementById('retrySummaryLabel');
+            const message = document.getElementById('reportSummary');
+            if (!summaryUploadId || button.disabled) return;
+
+            button.disabled = true;
+            label.textContent = '생성 중...';
+            message.textContent = 'AI 종합진단을 다시 생성하고 있습니다.';
+            try {
+                const response = await fetch(`/api/upload/${summaryUploadId}/summary/retry`, {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+                if (response.status === 401) {
+                    window.location.href = 'signin.html';
+                    return;
+                }
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'AI 종합진단 재생성에 실패했습니다.');
+                if (result.status !== 'complete') throw new Error('AI 종합진단을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+                await loadExportData();
+            } catch (error) {
+                message.textContent = error.message || 'AI 종합진단 재생성에 실패했습니다.';
+                label.textContent = '다시 시도';
+            } finally {
+                button.disabled = false;
+                if (label.textContent === '생성 중...') label.textContent = 'AI 종합진단 다시 생성';
             }
         }
 
