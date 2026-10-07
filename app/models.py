@@ -95,6 +95,8 @@ class AnalysisResult(Base):
   ai_diagnosis = Column(Text)
   action_plans = Column(Text)
   recommended_price = Column(Numeric(12, 2), nullable=True)
+  diagnosis_input_hash = Column(String(64), nullable=True)
+  diagnosis_cache = Column(Text, nullable=True)
   updated_at = Column(DateTime)
 
 

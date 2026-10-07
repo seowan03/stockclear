@@ -103,6 +103,8 @@ def save_inventory_analysis(
         analysis.ai_diagnosis = None
         analysis.action_plans = None
         analysis.recommended_price = None
+        analysis.diagnosis_input_hash = None
+        analysis.diagnosis_cache = None
         analysis.updated_at = now
         replace_daily_inventory_metrics(
             db,
@@ -190,6 +192,8 @@ def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatch
         analysis.ai_diagnosis = None
         analysis.action_plans = None
         analysis.recommended_price = None
+        analysis.diagnosis_input_hash = None
+        analysis.diagnosis_cache = None
         analysis.updated_at = now
         replace_daily_inventory_metrics(
             db,
