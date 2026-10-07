@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockClear - 문의 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="min-h-screen bg-[#0b1120] text-gray-100 antialiased">
+  <header class="sticky top-0 z-40 border-b border-gray-800 bg-[#0b1120]/95 backdrop-blur">
+    <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+      <a href="/customer-center.html" class="font-semibold text-gray-300 hover:text-white">
+        <i class="fa-solid fa-arrow-left mr-2" aria-hidden="true"></i>고객센터
+      </a>
+      <span class="text-xs font-semibold text-blue-300">관리자 문의함</span>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl space-y-6 px-5 py-10">
+    <section class="flex flex-wrap items-end justify-between gap-4 border-b border-gray-800 pb-6">
+      <div>
+        <p class="text-xs font-bold uppercase text-blue-400">SUPPORT ADMIN</p>
+        <h1 class="mt-2 text-2xl font-bold text-white">고객 문의</h1>
+        <p class="mt-2 text-sm text-gray-400">문의 내용을 확인하고 답변을 저장합니다.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="inquiryStatusFilter" class="sr-only">문의 상태</label>
+        <select id="inquiryStatusFilter" class="rounded border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-gray-100">
+          <option value="">전체 상태</option>
+          <option value="접수">접수</option>
+          <option value="답변 완료">답변 완료</option>
+        </select>
+        <button id="refreshInquiries" type="button" class="rounded border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800">
+          <i class="fa-solid fa-rotate-right mr-1" aria-hidden="true"></i>새로고침
+        </button>
+      </div>
+    </section>
+
+    <p id="adminInquiryStatus" class="text-sm text-gray-400" role="status" aria-live="polite"></p>
+    <section id="adminInquiryList" class="space-y-4" aria-label="문의 목록"></section>
+  </main>
+  <script src="/js/admin-inquiries.js"></script>
+</body>
+</html>

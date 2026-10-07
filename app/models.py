@@ -24,6 +24,7 @@ class User(Base):
   username = Column(String(255))
   email = Column(String(255))
   password_hash = Column(String(255))
+  role = Column(String(20), nullable=False, default="user", server_default="user")
   created_at = Column(DateTime)
 
 
@@ -143,4 +144,9 @@ class CustomerInquiry(Base):
   inquiry_type = Column(String(30), nullable=False)
   subject = Column(String(50), nullable=False)
   content = Column(Text, nullable=False)
+  status = Column(String(20), nullable=False, default="접수", server_default="접수")
+  admin_reply = Column(Text, nullable=True)
+  replied_at = Column(DateTime, nullable=True)
+  replied_by_user_id = Column(Integer, nullable=True)
+  reply_token_hash = Column(String(64), nullable=True)
   created_at = Column(DateTime, server_default=func.now(), nullable=False)

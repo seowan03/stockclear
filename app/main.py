@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import CORS_ORIGINS
 from app.database import init_db
 
-from app.routers import ai, auth, history, inquiries, inventory, kakao, upload
+from app.routers import admin_inquiries, ai, auth, history, inquiries, inventory, kakao, upload
 from app.security import no_store_api_responses
 
 app = FastAPI(title="StockClear Backend", version="1.0")
@@ -24,6 +24,7 @@ app.include_router(kakao.router)
 app.include_router(upload.router)
 app.include_router(history.router)
 app.include_router(inquiries.router)
+app.include_router(admin_inquiries.router)
 app.include_router(inventory.router)
 app.include_router(ai.router)
 

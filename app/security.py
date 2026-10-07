@@ -98,6 +98,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     return user
 
 
+def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
+    return current_user
+
+
 async def no_store_api_responses(request: Request, call_next):
     """계정 전환 후 브라우저가 이전 사용자의 /api/* 응답을 캐시에서 재사용하지 않도록 강제한다."""
     response = await call_next(request)
