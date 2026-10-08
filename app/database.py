@@ -63,6 +63,34 @@ def ensure_upload_files_user_id_column():
             conn.execute(text("ALTER TABLE upload_files ADD COLUMN content_hash VARCHAR(64) NULL"))
 
 
+def ensure_users_role_column():
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    if "role" not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"))
+
+
+def ensure_customer_inquiry_reply_columns():
+    inspector = inspect(engine)
+    if "customer_inquiries" not in inspector.get_table_names():
+        return
+    columns = {column["name"] for column in inspector.get_columns("customer_inquiries")}
+    additions = {
+        "status": "VARCHAR(20) NOT NULL DEFAULT '접수'",
+        "admin_reply": "TEXT NULL",
+        "replied_at": "DATETIME NULL",
+        "replied_by_user_id": "INT NULL",
+        "reply_token_hash": "VARCHAR(64) NULL",
+    }
+    with engine.begin() as conn:
+        for name, definition in additions.items():
+            if name not in columns:
+                conn.execute(text(f"ALTER TABLE customer_inquiries ADD COLUMN {name} {definition}"))
+
+
 def ensure_raw_inventory_is_deleted_column():
     inspector = inspect(engine)
     if "raw_inventory" not in inspector.get_table_names():
@@ -209,6 +237,8 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     from app.models import InventoryDailyMetric
     next(index for index in InventoryDailyMetric.__table__.indexes if index.name == "ix_inventory_daily_business_date").create(bind=engine, checkfirst=True)
+    ensure_users_role_column()
+    ensure_customer_inquiry_reply_columns()
     ensure_upload_files_user_id_column()
     ensure_raw_inventory_is_deleted_column()
     ensure_raw_inventory_edit_columns()

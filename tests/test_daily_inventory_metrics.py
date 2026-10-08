@@ -73,6 +73,34 @@ class DailyInventoryMetricsApiTests(unittest.TestCase):
             remaining_stock_qty = max(0, remaining_stock_qty - metric.daily_sales_qty)
             self.assertEqual(metric.remaining_stock_qty, remaining_stock_qty)
 
+    def test_daily_sales_are_integer_between_zero_and_twenty_and_never_oversell(self):
+        metrics = generate_daily_inventory_metrics(
+            9,
+            99,
+            date(2026, 9, 1),
+            150,
+            base_stock_qty=1,
+        )
+        remaining_stock_qty = 1
+        positive_sales_seen = False
+        sold_out = False
+
+        for metric in metrics:
+            self.assertIsInstance(metric.daily_sales_qty, int)
+            self.assertGreaterEqual(metric.daily_sales_qty, 0)
+            self.assertLessEqual(metric.daily_sales_qty, 20)
+            self.assertLessEqual(metric.daily_sales_qty, remaining_stock_qty)
+            if sold_out:
+                self.assertEqual(metric.daily_sales_qty, 0)
+            positive_sales_seen = positive_sales_seen or metric.daily_sales_qty > 0
+            remaining_stock_qty -= metric.daily_sales_qty
+            self.assertEqual(metric.remaining_stock_qty, remaining_stock_qty)
+            if remaining_stock_qty == 0:
+                sold_out = True
+
+        self.assertTrue(positive_sales_seen)
+        self.assertTrue(sold_out)
+
     def test_upload_generates_and_upsert_replaces_31_daily_metrics(self):
         with (
             patch.object(database, "engine", self.engine),

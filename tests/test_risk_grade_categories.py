@@ -7,11 +7,22 @@ from sqlalchemy.pool import StaticPool
 
 import app.database as database
 from app.routers.ai import _rule_based_strategy
-from app.analysis import _classify_risk
+from app.analysis import _classify_risk, calculate_risk_score_components
 from app.models import AnalysisResult
 
 
 class RiskGradeCategoryTests(unittest.TestCase):
+    def test_risk_score_components_match_the_documented_weights_and_caps(self):
+        components = calculate_risk_score_components(45, 90, 25)
+        self.assertEqual(float(components["storage_score"]), 20)
+        self.assertEqual(float(components["turnover_score"]), 15)
+        self.assertEqual(float(components["depreciation_score"]), 15)
+
+        capped = calculate_risk_score_components(180, 9999, -10)
+        self.assertEqual(float(capped["storage_score"]), 40)
+        self.assertEqual(float(capped["turnover_score"]), 30)
+        self.assertEqual(float(capped["depreciation_score"]), 0)
+
     def test_score_thresholds_return_only_canonical_grades(self):
         inventory = pd.DataFrame({
             "보관기간": [0, 30, 60, 90],
