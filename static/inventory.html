@@ -294,7 +294,8 @@ function switchTab(tabName) {
     let inventoryData = [];
     let selectedInventoryId = null;
     const currentUploadId = new URLSearchParams(window.location.search).get('upload_id');
-    const DAILY_METRIC_END_DATE = '2026-09-30';
+    const today = new Date();
+    const DAILY_METRIC_END_DATE = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const HISTORY_WEEKDAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
     let dailyMetricsByItemId = new Map();
     let dailyMetricsRequestId = 0;
