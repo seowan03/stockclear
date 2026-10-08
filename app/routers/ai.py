@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import json
 import logging
@@ -12,7 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.analysis import calculate_risk_score_components
 from app.database import get_db
-from app.llm import get_ai_strategy
+from app.llm import (
+    AIStrategy,
+    LLMFailure,
+    STRATEGY_METRIC_REFS,
+    _validate_strategy_evidence,
+    get_ai_strategy,
+    run_llm_with_timeout,
+)
 from app.models import AnalysisResult, RawInventory, User
 from app.schemas import InventoryItem
 from app.security import get_current_user
@@ -24,7 +30,7 @@ AI_RATE_LIMIT_WINDOW_SECONDS = 60 * 60
 AI_RATE_LIMIT_MAX_CALLS = 20
 AI_INPUT_MAX_CHARS = 3_000
 AI_REQUEST_TIMEOUT_SECONDS = 12
-DIAGNOSIS_CACHE_VERSION = "v3"
+DIAGNOSIS_CACHE_VERSION = "v6"
 _ai_request_history: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -87,12 +93,13 @@ def _format_action_plan(
     price_limit_notice: str | None,
     recommendation_source: str | None = None,
 ) -> str:
-    discount_label = "규칙 기반 참고 할인율" if recommendation_source == "rule_based_reference" else "할인율"
+    discount_label = "규칙 기반 참고 할인율" if recommendation_source == "rule_based_reference" else "참고 할인율"
     lines = [f"{discount_label} {discount:g}%."]
     if recommended_price is None:
-        lines.append("권장 판매가를 계산할 수 없습니다.")
+        lines.append("참고 판매가를 계산할 수 없습니다.")
     else:
-        lines.append(f"권장 판매가 {recommended_price:,.0f}원.")
+        price_label = "규칙 기반 참고 판매가" if recommendation_source == "rule_based_reference" else "참고 판매가"
+        lines.append(f"{price_label} {recommended_price:,.0f}원.")
     if judgment:
         lines.append(f"AI 진단: {_ensure_sentence_ending(judgment)}")
     if price_limit_notice:
@@ -158,13 +165,18 @@ async def _diagnose(product_data: dict[str, Any], user_id: int, request: Request
     recommendation = _rule_based_strategy(product_data)
     context = _make_strategy_context(product_data)
     try:
-        ai_result = await asyncio.wait_for(
-            asyncio.to_thread(get_ai_strategy, context),
-            timeout=AI_REQUEST_TIMEOUT_SECONDS,
+        ai_result = await run_llm_with_timeout(
+            user_id,
+            AI_REQUEST_TIMEOUT_SECONDS,
+            get_ai_strategy,
+            context,
         )
-    except asyncio.TimeoutError:
-        logger.warning("AI diagnosis request timed out", extra={"user_id": user_id})
-        ai_result = {"status": "분석 오류"}
+    except LLMFailure as exc:
+        logger.warning(
+            "AI diagnosis unavailable",
+            extra={"user_id": user_id, "failure_code": exc.failure_code},
+        )
+        ai_result = {"status": "분석 오류", "failure_code": exc.failure_code}
 
     if ai_result.get("status") == "분석 오류":
         diagnosis_detail = _make_fallback_diagnosis(context, recommendation["status"])
@@ -280,11 +292,27 @@ def _make_diagnosis_detail(
         headline += f", 위험점수 {score:g}점"
     headline += "입니다."
 
-    explanations = {
-        entry["metric"]: entry["meaning"]
-        for entry in ai_result.get("evidence", [])
-        if isinstance(entry, dict)
-    }
+    explanations = {}
+    next_checks = {}
+    for entry in ai_result.get("evidence", []):
+        if not isinstance(entry, dict):
+            continue
+        metric = entry.get("metric")
+        evidence_ref = entry.get("evidence_ref")
+        if STRATEGY_METRIC_REFS.get(metric) != evidence_ref:
+            continue
+        referenced_value: Any = context
+        for part in evidence_ref.split("."):
+            if not isinstance(referenced_value, dict) or part not in referenced_value:
+                referenced_value = None
+                break
+            referenced_value = referenced_value[part]
+        if referenced_value is None:
+            continue
+        if entry.get("meaning"):
+            explanations[metric] = entry["meaning"]
+        if entry.get("next_check"):
+            next_checks[metric] = entry["next_check"]
     evidence_specs = [
         ("보관 기간", components["storage_days"], "일", components["storage_score"], 40),
         (
@@ -316,11 +344,13 @@ def _make_diagnosis_detail(
         meaning = explanations.get(metric) or f"{metric}의 서버 저장 분석값입니다."
         evidence.append({
             "metric": metric,
+            "evidence_ref": STRATEGY_METRIC_REFS[metric],
             "value": value,
             "unit": unit,
             "score_contribution": contribution,
             "score_maximum": maximum,
             "meaning": meaning,
+            "next_check": next_checks.get(metric),
         })
 
     return {
@@ -335,15 +365,21 @@ def _make_fallback_diagnosis(context: dict[str, Any], risk_grade: str) -> dict[s
         "evidence": [
             {
                 "metric": "보관 기간",
+                "evidence_ref": STRATEGY_METRIC_REFS["보관 기간"],
                 "meaning": "보관 기간이 길어 재고 체류 상태를 확인할 필요가 있습니다.",
+                "next_check": "입고일과 현재 재고 수량을 확인하세요.",
             },
             {
                 "metric": "예상 소진 기간",
+                "evidence_ref": STRATEGY_METRIC_REFS["예상 소진 기간"],
                 "meaning": "예상 소진 기간은 업로드 판매 속도를 기준으로 계산한 값입니다.",
+                "next_check": "업로드한 판매량과 보관 기간이 실제 입력과 맞는지 확인하세요.",
             },
             {
                 "metric": "원가 대비 판매가 차이",
+                "evidence_ref": STRATEGY_METRIC_REFS["원가 대비 판매가 차이"],
                 "meaning": "원가와 업로드 판매가를 비교한 값입니다.",
+                "next_check": "원가와 업로드 판매가를 확인하세요.",
             },
         ],
     }
@@ -362,12 +398,12 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
     evidence = detail["evidence"]
     primary = [item for item in evidence if (item.get("score_contribution") or 0) > 0]
     if primary:
-        main_causes = "과 ".join(
+        score_factors = "과 ".join(
             f"{item['metric']} {float(item['value']):g}{item['unit']}"
             f"({float(item['score_contribution']):g}/{float(item['score_maximum']):g}점)"
             for item in primary
         )
-        lines.append(f"주요 원인은 {main_causes}입니다.")
+        lines.append(f"위험점수에 반영된 항목은 {score_factors}입니다.")
         if detail["source"] == "ai_explanation":
             explanations = list(dict.fromkeys(
                 item["meaning"].strip()
@@ -377,7 +413,7 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
             if explanations:
                 lines.append(f"AI 해석: {' '.join(explanations)}")
     else:
-        lines.append("현재 저장된 분석에서 점수를 높인 주요 항목은 없습니다.")
+        lines.append("현재 저장된 분석에서 위험점수에 반영된 항목은 없습니다.")
 
     non_contributing = [
         item for item in evidence
@@ -398,11 +434,16 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
             f"업로드 기준 판매 속도는 {float(sales_velocity['value']):g}개/일입니다. "
             "이는 업로드 누계 판매량과 보관 기간으로 계산한 값이지, 최근 판매 추세 분석은 아닙니다."
         )
+    if detail["source"] == "ai_explanation":
+        for item in primary:
+            next_check = item.get("next_check")
+            if next_check:
+                lines.append(f"확인 제안({item['metric']}): {next_check}")
 
     lines.append("가격 참고값")
     lines.append(
         f"현재 시스템의 규칙 기반 참고 할인율은 {result['recommended_discount']:g}%, "
-        "추천 판매가는 "
+        "규칙 기반 참고 판매가는 "
         f"{result['recommended_price']:,.0f}원입니다."
         if result.get("recommended_price") is not None
         else f"현재 시스템의 규칙 기반 참고 할인율은 {result['recommended_discount']:g}%입니다."
@@ -410,7 +451,100 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
     if result.get("recommended_price") is not None:
         if result.get("price_limit_notice"):
             lines.append(f"가격 제한: {result['price_limit_notice']}")
+    lines.append(
+        "데이터 한계: 실제 주문 이력·시장 가격 반응·전체 비용·리드타임 자료가 없어 "
+        "판매 추세, 할인 효과, 수익성, 발주량은 판단하지 않습니다."
+    )
     return "\n".join(lines)
+
+
+def _validate_cached_diagnosis(
+    cached_result: Any,
+    product_data: dict[str, Any],
+    expected_pricing: dict[str, Any],
+) -> dict[str, Any] | None:
+    required_fields = {
+        "status",
+        "recommended_discount",
+        "recommended_price",
+        "comment",
+        "diagnosis_detail",
+        "recommendation_source",
+        "price_limit_notice",
+    }
+    if not isinstance(cached_result, dict) or set(cached_result) != required_fields:
+        return None
+    if not isinstance(cached_result.get("comment"), str):
+        return None
+
+    for field in (
+        "status",
+        "recommended_discount",
+        "recommended_price",
+        "recommendation_source",
+        "price_limit_notice",
+    ):
+        if cached_result[field] != expected_pricing.get(field):
+            return None
+
+    context = _make_strategy_context(product_data)
+    expected_detail = _make_diagnosis_detail({"evidence": []}, context, expected_pricing["status"])
+    cached_detail = cached_result.get("diagnosis_detail")
+    if not isinstance(cached_detail, dict) or set(cached_detail) != {"source", "headline", "evidence"}:
+        return None
+    if cached_detail.get("source") != "ai_explanation":
+        return None
+    if cached_detail.get("headline") != expected_detail["headline"]:
+        return None
+
+    cached_evidence = cached_detail.get("evidence")
+    expected_evidence = expected_detail["evidence"]
+    if not isinstance(cached_evidence, list) or len(cached_evidence) != len(expected_evidence):
+        return None
+
+    ai_evidence = []
+    server_fields = (
+        "metric",
+        "evidence_ref",
+        "value",
+        "unit",
+        "score_contribution",
+        "score_maximum",
+    )
+    for cached_item, expected_item in zip(cached_evidence, expected_evidence):
+        if not isinstance(cached_item, dict) or set(cached_item) != {
+            *server_fields,
+            "meaning",
+            "next_check",
+        }:
+            return None
+        if any(cached_item[field] != expected_item[field] for field in server_fields):
+            return None
+
+        next_check = cached_item["next_check"]
+        if next_check is None:
+            if cached_item["meaning"] != expected_item["meaning"]:
+                return None
+            continue
+        ai_evidence.append({
+            "metric": cached_item["metric"],
+            "evidence_ref": cached_item["evidence_ref"],
+            "meaning": cached_item["meaning"],
+            "next_check": next_check,
+        })
+
+    try:
+        validated_ai_result = AIStrategy.model_validate({"evidence": ai_evidence})
+        _validate_strategy_evidence(validated_ai_result, context)
+    except (ValueError, TypeError):
+        return None
+    except Exception:
+        return None
+
+    validated_result = dict(cached_result)
+    validated_result["diagnosis_detail"] = cached_detail
+    validated_result["comment"] = _format_diagnosis_comment(validated_result)
+    return validated_result
 
 
 @router.post("/api/ai-diagnose")
@@ -467,6 +601,10 @@ async def diagnose_saved_inventory(
         "market_price_source": "mock" if item.mock_market_price is not None else "not_available",
     }
     cache_hash = _diagnosis_cache_hash(product_data)
+    expected_pricing = _apply_price_floors(
+        _rule_based_strategy(product_data),
+        product_data,
+    )
     result = None
     if (
         analysis.diagnosis_input_hash == cache_hash
@@ -476,19 +614,25 @@ async def diagnose_saved_inventory(
     ):
         try:
             cached_result = json.loads(analysis.diagnosis_cache)
-            required_fields = {
-                "status",
-                "recommended_discount",
-                "recommended_price",
-                "comment",
-                "diagnosis_detail",
-                "recommendation_source",
-                "price_limit_notice",
-            }
-            if isinstance(cached_result, dict) and required_fields.issubset(cached_result):
-                result = cached_result
-        except (json.JSONDecodeError, TypeError):
-            logger.warning("Saved AI diagnosis cache is invalid", extra={"item_id": item_id})
+            result = _validate_cached_diagnosis(
+                cached_result,
+                product_data,
+                expected_pricing,
+            )
+            if result is None:
+                logger.warning(
+                    "Saved AI diagnosis cache rejected",
+                    extra={"item_id": item_id, "failure_code": "cache_validation_error"},
+                )
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Saved AI diagnosis cache rejected",
+                extra={
+                    "item_id": item_id,
+                    "failure_code": "cache_parse_error",
+                    "error_type": type(exc).__name__,
+                },
+            )
 
     cache_hit = result is not None
     if result is None:
@@ -498,20 +642,25 @@ async def diagnose_saved_inventory(
     recommended_price = result.get("recommended_price")
     judgment = result.get("comment") or "진단 결과를 받지 못했습니다."
     price_limit_notice = result.get("price_limit_notice")
-    if not cache_hit:
+    action_plan = _format_action_plan(
+        discount,
+        recommended_price,
+        judgment,
+        price_limit_notice,
+        result.get("recommendation_source"),
+    )
+    if (
+        not cache_hit
+        or analysis.ai_diagnosis != judgment
+        or analysis.action_plans != action_plan
+    ):
         analysis.ai_diagnosis = judgment
         analysis.recommended_price = recommended_price
-        analysis.action_plans = _format_action_plan(
-            discount,
-            recommended_price,
-            judgment,
-            price_limit_notice,
-            result.get("recommendation_source"),
-        )
-        if result.get("diagnosis_detail", {}).get("source") == "ai_explanation":
+        analysis.action_plans = action_plan
+        if not cache_hit and result.get("diagnosis_detail", {}).get("source") == "ai_explanation":
             analysis.diagnosis_input_hash = cache_hash
             analysis.diagnosis_cache = json.dumps(result, ensure_ascii=False, sort_keys=True)
-        else:
+        elif not cache_hit:
             analysis.diagnosis_input_hash = None
             analysis.diagnosis_cache = None
         db.commit()

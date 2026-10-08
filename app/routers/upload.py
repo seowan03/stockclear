@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from datetime import datetime
@@ -7,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.llm import get_upload_diagnosis_summary
+from app.llm import LLMFailure, get_upload_diagnosis_summary, run_llm_with_timeout
 from app.models import UploadAnalysisSummary, UploadHistory, User
 from app.security import get_current_user
 from app.services.inventory_service import make_user_summary_input, save_inventory_analysis, save_upload_history
@@ -41,16 +40,33 @@ async def _generate_and_save_upload_summary(
             {"scope": summary_scope, "metrics": summary_input},
             ensure_ascii=False,
         )
-        summary_text = await asyncio.wait_for(
-            asyncio.to_thread(
-                get_upload_diagnosis_summary,
-                {"scope": summary_scope, **summary_input},
-            ),
-            timeout=UPLOAD_SUMMARY_TIMEOUT_SECONDS,
+        summary_text = await run_llm_with_timeout(
+            user_id,
+            UPLOAD_SUMMARY_TIMEOUT_SECONDS,
+            get_upload_diagnosis_summary,
+            {"scope": summary_scope, **summary_input},
         )
+        if not isinstance(summary_text, str) or not summary_text.strip():
+            raise LLMFailure("empty_response")
         status = "complete"
-    except Exception:
-        logger.exception("Upload AI summary generation failed", extra={"upload_id": upload_id})
+    except LLMFailure as exc:
+        logger.warning(
+            "Upload AI summary generation failed",
+            extra={
+                "upload_id": upload_id,
+                "failure_code": exc.failure_code,
+                "error_type": type(exc).__name__,
+            },
+        )
+    except Exception as exc:
+        logger.warning(
+            "Upload AI summary generation failed",
+            extra={
+                "upload_id": upload_id,
+                "failure_code": "internal_error",
+                "error_type": type(exc).__name__,
+            },
+        )
 
     try:
         summary_row = db.query(UploadAnalysisSummary).filter(
