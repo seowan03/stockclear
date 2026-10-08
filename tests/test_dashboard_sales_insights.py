@@ -112,6 +112,61 @@ class DashboardSalesInsightsTests(unittest.TestCase):
             response = client.get("/api/dashboard/sales-insights?days=14")
             self.assertEqual(response.status_code, 422)
 
+    def test_returns_daily_sales_summary_and_comparisons(self):
+        with (
+            patch.object(database, "engine", self.engine),
+            patch.object(database, "SessionLocal", self.session_factory),
+            TestClient(app) as client,
+        ):
+            signup = client.post("/api/auth/signup", json={
+                "username": "Sales Summary Test",
+                "email": "sales-summary@example.test",
+                "password": "test-password",
+            })
+            self.assertEqual(signup.status_code, 200, signup.text)
+
+            today = date.today()
+            last_week_monday = today - timedelta(days=today.weekday() + 7)
+            with self.session_factory() as db:
+                user_id = db.query(User.user_id).filter_by(email="sales-summary@example.test").scalar()
+                item = self._add_item(db, user_id, "요약 상품", 100, [])
+                db.add_all([
+                    InventoryDailyMetric(
+                        item_id=item.item_id,
+                        business_date=today - timedelta(days=offset),
+                        daily_sales_qty=2,
+                        remaining_stock_qty=100,
+                        daily_selling_price=150,
+                        price_variation_rate=0,
+                    )
+                    for offset in range(1, 8)
+                ])
+                db.add(InventoryDailyMetric(
+                    item_id=item.item_id,
+                    business_date=last_week_monday,
+                    daily_sales_qty=4,
+                    remaining_stock_qty=100,
+                    daily_selling_price=150,
+                    price_variation_rate=0,
+                ))
+                db.add(InventoryDailyMetric(
+                    item_id=item.item_id,
+                    business_date=today,
+                    daily_sales_qty=3,
+                    remaining_stock_qty=100,
+                    daily_selling_price=150,
+                    price_variation_rate=0,
+                ))
+                db.commit()
+
+            response = client.get("/api/dashboard/sales-insights?days=7")
+            self.assertEqual(response.status_code, 200, response.text)
+            summary = response.json()["sales_summary"]
+            self.assertEqual(summary["today"], {"sales_qty": 3, "sales_amount": 450})
+            self.assertEqual(summary["recent_7_day_average"], {"sales_qty": 2, "sales_amount": 300})
+            self.assertEqual(summary["last_week_monday"], {"sales_qty": 4, "sales_amount": 600})
+            self.assertEqual(summary["last_week_monday_date"], last_week_monday.isoformat())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -40,6 +40,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       updatedAt.textContent = `${new Date(dashboard.generated_at).toLocaleString('ko-KR')} 기준`;
     }
 
+    renderDashboardSalesSummary(salesInsights.sales_summary);
     document.getElementById('totalSku').innerHTML = `${Number(dashboard.total_sku || 0).toLocaleString('ko-KR')} <span class="text-xs font-normal text-gray-400">개</span>`;
     document.getElementById('inventoryValue').textContent = `₩ ${Number(dashboard.inventory_value || 0).toLocaleString('ko-KR')}`;
     document.getElementById('deficitCount').innerHTML = `${Number(dashboard.risk_count || 0).toLocaleString('ko-KR')} <span class="text-xs font-normal text-gray-400">개 품목</span>`;
@@ -62,6 +63,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     showErrorMessage('대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 });
+
+function renderDashboardSalesSummary(summary) {
+  if (!summary) return;
+
+  const today = summary.today || {};
+  const average = summary.recent_7_day_average || {};
+  const monday = summary.last_week_monday || {};
+  document.getElementById('todayRevenue').textContent = `₩ ${Number(today.sales_amount || 0).toLocaleString('ko-KR')}`;
+  document.getElementById('todayOrders').textContent = `${Number(today.sales_qty || 0).toLocaleString('ko-KR')}개`;
+
+  renderSalesComparison('revenueVsAverage', today.sales_amount, average.sales_amount);
+  renderSalesComparison('revenueVsMonday', today.sales_amount, monday.sales_amount);
+  renderSalesComparison('ordersVsAverage', today.sales_qty, average.sales_qty);
+  renderSalesComparison('ordersVsMonday', today.sales_qty, monday.sales_qty);
+}
+
+function renderSalesComparison(elementId, currentValue, comparisonValue) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+
+  const baseline = Number(comparisonValue || 0);
+  if (baseline <= 0) {
+    element.textContent = '비교 데이터 없음';
+    element.className = 'is-neutral';
+    return;
+  }
+
+  const change = ((Number(currentValue || 0) - baseline) / baseline) * 100;
+  const direction = change > 0 ? '▲' : change < 0 ? '▼' : '−';
+  element.textContent = `${direction} ${Math.abs(change).toLocaleString('ko-KR', { maximumFractionDigits: 1 })}%`;
+  element.className = change > 0 ? 'is-up' : change < 0 ? 'is-down' : 'is-neutral';
+}
 
 function renderPopularProducts(topItems, inventoryItems) {
   const list = document.getElementById('popularProductsList');
@@ -257,6 +290,7 @@ function renderSalesTrendChart(data) {
       },
       plugins: {
         legend: { display: false },
+        datalabels: { display: false },
         tooltip: {
           callbacks: { label: context => `판매량: ${context.parsed.y ?? 0}개` },
           titleFont: { family: 'Pretendard' },

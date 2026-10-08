@@ -49,28 +49,47 @@
   <main class="flex-1 py-8 px-6 max-w-7xl mx-auto space-y-8 w-full">
     
     <!-- TOP BANNER / NAVIGATION BAR -->
-    <div data-dashboard-surface class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-2xl">
-      <div>
-        <div class="flex items-center space-x-3">
-          <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
-            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-            분석 완료
-          </span>
-          <span class="text-xs text-gray-400" id="dashboardUpdatedAt">데이터 확인 중</span>
+    <div class="dashboard-overview-header">
+      <div class="dashboard-overview-title">
+        <div class="dashboard-overview-copy">
+          <div class="flex items-center space-x-3">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+              분석 완료
+            </span>
+            <span class="text-xs text-gray-400" id="dashboardUpdatedAt">데이터 확인 중</span>
+          </div>
+          <h1 class="text-2xl font-bold text-white mt-2 tracking-tight" id="dashboardTitle">전체 재고 종합 분석</h1>
         </div>
-        <h1 class="text-2xl font-bold text-white mt-2 tracking-tight" id="dashboardTitle">전체 재고 종합 분석</h1>
+        <div class="dashboard-overview-actions">
+          <a href="upload.html" class="dashboard-overview-upload">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>새 파일 업로드</span>
+          </a>
+        </div>
       </div>
 
-      <div class="flex items-center space-x-3">
-        <a href="upload.html" class="px-4 py-2 border border-gray-800 bg-gray-900/80 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl text-sm font-medium transition-all flex items-center shadow-sm">
-          <i class="fa-solid fa-arrow-left mr-2 text-xs"></i> 새 파일 업로드
-        </a>
+      <div tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-overview-kpi dashboard-kpi-items">
+        <div class="dashboard-overview-kpi-heading">
+          <span>악성 재고</span>
+          <div class="grade-icon-risk flex items-center justify-center border"><i class="fa-solid fa-triangle-exclamation text-sm"></i></div>
+        </div>
+        <div id="deficitCount" class="dashboard-overview-kpi-value grade-risk">0 <span>개 품목</span></div>
+        <div id="deficitItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
+      </div>
+
+      <div tabindex="0" role="group" aria-label="장기 재고 상세" aria-describedby="staleItemsPopover" class="dashboard-overview-kpi dashboard-kpi-items">
+        <div class="dashboard-overview-kpi-heading">
+          <span>장기 재고</span>
+          <div class="grade-icon-aging flex items-center justify-center border"><i class="fa-solid fa-warehouse text-sm"></i></div>
+        </div>
+        <div id="staleCount" class="dashboard-overview-kpi-value grade-aging">0 <span>개 품목</span></div>
+        <div id="staleItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
       </div>
     </div>
 
     <!-- SUMMARY KPI CARDS -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div data-dashboard-surface tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
+    <div class="dashboard-metric-grid">
+      <div data-dashboard-surface tabindex="0" role="group" aria-label="전체 관리 품목" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">전체 관리 품목</span>
           <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
@@ -90,27 +109,28 @@
         <div id="inventoryValue" class="text-3xl font-black text-white tracking-tight">₩ 0</div>
       </div>
 
-      <div data-dashboard-surface tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
-        <div class="flex items-center justify-between text-gray-400 mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">악성 재고</span>
-          <div class="w-9 h-9 rounded-xl grade-icon-risk flex items-center justify-center border">
-            <i class="fa-solid fa-triangle-exclamation text-sm"></i>
-          </div>
+      <section data-dashboard-surface class="dashboard-sales-kpi" aria-labelledby="todayRevenueLabel">
+        <div class="dashboard-sales-kpi-heading">
+          <h2 id="todayRevenueLabel">오늘 총매출(원)</h2>
+          <i class="fa-solid fa-won-sign" aria-hidden="true"></i>
         </div>
-        <div id="deficitCount" class="text-3xl font-black grade-risk tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
-        <div id="deficitItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
-      </div>
-
-      <div data-dashboard-surface tabindex="0" role="group" aria-label="장기 재고 상세" aria-describedby="staleItemsPopover" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
-        <div class="flex items-center justify-between text-gray-400 mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">장기 재고</span>
-          <div class="w-9 h-9 rounded-xl grade-icon-aging flex items-center justify-center border">
-            <i class="fa-solid fa-warehouse text-sm"></i>
-          </div>
+        <strong id="todayRevenue" class="dashboard-sales-kpi-value" aria-live="polite">-</strong>
+        <div class="dashboard-sales-comparisons">
+          <div><span>최근 7일 평균 대비</span><strong id="revenueVsAverage">-</strong></div>
+          <div><span>지난주 월요일 대비</span><strong id="revenueVsMonday">-</strong></div>
         </div>
-        <div id="staleCount" class="text-3xl font-black grade-aging tracking-tight">0 <span class="text-xs font-normal text-gray-400">개 품목</span></div>
-        <div id="staleItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
-      </div>
+      </section>
+      <section data-dashboard-surface class="dashboard-sales-kpi" aria-labelledby="todayOrdersLabel">
+        <div class="dashboard-sales-kpi-heading">
+          <h2 id="todayOrdersLabel">오늘 주문건(판매수량 기준)</h2>
+          <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>
+        </div>
+        <strong id="todayOrders" class="dashboard-sales-kpi-value" aria-live="polite">-</strong>
+        <div class="dashboard-sales-comparisons">
+          <div><span>최근 7일 평균 대비</span><strong id="ordersVsAverage">-</strong></div>
+          <div><span>지난주 월요일 대비</span><strong id="ordersVsMonday">-</strong></div>
+        </div>
+      </section>
     </div>
 
     <!-- VISUAL CHARTS SECTION -->
