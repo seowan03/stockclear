@@ -103,4 +103,8 @@ async def no_store_api_responses(request: Request, call_next):
     response = await call_next(request)
     if request.url.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
+    else:
+        # StaticFiles는 Cache-Control을 지정하지 않아 브라우저가 휴리스틱 캐싱을 적용한다.
+        # HTML/CSS/JS 수정 후에도 수동 캐시 삭제 없이 바로 반영되도록 매번 재검증을 강제한다.
+        response.headers["Cache-Control"] = "no-cache"
     return response
