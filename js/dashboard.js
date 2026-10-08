@@ -7,22 +7,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   const params = new URLSearchParams(window.location.search);
   const uploadId = params.get('upload_id');
   const uploadQuery = uploadId ? `?upload_id=${encodeURIComponent(uploadId)}` : '';
+  const salesInsightsQuery = new URLSearchParams(uploadId ? { upload_id: uploadId, days: '7' } : { days: '7' });
 
   try {
-    const [dashboardResponse, inventoryResponse] = await Promise.all([
+    const [dashboardResponse, inventoryResponse, salesInsightsResponse] = await Promise.all([
       fetch(`/api/dashboard${uploadQuery}`, { credentials: 'include' }),
-      fetch(`/api/inventory${uploadQuery}`, { credentials: 'include' })
+      fetch(`/api/inventory${uploadQuery}`, { credentials: 'include' }),
+      fetch(`/api/dashboard/sales-insights?${salesInsightsQuery}`, { credentials: 'include' })
     ]);
-    if (dashboardResponse.status === 401 || inventoryResponse.status === 401) {
+    if ([dashboardResponse, inventoryResponse, salesInsightsResponse].some(response => response.status === 401)) {
       window.location.href = 'signin.html';
       return;
     }
-    if (!dashboardResponse.ok || !inventoryResponse.ok) {
+    if (!dashboardResponse.ok || !inventoryResponse.ok || !salesInsightsResponse.ok) {
       throw new Error('Dashboard data request failed');
     }
 
-    const dashboard = await dashboardResponse.json();
-    const inventory = await inventoryResponse.json();
+    const [dashboard, inventory, salesInsights] = await Promise.all([
+      dashboardResponse.json(),
+      inventoryResponse.json(),
+      salesInsightsResponse.json()
+    ]);
     const inventoryItems = Array.isArray(inventory.items) ? inventory.items : [];
     const riskItems = Array.isArray(dashboard.risk_items) ? dashboard.risk_items : [];
 
@@ -50,11 +55,217 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderTrendChart(inventoryItems);
     renderCategoryChart(riskItems);
     renderRiskItemsList(inventoryItems.length ? inventoryItems : riskItems);
+    renderPopularProducts(salesInsights.top_items, inventoryItems);
+    initializeSalesTrend(salesInsights, inventoryItems, uploadQuery);
   } catch (error) {
     console.error('Dashboard Load Error:', error);
     showErrorMessage('대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 });
+
+function renderPopularProducts(topItems, inventoryItems) {
+  const list = document.getElementById('popularProductsList');
+  if (!list) return;
+
+  const inventoryById = new Map(inventoryItems.map(item => [item.item_id, item]));
+  list.replaceChildren();
+  if (!topItems.length) {
+    const emptyItem = document.createElement('li');
+    emptyItem.className = 'dashboard-popular-empty';
+    emptyItem.textContent = '최근 30일 판매 기록이 없습니다.';
+    list.append(emptyItem);
+    return;
+  }
+
+  topItems.forEach((item, index) => {
+    const inventoryItem = inventoryById.get(item.item_id);
+    const row = document.createElement('li');
+    row.className = 'dashboard-popular-item';
+
+    const rank = document.createElement('span');
+    rank.className = `dashboard-popular-rank${index === 0 ? ' is-first' : ''}`;
+    rank.textContent = String(index + 1).padStart(2, '0');
+
+    const details = document.createElement('div');
+    details.className = 'dashboard-popular-details';
+
+    const name = document.createElement('strong');
+    name.className = 'dashboard-popular-name';
+    name.textContent = item.product_name || '이름 없는 품목';
+
+    const stats = document.createElement('p');
+    stats.className = 'dashboard-popular-stats';
+    stats.textContent = `30일 판매 ${Number(item.sales_qty || 0).toLocaleString('ko-KR')}개 · 남은 재고 ${Number(item.stock_qty || 0).toLocaleString('ko-KR')}개`;
+
+    const status = document.createElement('span');
+    const grade = inventoryItem?.risk_grade || '미분류';
+    status.className = `dashboard-popular-status ${getInventoryGradeClass(grade)}`;
+    status.textContent = inventoryItem?.is_selling ? `판매 중 · ${grade}` : grade;
+
+    details.append(name, stats, status);
+    row.append(rank, details);
+    list.append(row);
+  });
+}
+
+function getInventoryGradeClass(grade) {
+  return {
+    '정상': 'is-normal',
+    '주의': 'is-caution',
+    '장기': 'is-aging',
+    '악성': 'is-risk'
+  }[grade] || '';
+}
+
+function initializeSalesTrend(initialData, inventoryItems, uploadQuery) {
+  const productSelect = document.getElementById('salesTrendProductSelect');
+  const periodButtons = document.querySelectorAll('[data-sales-days]');
+  const emptyMessage = document.getElementById('salesTrendEmpty');
+  const summary = document.getElementById('salesTrendSummary');
+  if (!productSelect || !emptyMessage || !summary) return;
+
+  const sortedItems = [...inventoryItems].sort((firstItem, secondItem) =>
+    (firstItem.product_name || '').localeCompare(secondItem.product_name || '', 'ko')
+  );
+  productSelect.replaceChildren();
+  sortedItems.forEach(item => {
+    const option = document.createElement('option');
+    option.value = String(item.item_id);
+    option.textContent = item.product_name || '이름 없는 품목';
+    productSelect.append(option);
+  });
+
+  let selectedDays = 7;
+  if (initialData.selected_item_id !== null && initialData.selected_item_id !== undefined) {
+    productSelect.value = String(initialData.selected_item_id);
+  }
+
+  const renderData = data => {
+    const hasSales = data.daily_sales_qty.some(quantity => quantity !== null && quantity !== undefined);
+    emptyMessage.hidden = hasSales;
+    summary.textContent = hasSales ? createSalesTrendSummary(data.daily_sales_qty) : '';
+    renderSalesTrendChart(data);
+  };
+
+  const loadSalesTrend = async () => {
+    if (!productSelect.value) {
+      renderData({ dates: [], daily_sales_qty: [] });
+      return;
+    }
+
+    productSelect.disabled = true;
+    periodButtons.forEach(button => { button.disabled = true; });
+    try {
+      const query = new URLSearchParams(uploadQuery.replace(/^\?/, ''));
+      query.set('days', String(selectedDays));
+      query.set('item_id', productSelect.value);
+      const response = await fetch(`/api/dashboard/sales-insights?${query}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('판매 추이 데이터를 불러오지 못했습니다.');
+      renderData(await response.json());
+    } catch (error) {
+      emptyMessage.hidden = false;
+      emptyMessage.textContent = error.message;
+      summary.textContent = '';
+    } finally {
+      productSelect.disabled = false;
+      periodButtons.forEach(button => { button.disabled = false; });
+    }
+  };
+
+  productSelect.addEventListener('change', loadSalesTrend);
+  periodButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      selectedDays = Number(button.dataset.salesDays);
+      periodButtons.forEach(periodButton => {
+        const isActive = periodButton === button;
+        periodButton.classList.toggle('is-active', isActive);
+        periodButton.setAttribute('aria-pressed', String(isActive));
+      });
+      loadSalesTrend();
+    });
+  });
+
+  if (initialData.selected_item_id !== null && initialData.selected_item_id !== undefined) {
+    selectedDays = initialData.days || 30;
+    periodButtons.forEach(button => {
+      const isActive = Number(button.dataset.salesDays) === selectedDays;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+    });
+    renderData(initialData);
+  } else if (productSelect.value) {
+    loadSalesTrend();
+  } else {
+    renderData({ dates: [], daily_sales_qty: [] });
+  }
+}
+
+function createSalesTrendSummary(dailySales) {
+  const recordedSales = dailySales.filter(quantity => quantity !== null && quantity !== undefined).map(Number);
+  if (!recordedSales.length) return '';
+  const total = recordedSales.reduce((sum, quantity) => sum + quantity, 0);
+  const average = total / recordedSales.length;
+  const peak = Math.max(...recordedSales);
+  return `평균 ${average.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}개 · 최대 ${peak.toLocaleString('ko-KR')}개`;
+}
+
+function renderSalesTrendChart(data) {
+  const canvas = document.getElementById('salesTrendChart');
+  if (!canvas) return;
+
+  const existingChart = Chart.getChart(canvas);
+  if (existingChart) existingChart.destroy();
+
+  const labels = data.dates.map(value => {
+    const [, month, day] = value.split('-');
+    return `${month}/${day}`;
+  });
+  const quantities = data.daily_sales_qty.map(quantity => quantity === null ? null : Number(quantity));
+  new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '일별 판매량',
+        data: quantities,
+        borderColor: '#2563eb',
+        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#2563eb',
+        tension: 0.28,
+        fill: true,
+        spanGaps: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { maxTicksLimit: data.days === 7 ? 7 : 10, color: '#64748b', font: { family: 'Pretendard' } }
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: '판매량 (개)', color: '#64748b', font: { family: 'Pretendard' } },
+          grid: { color: 'rgba(15, 23, 42, 0.08)' },
+          ticks: { precision: 0, color: '#64748b', font: { family: 'Pretendard' } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: context => `판매량: ${context.parsed.y ?? 0}개` },
+          titleFont: { family: 'Pretendard' },
+          bodyFont: { family: 'Pretendard' }
+        }
+      }
+    }
+  });
+}
 
 function renderRiskItemsList(items) {
   const list = document.getElementById('riskItemsList');
@@ -280,7 +491,14 @@ function renderCategoryChart(items) {
           beginAtZero: true,
           max: 100,
           grid: { color: 'rgba(15, 23, 42, 0.10)' },
-          ticks: { stepSize: 20, color: '#475569', font: { family: 'Pretendard' } }
+          ticks: { stepSize: 20, color: '#475569', font: { family: 'Pretendard' } },
+          title: {
+            display: true,
+            text: '위험도',
+            color: '#EF4444',
+            padding: { top: 8 },
+            font: { family: 'Pretendard', size: 14, weight: '700' }
+          }
         },
         y: {
           grid: { display: false },
