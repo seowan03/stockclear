@@ -347,6 +347,8 @@ def make_user_summary_input(db: Session, user_id: int) -> dict:
             "sales_source": "uploaded_aggregate",
             "daily_sales_is_demo": True,
             "actual_order_history_available": False,
+            "actual_market_price_available": False,
+            "actual_cost_breakdown_available": False,
             "actual_lead_time_available": False,
             "analysis_as_of": data_as_of,
         },
