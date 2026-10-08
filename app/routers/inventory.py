@@ -106,6 +106,106 @@ def get_dashboard(upload_id: int | None = None, db: Session = Depends(get_db), c
     }
 
 
+@router.get("/api/dashboard/sales-insights")
+def get_dashboard_sales_insights(
+    days: int = 30,
+    item_id: int | None = None,
+    upload_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if days not in (7, 30):
+        raise HTTPException(status_code=422, detail="조회 기간은 7일 또는 30일이어야 합니다.")
+
+    upload = None
+    if upload_id is not None:
+        upload = db.query(UploadHistory).filter(
+            UploadHistory.id == upload_id,
+            UploadHistory.user_id == current_user.user_id,
+        ).first()
+        if not upload:
+            raise HTTPException(status_code=404, detail="업로드 기록을 찾을 수 없습니다.")
+
+    inventory_filters = [
+        RawInventory.user_id == current_user.user_id,
+        RawInventory.is_deleted.is_(False),
+    ]
+    if upload is not None:
+        upload_filter = RawInventory.upload_file_id == upload.id
+        if upload.content_hash:
+            upload_filter = or_(
+                upload_filter,
+                and_(
+                    RawInventory.upload_file_id.is_(None),
+                    RawInventory.upload_batch_id == upload.content_hash,
+                ),
+            )
+        inventory_filters.append(upload_filter)
+
+    today = date.today()
+    top_start = today - timedelta(days=29)
+    top_rows = db.query(
+        RawInventory.item_id,
+        RawInventory.product_name,
+        RawInventory.stock_qty,
+        func.sum(InventoryDailyMetric.daily_sales_qty).label("sales_qty"),
+    ).join(
+        InventoryDailyMetric,
+        InventoryDailyMetric.item_id == RawInventory.item_id,
+    ).filter(
+        *inventory_filters,
+        InventoryDailyMetric.business_date >= top_start,
+        InventoryDailyMetric.business_date <= today,
+    ).group_by(
+        RawInventory.item_id,
+        RawInventory.product_name,
+        RawInventory.stock_qty,
+    ).order_by(
+        func.sum(InventoryDailyMetric.daily_sales_qty).desc(),
+        RawInventory.item_id,
+    ).limit(3).all()
+
+    selected_item_id = item_id if item_id is not None else (top_rows[0].item_id if top_rows else None)
+    if selected_item_id is not None:
+        selected_item = db.query(RawInventory.item_id).filter(
+            *inventory_filters,
+            RawInventory.item_id == selected_item_id,
+        ).first()
+        if not selected_item:
+            raise HTTPException(status_code=404, detail="상품을 찾을 수 없습니다.")
+
+    range_start = today - timedelta(days=days - 1)
+    history_rows = []
+    if selected_item_id is not None:
+        history_rows = db.query(
+            InventoryDailyMetric.business_date,
+            InventoryDailyMetric.daily_sales_qty,
+        ).join(
+            RawInventory,
+            RawInventory.item_id == InventoryDailyMetric.item_id,
+        ).filter(
+            *inventory_filters,
+            InventoryDailyMetric.item_id == selected_item_id,
+            InventoryDailyMetric.business_date >= range_start,
+            InventoryDailyMetric.business_date <= today,
+        ).order_by(InventoryDailyMetric.business_date).all()
+
+    quantities_by_date = {row.business_date: row.daily_sales_qty for row in history_rows}
+    dates = [range_start + timedelta(days=offset) for offset in range(days)]
+    return {
+        "top_items": [{
+            "item_id": row.item_id,
+            "product_name": row.product_name,
+            "sales_qty": int(row.sales_qty or 0),
+            "stock_qty": row.stock_qty,
+        } for row in top_rows],
+        "selected_item_id": selected_item_id,
+        "days": days,
+        "dates": [business_date.isoformat() for business_date in dates],
+        "daily_sales_qty": [quantities_by_date.get(business_date) for business_date in dates],
+    }
+
+
 @router.get("/api/inventory")
 def list_inventory(search: str = "", status: str = "", upload_id: int | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     upload = None
