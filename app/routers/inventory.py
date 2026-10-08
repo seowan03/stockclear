@@ -144,6 +144,36 @@ def get_dashboard_sales_insights(
 
     today = date.today()
     top_start = today - timedelta(days=29)
+    last_week_monday = today - timedelta(days=today.weekday() + 7)
+    sales_summary_start = min(today - timedelta(days=7), last_week_monday)
+    sales_summary_rows = db.query(
+        InventoryDailyMetric.business_date,
+        func.sum(InventoryDailyMetric.daily_sales_qty).label("sales_qty"),
+        func.sum(
+            InventoryDailyMetric.daily_sales_qty * InventoryDailyMetric.daily_selling_price
+        ).label("sales_amount"),
+    ).join(
+        RawInventory,
+        RawInventory.item_id == InventoryDailyMetric.item_id,
+    ).filter(
+        *inventory_filters,
+        InventoryDailyMetric.business_date >= sales_summary_start,
+        InventoryDailyMetric.business_date <= today,
+    ).group_by(
+        InventoryDailyMetric.business_date,
+    ).all()
+    sales_by_date = {
+        row.business_date: {
+            "sales_qty": int(row.sales_qty or 0),
+            "sales_amount": round(float(row.sales_amount or 0)),
+        }
+        for row in sales_summary_rows
+    }
+    recent_dates = [today - timedelta(days=offset) for offset in range(1, 8)]
+    recent_sales_qty = sum(sales_by_date.get(day, {}).get("sales_qty", 0) for day in recent_dates)
+    recent_sales_amount = sum(sales_by_date.get(day, {}).get("sales_amount", 0) for day in recent_dates)
+    today_sales = sales_by_date.get(today, {"sales_qty": 0, "sales_amount": 0})
+    monday_sales = sales_by_date.get(last_week_monday, {"sales_qty": 0, "sales_amount": 0})
     top_rows = db.query(
         RawInventory.item_id,
         RawInventory.product_name,
@@ -193,6 +223,15 @@ def get_dashboard_sales_insights(
     quantities_by_date = {row.business_date: row.daily_sales_qty for row in history_rows}
     dates = [range_start + timedelta(days=offset) for offset in range(days)]
     return {
+        "sales_summary": {
+            "today": today_sales,
+            "recent_7_day_average": {
+                "sales_qty": recent_sales_qty / 7,
+                "sales_amount": recent_sales_amount / 7,
+            },
+            "last_week_monday": monday_sales,
+            "last_week_monday_date": last_week_monday.isoformat(),
+        },
         "top_items": [{
             "item_id": row.item_id,
             "product_name": row.product_name,
