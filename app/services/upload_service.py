@@ -19,7 +19,7 @@ def raise_if_duplicate_upload(db: Session, user_id: int, content_hash: str) -> N
         UploadHistory.user_id == user_id,
         UploadHistory.content_hash == content_hash,
         UploadHistory.status == "성공",
-    ).first()
+    ).with_for_update().first()
     if duplicate:
         raise HTTPException(status_code=409, detail="이미 같은 내용의 엑셀 데이터가 업로드되어 있습니다.")
 
