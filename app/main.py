@@ -4,8 +4,6 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import CORS_ORIGINS
-from app.database import init_db
-
 from app.routers import admin_inquiries, ai, auth, history, inquiries, inventory, kakao, upload
 from app.security import no_store_api_responses
 
@@ -27,11 +25,6 @@ app.include_router(inquiries.router)
 app.include_router(admin_inquiries.router)
 app.include_router(inventory.router)
 app.include_router(ai.router)
-
-
-@app.on_event("startup")
-def on_startup():
-    init_db()
 
 
 @app.get("/")

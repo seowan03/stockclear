@@ -4,6 +4,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Boolean,
+    BigInteger,
     Float,
     ForeignKey,
     Index,
@@ -21,27 +22,27 @@ class User(Base):
   __tablename__ = "users"
 
   user_id = Column(Integer, primary_key=True, autoincrement=True)
-  username = Column(String(255))
-  email = Column(String(255))
-  password_hash = Column(String(255))
+  username = Column(String(50), nullable=False)
+  email = Column(String(255), nullable=False, unique=True)
+  password_hash = Column(String(255), nullable=False)
   role = Column(String(20), nullable=False, default="user", server_default="user")
-  created_at = Column(DateTime)
+  created_at = Column(DateTime, server_default=func.now())
 
 
 class RawInventory(Base):
   __tablename__ = "raw_inventory"
 
   item_id = Column(Integer, primary_key=True, autoincrement=True)
-  user_id = Column(Integer, ForeignKey("users.user_id"))
-  upload_batch_id = Column(String(255))
-  upload_file_id = Column(Integer, ForeignKey("upload_files.id"), nullable=True)
-  product_name = Column(String(255))
-  stock_qty = Column(Integer)
-  purchase_price = Column(Numeric(12, 2))
-  market_price = Column(Numeric(12, 2))
+  user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE", name="fk_raw_inventory_user"), nullable=False)
+  upload_batch_id = Column(String(100), nullable=False)
+  upload_file_id = Column(Integer, ForeignKey("upload_files.id", ondelete="CASCADE", name="fk_raw_inventory_upload_file"), nullable=True)
+  product_name = Column(String(255), nullable=False)
+  stock_qty = Column(Integer, nullable=False, default=0, server_default="0")
+  purchase_price = Column(Numeric(12, 2), nullable=False, default=0, server_default="0.00")
+  market_price = Column(Numeric(12, 2), nullable=False, default=0, server_default="0.00")
   mock_market_price = Column(Numeric(12, 2), nullable=True)
-  inbound_date = Column(Date)
-  created_at = Column(DateTime)
+  inbound_date = Column(Date, nullable=False)
+  created_at = Column(DateTime, server_default=func.now())
   sales_qty = Column(Integer)
   is_selling = Column(Boolean, nullable=False, default=False, server_default="0")
   is_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
@@ -83,9 +84,12 @@ class InventoryMonthlySale(Base):
 
 class AnalysisResult(Base):
   __tablename__ = "analysis_results"
+  __table_args__ = (
+    UniqueConstraint("item_id", name="uq_analysis_results_item_id"),
+  )
 
   result_id = Column(Integer, primary_key=True, autoincrement=True)
-  item_id = Column(Integer, ForeignKey("raw_inventory.item_id"))
+  item_id = Column(Integer, ForeignKey("raw_inventory.item_id", ondelete="CASCADE", name="fk_raw_inventory_item"))
   sales_velocity = Column(Float)
   aging_days = Column(Integer)
   days_to_sell = Column(Integer)
@@ -105,11 +109,11 @@ class UploadHistory(Base):
   __tablename__ = "upload_files"
 
   id = Column(Integer, primary_key=True, autoincrement=True)
-  user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+  user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE", name="fk_upload_files_user"), nullable=False)
   upload_date = Column(DateTime, server_default=func.now())
-  file_name = Column(String(255))
-  size = Column(Integer)  # bytes
-  status = Column(String(50))  # 성공 / 실패 / 보관됨
+  file_name = Column(String(255), nullable=False)
+  size = Column(BigInteger, default=0, server_default="0")  # bytes
+  status = Column(String(50), nullable=False, default="PENDING", server_default="PENDING")
   content_hash = Column(String(64), nullable=True)
 
 
