@@ -287,10 +287,9 @@ def _make_diagnosis_detail(
     components = analysis["risk_score_components"]
     item_name = context["item"]["product_name"] or "해당 품목"
     score = analysis["risk_score"]
-    headline = f"{item_name}은 서버 분석 기준 {risk_grade} 등급"
+    headline = f"{item_name} · {risk_grade}"
     if score is not None:
-        headline += f", 위험점수 {score:g}점"
-    headline += "입니다."
+        headline += f" · 위험점수 {score:g}점"
 
     explanations = {}
     next_checks = {}
@@ -391,68 +390,53 @@ def _make_fallback_diagnosis(context: dict[str, Any], risk_grade: str) -> dict[s
 def _format_diagnosis_comment(result: dict[str, Any]) -> str:
     detail = result["diagnosis_detail"]
     grade = result.get("status")
-    source_label = "AI 설명" if detail["source"] == "ai_explanation" else "규칙 기반 진단"
+    is_ai_explanation = detail["source"] == "ai_explanation"
+    source_label = "AI 설명" if is_ai_explanation else "규칙 기반 안내"
     focus_label = "우선 확인 대상" if grade in {"장기", "악성"} else "현재 분석 요약"
-    lines = [f"{source_label} · {focus_label}", detail["headline"]]
+    lines = [f"{source_label} · {focus_label}", f"판정: {detail['headline']}"]
+    if not is_ai_explanation:
+        lines.append("AI 설명을 생성하지 못해 시스템 기준 안내를 표시합니다.")
 
     evidence = detail["evidence"]
     primary = [item for item in evidence if (item.get("score_contribution") or 0) > 0]
     if primary:
-        score_factors = "과 ".join(
+        score_factors = ", ".join(
             f"{item['metric']} {float(item['value']):g}{item['unit']}"
-            f"({float(item['score_contribution']):g}/{float(item['score_maximum']):g}점)"
             for item in primary
         )
-        lines.append(f"위험점수에 반영된 항목은 {score_factors}입니다.")
-        if detail["source"] == "ai_explanation":
-            explanations = list(dict.fromkeys(
-                item["meaning"].strip()
-                for item in primary
-                if item.get("meaning", "").strip()
-            ))
-            if explanations:
-                lines.append(f"AI 해석: {' '.join(explanations)}")
+        lines.append(f"주요 근거: {score_factors}")
     else:
-        lines.append("현재 저장된 분석에서 위험점수에 반영된 항목은 없습니다.")
+        lines.append("현재 분석에서 점수에 반영된 주요 근거가 없습니다.")
 
-    non_contributing = [
-        item for item in evidence
-        if item.get("score_contribution") == 0 and item.get("score_maximum") is not None
-    ]
-    for item in non_contributing:
-        lines.append(
-            f"{item['metric']}는 {float(item['value']):g}{item['unit']}로 저장되어 있으며 "
-            f"위험점수 기여는 0/{float(item['score_maximum']):g}점입니다."
-        )
+    explanations = list(dict.fromkeys(
+        item["meaning"].strip()
+        for item in primary
+        if item.get("meaning", "").strip()
+    ))
+    if is_ai_explanation and explanations:
+        lines.append(f"해석: {' '.join(explanations)}")
 
-    sales_velocity = next(
-        (item for item in evidence if item["metric"] == "업로드 판매 속도"),
-        None,
-    )
-    if sales_velocity is not None:
-        lines.append(
-            f"업로드 기준 판매 속도는 {float(sales_velocity['value']):g}개/일입니다. "
-            "이는 업로드 누계 판매량과 보관 기간으로 계산한 값이지, 최근 판매 추세 분석은 아닙니다."
-        )
-    if detail["source"] == "ai_explanation":
-        for item in primary:
-            next_check = item.get("next_check")
-            if next_check:
-                lines.append(f"확인 제안({item['metric']}): {next_check}")
+    next_checks = list(dict.fromkeys(
+        item["next_check"].strip()
+        for item in primary
+        if item.get("next_check", "").strip()
+    ))
+    if next_checks:
+        lines.append(f"확인할 점: {' '.join(next_checks)}")
 
-    lines.append("가격 참고값")
     lines.append(
-        f"현재 시스템의 규칙 기반 참고 할인율은 {result['recommended_discount']:g}%, "
-        "규칙 기반 참고 판매가는 "
+        f"가격 참고: 규칙 기반 할인율 {result['recommended_discount']:g}% · "
+        "참고 판매가 "
         f"{result['recommended_price']:,.0f}원입니다."
         if result.get("recommended_price") is not None
-        else f"현재 시스템의 규칙 기반 참고 할인율은 {result['recommended_discount']:g}%입니다."
+        else f"가격 참고: 규칙 기반 할인율 {result['recommended_discount']:g}%입니다."
     )
     if result.get("recommended_price") is not None:
         if result.get("price_limit_notice"):
             lines.append(f"가격 제한: {result['price_limit_notice']}")
     lines.append(
-        "데이터 한계: 실제 주문 이력·시장 가격 반응·전체 비용·리드타임 자료가 없어 "
+        "참고: 업로드 판매 속도는 입력 기준이며 최근 판매 추세를 뜻하지 않습니다. "
+        "실제 주문 이력·시장 가격 반응·전체 비용·리드타임 자료가 없어 "
         "판매 추세, 할인 효과, 수익성, 발주량은 판단하지 않습니다."
     )
     return "\n".join(lines)

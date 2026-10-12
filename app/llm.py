@@ -378,10 +378,13 @@ def _render_upload_summary(
     summary_data: dict[str, Any],
 ) -> str:
     overview = summary_data.get("overview", {})
-    lines = ["전체 현황", result.overview.analysis, "등급 분포"]
+    lines = ["전체 현황", result.overview.analysis]
     risk_grade_counts = overview.get("risk_grade_counts", {})
     if risk_grade_counts:
-        lines.append(" · ".join(f"{grade} {count}개" for grade, count in risk_grade_counts.items()))
+        grade_distribution = " · ".join(
+            f"{grade} {count}개" for grade, count in risk_grade_counts.items()
+        )
+        lines.append(f"등급 분포: {grade_distribution}")
     total_count = overview.get("total_count")
     inventory_value = overview.get("inventory_value_cost_basis")
     if total_count is not None and inventory_value is not None:
@@ -400,27 +403,26 @@ def _render_upload_summary(
         name = str(source.get("product_name") or "이름 없는 품목")
         grade = str(source.get("risk_grade") or "미분류")
         score = source.get("risk_score")
-        facts = f"{name} ({grade}"
+        facts = f"{name} · {grade}"
         if score is not None:
-            facts += f", 위험점수 {score:g}점"
-        facts += ")"
-        lines.append(f"{facts}: {item.analysis}")
-        lines.append(f"확인 제안: {item.next_check}")
+            facts += f" · 위험점수 {score:g}점"
+        lines.extend((facts, item.analysis, f"확인할 점: {item.next_check}"))
 
     lines.append("데이터 한계")
     quality = summary_data.get("data_quality", {})
+    limitations = []
     if quality.get("daily_sales_is_demo"):
-        lines.append("일별 판매량은 시연 데이터일 수 있어 실제 주문 추세를 나타내지 않습니다.")
+        limitations.append("일별 판매량은 시연 데이터이며 실제 주문 추세를 나타내지 않습니다.")
     if quality.get("actual_order_history_available") is False:
-        lines.append("실제 주문 이력이 없어 기간별 판매 추세나 향후 판매량을 판단할 수 없습니다.")
+        limitations.append("실제 주문 이력이 없어 판매 추세나 향후 판매량을 판단할 수 없습니다.")
     if quality.get("actual_market_price_available") is False:
-        lines.append("실제 시장가격 자료가 없어 외부 시세와의 비교는 할 수 없습니다.")
+        limitations.append("실제 시장가격 자료가 없어 외부 시세와 비교할 수 없습니다.")
     if quality.get("actual_cost_breakdown_available") is False:
-        lines.append("원가 외 비용 자료가 없어 이익이나 손익분기 가격을 판단할 수 없습니다.")
+        limitations.append("원가 외 비용 자료가 없어 수익성을 판단할 수 없습니다.")
     if quality.get("actual_lead_time_available") is False:
-        lines.append("실제 리드타임 자료가 없어 발주 시점이나 발주량을 산출할 수 없습니다.")
-    for limitation in result.limitations:
-        lines.append(limitation.explanation)
+        limitations.append("실제 리드타임 자료가 없어 발주 시점이나 수량을 산출할 수 없습니다.")
+    if limitations:
+        lines.append(" ".join(limitations))
 
     return "\n".join(lines)[:3000]
 

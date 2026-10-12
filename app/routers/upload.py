@@ -51,7 +51,8 @@ async def _generate_and_save_upload_summary(
         status = "complete"
     except LLMFailure as exc:
         logger.warning(
-            "Upload AI summary generation failed",
+            "Upload AI summary generation failed (failure_code=%s)",
+            exc.failure_code,
             extra={
                 "upload_id": upload_id,
                 "failure_code": exc.failure_code,
@@ -60,7 +61,8 @@ async def _generate_and_save_upload_summary(
         )
     except Exception as exc:
         logger.warning(
-            "Upload AI summary generation failed",
+            "Upload AI summary generation failed (failure_code=internal_error, error_type=%s)",
+            type(exc).__name__,
             extra={
                 "upload_id": upload_id,
                 "failure_code": "internal_error",
