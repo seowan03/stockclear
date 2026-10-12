@@ -317,9 +317,21 @@ body.dashboard-page[class*="bg-[#0b1120]"] [data-dashboard-surface]:hover {
 	color: #059669;
 }
 
-.dashboard-metric-grid #totalSku,
-.dashboard-metric-grid #inventoryValue {
+.dashboard-metric-value {
+	display: block;
+	color: #0f172a;
 	font-size: 1.5rem;
+	font-weight: 800;
+	line-height: 1.25;
+	letter-spacing: 0;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.dashboard-metric-value span {
+	color: #94a3b8;
+	font-size: 0.625rem;
+	font-weight: 400;
 }
 
 .dashboard-overview-kpi {
@@ -404,14 +416,7 @@ body.dashboard-page[class*="bg-[#0b1120]"] [data-dashboard-surface]:hover {
 }
 
 .dashboard-sales-kpi-value {
-	display: block;
 	margin: 0.25rem 0 0.5rem;
-	color: #0f172a;
-	font-size: 1.25rem;
-	font-weight: 750;
-	line-height: 1.25;
-	font-variant-numeric: tabular-nums;
-	white-space: nowrap;
 }
 
 .dashboard-sales-comparisons {
