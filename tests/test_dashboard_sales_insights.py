@@ -166,6 +166,48 @@ class DashboardSalesInsightsTests(unittest.TestCase):
             self.assertEqual(summary["recent_7_day_average"], {"sales_qty": 2, "sales_amount": 300})
             self.assertEqual(summary["last_week_monday"], {"sales_qty": 4, "sales_amount": 600})
             self.assertEqual(summary["last_week_monday_date"], last_week_monday.isoformat())
+            overview = response.json()["daily_overview"]
+            self.assertEqual(len(overview["dates"]), 37)
+            self.assertEqual(overview["dates"][-1], today.isoformat())
+            self.assertEqual(overview["sales_qty"][-1], 3)
+            self.assertEqual(overview["sales_amount"][-1], 450)
+
+    def test_filters_overview_and_summary_by_selected_item(self):
+        with (
+            patch.object(database, "engine", self.engine),
+            patch.object(database, "SessionLocal", self.session_factory),
+            TestClient(app) as client,
+        ):
+            signup = client.post("/api/auth/signup", json={
+                "username": "Sales Product Test",
+                "email": "sales-product@example.test",
+                "password": "test-password",
+            })
+            self.assertEqual(signup.status_code, 200, signup.text)
+
+            today = date.today()
+            with self.session_factory() as db:
+                user_id = db.query(User.user_id).filter_by(email="sales-product@example.test").scalar()
+                selected_item = self._add_item(db, user_id, "선택 상품", 20, [])
+                other_item = self._add_item(db, user_id, "다른 상품", 30, [])
+                for item, quantity, price in ((selected_item, 3, 150), (other_item, 5, 100)):
+                    db.add(InventoryDailyMetric(
+                        item_id=item.item_id,
+                        business_date=today,
+                        daily_sales_qty=quantity,
+                        remaining_stock_qty=item.stock_qty,
+                        daily_selling_price=price,
+                        price_variation_rate=0,
+                    ))
+                db.commit()
+                selected_item_id = selected_item.item_id
+
+            response = client.get(f"/api/dashboard/sales-insights?days=7&item_id={selected_item_id}")
+            self.assertEqual(response.status_code, 200, response.text)
+            result = response.json()
+            self.assertEqual(result["sales_summary"]["today"], {"sales_qty": 3, "sales_amount": 450})
+            self.assertEqual(result["daily_overview"]["sales_qty"][-1], 3)
+            self.assertEqual(result["daily_overview"]["sales_amount"][-1], 450)
 
 
 if __name__ == "__main__":
