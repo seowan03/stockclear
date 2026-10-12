@@ -8,7 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20261006-customer-center">
+<link rel="stylesheet" href="/css/style.css?v=20261012-sell-setup">
 </head>
 <body class="export-page bg-[#0b1120] text-gray-100 min-h-screen flex flex-col antialiased">
 
@@ -196,6 +196,26 @@
     </div>
 </div>
 
+<div id="sellSetupModal" class="sell-setup-modal fixed inset-0 z-[70] hidden items-center justify-center bg-black/70 p-4" onclick="if (event.target === this) closeSellSetup()">
+    <section class="sell-setup-dialog flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-white text-slate-900 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="sellSetupTitle">
+        <header class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-7">
+            <div>
+                <h2 id="sellSetupTitle" class="text-lg font-bold">판매 상품 등록 설정</h2>
+                <p class="mt-1 text-sm text-slate-500">상품 정보를 확인하고 등록 내용을 설정하세요.</p>
+            </div>
+            <button type="button" class="sell-setup-close" aria-label="닫기" onclick="closeSellSetup()"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </header>
+        <div id="sellListingItems" class="sell-setup-items min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:px-7"></div>
+        <footer class="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <p id="sellSetupStatus" class="text-sm text-slate-500" role="status" aria-live="polite"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="sell-setup-cancel" onclick="closeSellSetup()">취소</button>
+                <button id="publishSellItemsButton" type="button" class="sell-setup-publish" onclick="publishSellItems()"><i class="fa-solid fa-store mr-1.5" aria-hidden="true"></i>판매 등록하기</button>
+            </div>
+        </footer>
+    </section>
+</div>
+
 <!-- JS 스크립트 경로 최적화 -->
 <script src="/js/stockclear.js"></script>
 <script>
@@ -206,6 +226,7 @@
     const pendingDiagnoses = new Set();
     const safetyStockResults = new Map();
     const pendingSafetyStock = new Set();
+    let pendingSellItems = [];
 
     function escapeHtml(str) {
         if (!str) return '';
@@ -572,44 +593,228 @@
         checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
     }
 
-    // 선택된 상품을 DB에 판매 중으로 표시한 뒤 Sellpage.html로 이동
-    async function goToSellPage() {
+    function createSellSetupField(labelText, type, value, fieldName, options = {}) {
+        const label = document.createElement('label');
+        label.className = 'sell-setup-field';
+        label.textContent = labelText;
+
+        const control = type === 'textarea'
+            ? document.createElement('textarea')
+            : document.createElement('input');
+        if (type !== 'textarea') control.type = type;
+        control.className = 'sell-setup-input';
+        control.dataset.field = fieldName;
+        control.value = value;
+        if (options.min !== undefined) control.min = String(options.min);
+        if (options.max !== undefined) control.max = String(options.max);
+        if (options.step !== undefined) control.step = String(options.step);
+        if (options.maxLength !== undefined) control.maxLength = options.maxLength;
+        if (options.required) control.required = true;
+        if (options.rows) control.rows = options.rows;
+        label.append(control);
+        return { label, control };
+    }
+
+    function renderSellSetupItems(items) {
+        const container = document.getElementById('sellListingItems');
+        container.replaceChildren();
+
+        items.forEach(item => {
+            const itemId = Number(item.item_id || item.id);
+            const availableQuantity = Math.max(0, Number(item.stock_qty || 0));
+            const defaultPrice = Number(item.recommended_price || item.mock_market_price || item.selling_price || 0);
+            const card = document.createElement('article');
+            card.className = 'sell-setup-item';
+            card.dataset.itemId = String(itemId);
+
+            const heading = document.createElement('h3');
+            heading.className = 'sell-setup-item-title';
+            heading.textContent = item.product_name || '이름 없는 품목';
+
+            const layout = document.createElement('div');
+            layout.className = 'sell-setup-item-layout';
+            const fields = document.createElement('div');
+            fields.className = 'sell-setup-fields';
+
+            const titleField = createSellSetupField('게시 제목', 'text', item.listing_title || item.product_name || '', 'title', { maxLength: 100, required: true });
+            const priceField = createSellSetupField('판매 가격 (원)', 'number', String(item.listing_price ?? defaultPrice), 'price', { min: 1, step: 1, required: true });
+            const quantityField = createSellSetupField('판매 수량 (개)', 'number', String(item.listing_quantity ?? availableQuantity), 'quantity', { min: 1, max: availableQuantity, step: 1, required: true });
+            const descriptionField = createSellSetupField('상품 설명', 'textarea', item.listing_description || '', 'description', { maxLength: 500, rows: 3 });
+            const photoField = createSellSetupField('상품 사진', 'file', '', 'photo');
+            photoField.control.accept = 'image/jpeg,image/png,image/webp';
+
+            const preview = document.createElement('div');
+            preview.className = 'sell-setup-photo-preview';
+            const previewImage = document.createElement('img');
+            previewImage.alt = '';
+            previewImage.hidden = true;
+            const previewPlaceholder = document.createElement('span');
+            previewPlaceholder.innerHTML = '<i class="fa-regular fa-image" aria-hidden="true"></i><span>사진 미리보기</span>';
+            preview.append(previewImage, previewPlaceholder);
+            photoField.control.addEventListener('change', () => {
+                const file = photoField.control.files?.[0];
+                if (!file) return;
+                previewImage.src = URL.createObjectURL(file);
+                previewImage.hidden = false;
+                previewPlaceholder.hidden = true;
+            });
+
+            fields.append(titleField.label, priceField.label, quantityField.label, descriptionField.label, photoField.label);
+            layout.append(fields, preview);
+            card.append(heading, layout);
+            container.append(card);
+        });
+    }
+
+    function openSellSetup() {
         const selectedCheckboxes = document.querySelectorAll('.item-checkbox:checked');
         if (selectedCheckboxes.length === 0) {
             alert('판매할 제품을 하나 이상 선택해 주세요.');
             return;
         }
 
-        const selectedItems = Array.from(selectedCheckboxes).map(cb => {
+        pendingSellItems = Array.from(selectedCheckboxes).map(cb => {
             const idx = cb.getAttribute('data-index');
             return loadedItems[idx];
         });
+        renderSellSetupItems(pendingSellItems);
+        document.getElementById('sellSetupStatus').textContent = '';
+        const modal = document.getElementById('sellSetupModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        document.querySelector('#sellListingItems [data-field="title"]')?.focus();
+    }
 
-        const button = document.querySelector('button[onclick="goToSellPage()"]');
-        if (button) button.disabled = true;
+    function closeSellSetup() {
+        const button = document.getElementById('publishSellItemsButton');
+        if (button.disabled) return;
+        const modal = document.getElementById('sellSetupModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        document.body.style.overflow = '';
+        pendingSellItems = [];
+    }
+
+    function readCompressedSellImage(file) {
+        if (!file) return Promise.resolve('');
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('사진 파일을 읽지 못했습니다.'));
+            reader.onload = () => {
+                const image = new Image();
+                image.onerror = () => reject(new Error('지원하지 않는 이미지 파일입니다.'));
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let maxDimension = 800;
+                    let quality = 0.68;
+                    let compressedImage = '';
+                    for (let attempt = 0; attempt < 4; attempt += 1) {
+                        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+                        canvas.width = Math.max(1, Math.round(image.width * scale));
+                        canvas.height = Math.max(1, Math.round(image.height * scale));
+                        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                        compressedImage = canvas.toDataURL('image/jpeg', quality);
+                        if (compressedImage.length <= 160000) break;
+                        maxDimension *= 0.8;
+                        quality *= 0.9;
+                    }
+                    resolve(compressedImage);
+                };
+                image.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function publishSellItems() {
+        const button = document.getElementById('publishSellItemsButton');
+        const status = document.getElementById('sellSetupStatus');
+        const cards = Array.from(document.querySelectorAll('.sell-setup-item'));
+        const configuredItems = [];
+
+        for (const card of cards) {
+            const item = pendingSellItems.find(row => Number(row.item_id || row.id) === Number(card.dataset.itemId));
+            const titleInput = card.querySelector('[data-field="title"]');
+            const priceInput = card.querySelector('[data-field="price"]');
+            const quantityInput = card.querySelector('[data-field="quantity"]');
+            const title = titleInput.value.trim();
+            const price = Number(priceInput.value);
+            const quantity = Number(quantityInput.value);
+            const availableQuantity = Number(item?.stock_qty || 0);
+
+            if (!title) {
+                titleInput.focus();
+                status.textContent = '게시 제목을 입력해 주세요.';
+                return;
+            }
+            if (!Number.isInteger(price) || price < 1) {
+                priceInput.focus();
+                status.textContent = '판매 가격을 1원 이상 입력해 주세요.';
+                return;
+            }
+            if (!Number.isInteger(quantity) || quantity < 1 || quantity > availableQuantity) {
+                quantityInput.focus();
+                status.textContent = `판매 수량은 보유 수량 ${availableQuantity.toLocaleString('ko-KR')}개 이내로 입력해 주세요.`;
+                return;
+            }
+
+            configuredItems.push({
+                ...item,
+                listing_title: title,
+                listing_price: price,
+                listing_quantity: quantity,
+                listing_description: card.querySelector('[data-field="description"]').value.trim(),
+                listing_image: ''
+            });
+        }
+
+        button.disabled = true;
+        status.textContent = '사진을 준비하고 판매 상품을 등록하고 있습니다.';
+        const previousListings = localStorage.getItem('selectedSellItems');
+        let listingsSaved = false;
+
         try {
+            for (let index = 0; index < cards.length; index += 1) {
+                const file = cards[index].querySelector('[data-field="photo"]').files?.[0];
+                configuredItems[index].listing_image = await readCompressedSellImage(file);
+            }
+            localStorage.setItem('selectedSellItems', JSON.stringify(configuredItems));
+            listingsSaved = true;
+
             const response = await fetch('/api/inventory/selling', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    item_ids: selectedItems.map(item => item.item_id || item.id),
+                    item_ids: configuredItems.map(item => item.item_id || item.id),
                     is_selling: true
                 })
             });
-            const result = await response.json();
             if (response.status === 401) {
+                if (previousListings === null) localStorage.removeItem('selectedSellItems');
+                else localStorage.setItem('selectedSellItems', previousListings);
                 window.location.href = 'signin.html';
                 return;
             }
+            const result = await response.json();
             if (!response.ok) throw new Error(result.detail || '판매 상품 등록에 실패했습니다.');
 
-            localStorage.setItem('selectedSellItems', JSON.stringify(selectedItems));
             window.location.href = 'sellpage/Sellpage.html';
         } catch (error) {
-            alert(error.message || '판매 상품 등록에 실패했습니다.');
-            if (button) button.disabled = false;
+            if (listingsSaved) {
+                if (previousListings === null) localStorage.removeItem('selectedSellItems');
+                else localStorage.setItem('selectedSellItems', previousListings);
+            }
+            status.textContent = error.name === 'QuotaExceededError'
+                ? '사진 저장 공간이 부족합니다. 사진 크기를 줄이거나 선택 상품을 나눠 등록해 주세요.'
+                : error.message || '판매 상품 등록에 실패했습니다.';
+            button.disabled = false;
         }
+    }
+
+    function goToSellPage() {
+        openSellSetup();
     }
 </script>
 </body>

@@ -31,15 +31,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     const inventoryItems = Array.isArray(inventory.items) ? inventory.items : [];
     const riskItems = Array.isArray(dashboard.risk_items) ? dashboard.risk_items : [];
 
-    const title = document.getElementById('dashboardTitle');
-    if (title && dashboard.upload_file_name) {
-      title.textContent = `${dashboard.upload_file_name} 분석 결과`;
-    }
-    const updatedAt = document.getElementById('dashboardUpdatedAt');
-    if (updatedAt && dashboard.generated_at) {
-      updatedAt.textContent = `${new Date(dashboard.generated_at).toLocaleString('ko-KR')} 기준`;
-    }
-
     renderDashboardSalesSummary(salesInsights.sales_summary);
     document.getElementById('totalSku').innerHTML = `${Number(dashboard.total_sku || 0).toLocaleString('ko-KR')} <span class="text-xs font-normal text-gray-400">개</span>`;
     document.getElementById('inventoryValue').textContent = `₩ ${Number(dashboard.inventory_value || 0).toLocaleString('ko-KR')}`;
@@ -57,7 +48,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderCategoryChart(riskItems);
     renderRiskItemsList(inventoryItems.length ? inventoryItems : riskItems);
     renderPopularProducts(salesInsights.top_items, inventoryItems);
-    initializeSalesTrend(salesInsights, inventoryItems, uploadQuery);
+    initializeRiskProductViews();
+    initializeSalesOverview(salesInsights, inventoryItems, uploadQuery);
   } catch (error) {
     console.error('Dashboard Load Error:', error);
     showErrorMessage('대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
@@ -96,13 +88,45 @@ function renderSalesComparison(elementId, currentValue, comparisonValue) {
   element.className = change > 0 ? 'is-up' : change < 0 ? 'is-down' : 'is-neutral';
 }
 
+function initializeRiskProductViews() {
+  const viewButtons = document.querySelectorAll('[data-risk-view]');
+  const title = document.getElementById('riskItemsTitle');
+  const description = document.getElementById('riskItemsDescription');
+  const chartContent = document.getElementById('riskItemsChartContent');
+  const listControl = document.getElementById('riskItemsControl');
+  const listToggle = document.getElementById('riskItemsToggle');
+  const listPanel = document.getElementById('riskItemsPanel');
+  const popularList = document.getElementById('popularProductsList');
+  if (!viewButtons.length || !title || !description || !chartContent || !listControl || !popularList) return;
+
+  viewButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const showPopular = button.dataset.riskView === 'popular';
+      viewButtons.forEach(viewButton => {
+        const isActive = viewButton === button;
+        viewButton.classList.toggle('is-active', isActive);
+        viewButton.setAttribute('aria-pressed', String(isActive));
+      });
+      title.textContent = showPopular ? '인기 판매상품 TOP 3' : '위험 상품 List';
+      description.textContent = showPopular ? '최근 30일 판매량 기준' : '우선 조치 필요 재고';
+      chartContent.hidden = showPopular;
+      popularList.hidden = !showPopular;
+      if (showPopular && listToggle && listPanel) {
+        listToggle.setAttribute('aria-expanded', 'false');
+        listPanel.hidden = true;
+      }
+    });
+  });
+}
+
 function renderPopularProducts(topItems, inventoryItems) {
   const list = document.getElementById('popularProductsList');
   if (!list) return;
 
+  const items = Array.isArray(topItems) ? topItems : [];
   const inventoryById = new Map(inventoryItems.map(item => [item.item_id, item]));
   list.replaceChildren();
-  if (!topItems.length) {
+  if (!items.length) {
     const emptyItem = document.createElement('li');
     emptyItem.className = 'dashboard-popular-empty';
     emptyItem.textContent = '최근 30일 판매 기록이 없습니다.';
@@ -110,7 +134,7 @@ function renderPopularProducts(topItems, inventoryItems) {
     return;
   }
 
-  topItems.forEach((item, index) => {
+  items.forEach((item, index) => {
     const inventoryItem = inventoryById.get(item.item_id);
     const row = document.createElement('li');
     row.className = 'dashboard-popular-item';
@@ -150,17 +174,14 @@ function getInventoryGradeClass(grade) {
   }[grade] || '';
 }
 
-function initializeSalesTrend(initialData, inventoryItems, uploadQuery) {
-  const productSelect = document.getElementById('salesTrendProductSelect');
-  const periodButtons = document.querySelectorAll('[data-sales-days]');
-  const emptyMessage = document.getElementById('salesTrendEmpty');
-  const summary = document.getElementById('salesTrendSummary');
-  if (!productSelect || !emptyMessage || !summary) return;
+function initializeSalesOverview(initialData, inventoryItems, uploadQuery) {
+  const productSelect = document.getElementById('salesOverviewProductSelect');
+  const modeButtons = document.querySelectorAll('[data-sales-mode]');
+  if (!productSelect) return;
 
   const sortedItems = [...inventoryItems].sort((firstItem, secondItem) =>
     (firstItem.product_name || '').localeCompare(secondItem.product_name || '', 'ko')
   );
-  productSelect.replaceChildren();
   sortedItems.forEach(item => {
     const option = document.createElement('option');
     option.value = String(item.item_id);
@@ -168,133 +189,153 @@ function initializeSalesTrend(initialData, inventoryItems, uploadQuery) {
     productSelect.append(option);
   });
 
-  let selectedDays = 7;
-  if (initialData.selected_item_id !== null && initialData.selected_item_id !== undefined) {
-    productSelect.value = String(initialData.selected_item_id);
-  }
+  let mode = 'revenue';
 
-  const renderData = data => {
-    const hasSales = data.daily_sales_qty.some(quantity => quantity !== null && quantity !== undefined);
-    emptyMessage.hidden = hasSales;
-    summary.textContent = hasSales ? createSalesTrendSummary(data.daily_sales_qty) : '';
-    renderSalesTrendChart(data);
+  const render = data => {
+    renderDashboardSalesSummary(data.sales_summary);
+    renderSalesOverviewChart(data.daily_overview, mode);
   };
 
-  const loadSalesTrend = async () => {
-    if (!productSelect.value) {
-      renderData({ dates: [], daily_sales_qty: [] });
-      return;
-    }
-
-    productSelect.disabled = true;
-    periodButtons.forEach(button => { button.disabled = true; });
-    try {
-      const query = new URLSearchParams(uploadQuery.replace(/^\?/, ''));
-      query.set('days', String(selectedDays));
-      query.set('item_id', productSelect.value);
-      const response = await fetch(`/api/dashboard/sales-insights?${query}`, { credentials: 'include' });
-      if (!response.ok) throw new Error('판매 추이 데이터를 불러오지 못했습니다.');
-      renderData(await response.json());
-    } catch (error) {
-      emptyMessage.hidden = false;
-      emptyMessage.textContent = error.message;
-      summary.textContent = '';
-    } finally {
-      productSelect.disabled = false;
-      periodButtons.forEach(button => { button.disabled = false; });
-    }
-  };
-
-  productSelect.addEventListener('change', loadSalesTrend);
-  periodButtons.forEach(button => {
+  modeButtons.forEach(button => {
     button.addEventListener('click', () => {
-      selectedDays = Number(button.dataset.salesDays);
-      periodButtons.forEach(periodButton => {
-        const isActive = periodButton === button;
-        periodButton.classList.toggle('is-active', isActive);
-        periodButton.setAttribute('aria-pressed', String(isActive));
+      mode = button.dataset.salesMode;
+      modeButtons.forEach(modeButton => {
+        const isActive = modeButton === button;
+        modeButton.classList.toggle('is-active', isActive);
+        modeButton.setAttribute('aria-pressed', String(isActive));
       });
-      loadSalesTrend();
+      renderSalesOverviewChart(currentData.daily_overview, mode);
     });
   });
 
-  if (initialData.selected_item_id !== null && initialData.selected_item_id !== undefined) {
-    selectedDays = initialData.days || 30;
-    periodButtons.forEach(button => {
-      const isActive = Number(button.dataset.salesDays) === selectedDays;
-      button.classList.toggle('is-active', isActive);
-      button.setAttribute('aria-pressed', String(isActive));
-    });
-    renderData(initialData);
-  } else if (productSelect.value) {
-    loadSalesTrend();
-  } else {
-    renderData({ dates: [], daily_sales_qty: [] });
-  }
+  let currentData = initialData;
+  render(currentData);
+  productSelect.addEventListener('change', async () => {
+    productSelect.disabled = true;
+    try {
+      const query = new URLSearchParams(uploadQuery.replace(/^\?/, ''));
+      query.set('days', '7');
+      if (productSelect.value) query.set('item_id', productSelect.value);
+      else query.delete('item_id');
+      const response = await fetch(`/api/dashboard/sales-insights?${query}`, { credentials: 'include' });
+      if (response.status === 401) {
+        window.location.href = 'signin.html';
+        return;
+      }
+      if (!response.ok) throw new Error('선택한 상품의 매출 데이터를 불러오지 못했습니다.');
+      currentData = await response.json();
+      render(currentData);
+    } catch (error) {
+      showErrorMessage(error.message);
+    } finally {
+      productSelect.disabled = false;
+    }
+  });
 }
 
-function createSalesTrendSummary(dailySales) {
-  const recordedSales = dailySales.filter(quantity => quantity !== null && quantity !== undefined).map(Number);
-  if (!recordedSales.length) return '';
-  const total = recordedSales.reduce((sum, quantity) => sum + quantity, 0);
-  const average = total / recordedSales.length;
-  const peak = Math.max(...recordedSales);
-  return `평균 ${average.toLocaleString('ko-KR', { maximumFractionDigits: 1 })}개 · 최대 ${peak.toLocaleString('ko-KR')}개`;
-}
-
-function renderSalesTrendChart(data) {
-  const canvas = document.getElementById('salesTrendChart');
-  if (!canvas) return;
+function renderSalesOverviewChart(data, mode) {
+  const canvas = document.getElementById('salesOverviewChart');
+  if (!canvas || !Array.isArray(data?.dates)) return;
 
   const existingChart = Chart.getChart(canvas);
   if (existingChart) existingChart.destroy();
 
-  const labels = data.dates.map(value => {
-    const [, month, day] = value.split('-');
-    return `${month}/${day}`;
+  const visibleStart = Math.max(0, data.dates.length - 30);
+  const dates = data.dates.slice(visibleStart);
+  const allValues = mode === 'revenue' ? data.sales_amount : data.sales_qty;
+  const visibleValues = allValues.slice(visibleStart).map(Number);
+  const averages = visibleValues.map((_, index) => {
+    const end = visibleStart + index;
+    const priorSevenDays = allValues.slice(Math.max(0, end - 7), end).map(Number);
+    return priorSevenDays.length
+      ? priorSevenDays.reduce((total, value) => total + value, 0) / priorSevenDays.length
+      : 0;
   });
-  const quantities = data.daily_sales_qty.map(quantity => quantity === null ? null : Number(quantity));
+  const labels = dates.map((value, index) => {
+    if (index === dates.length - 1) return '오늘';
+    const [, , day] = value.split('-');
+    return `${Number(day)}일`;
+  });
+  const range = document.getElementById('salesOverviewRange');
+  if (range && dates.length) {
+    const firstDate = new Date(`${dates[0]}T00:00:00`);
+    const lastDate = new Date(`${dates[dates.length - 1]}T00:00:00`);
+    const dateFormat = date => date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    range.textContent = `최근 30일 (${dateFormat(firstDate)} ~ ${dateFormat(lastDate)})`;
+  }
+
+  const measureLabel = mode === 'revenue' ? '일매출' : '주문 (판매수량 기준)';
+  const unit = mode === 'revenue' ? '원' : '개';
+  const weekdayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
   new Chart(canvas, {
-    type: 'line',
+    type: 'bar',
     data: {
       labels,
-      datasets: [{
-        label: '일별 판매량',
-        data: quantities,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.12)',
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-        pointBackgroundColor: '#2563eb',
-        tension: 0.28,
-        fill: true,
-        spanGaps: false
-      }]
+      datasets: [
+        {
+          type: 'bar',
+          label: measureLabel,
+          data: visibleValues,
+          backgroundColor: 'rgba(59, 130, 246, 0.68)',
+          borderColor: '#3b82f6',
+          borderWidth: 1,
+          borderRadius: 3,
+          categoryPercentage: 0.82,
+          barPercentage: 0.82
+        },
+        {
+          type: 'line',
+          label: '지난 7일 평균',
+          data: averages,
+          borderColor: '#f472b6',
+          backgroundColor: '#f472b6',
+          borderWidth: 2.5,
+          pointRadius: 2.5,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#f472b6',
+          tension: 0.2,
+          fill: false
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { intersect: false, mode: 'index' },
+      interaction: { mode: 'index', intersect: false },
       scales: {
         x: {
           grid: { display: false },
-          ticks: { maxTicksLimit: data.days === 7 ? 7 : 10, color: '#64748b', font: { family: 'Pretendard' } }
+          ticks: { maxTicksLimit: 30, color: '#64748b', font: { family: 'Pretendard' } }
         },
         y: {
           beginAtZero: true,
-          title: { display: true, text: '판매량 (개)', color: '#64748b', font: { family: 'Pretendard' } },
-          grid: { color: 'rgba(15, 23, 42, 0.08)' },
-          ticks: { precision: 0, color: '#64748b', font: { family: 'Pretendard' } }
+          title: { display: true, text: mode === 'revenue' ? '매출 (원)' : '주문 (개)', color: '#64748b', font: { family: 'Pretendard' } },
+          grid: { color: 'rgba(15, 23, 42, 0.08)', borderDash: [4, 5] },
+          ticks: {
+            color: '#64748b',
+            font: { family: 'Pretendard' },
+            callback: value => Number(value).toLocaleString('ko-KR')
+          }
         }
       },
       plugins: {
-        legend: { display: false },
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, boxWidth: 8, padding: 18, color: '#64748b', font: { family: 'Pretendard' } }
+        },
         datalabels: { display: false },
         tooltip: {
-          callbacks: { label: context => `판매량: ${context.parsed.y ?? 0}개` },
+          callbacks: {
+            title: items => {
+              const [year, month, day] = dates[items[0].dataIndex].split('-').map(Number);
+              const weekday = weekdayNames[new Date(year, month - 1, day).getDay()];
+              return `${year}년 ${String(month).padStart(2, '0')}월 ${String(day).padStart(2, '0')}일 ${weekday}`;
+            },
+            label: context => `${context.dataset.label}: ${Number(context.parsed.y || 0).toLocaleString('ko-KR')} ${unit}`
+          },
           titleFont: { family: 'Pretendard' },
-          bodyFont: { family: 'Pretendard' }
+          bodyFont: { family: 'Pretendard' },
+          padding: 10
         }
       }
     }

@@ -46,53 +46,15 @@
   </header>
 
   <!-- DASHBOARD CONTENT AREA -->
-  <main class="flex-1 py-8 px-6 max-w-7xl mx-auto space-y-8 w-full">
-    
-    <!-- TOP BANNER / NAVIGATION BAR -->
-    <div class="dashboard-overview-header">
-      <div class="dashboard-overview-title">
-        <div class="dashboard-overview-copy">
-          <div class="flex items-center space-x-3">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-              분석 완료
-            </span>
-            <span class="text-xs text-gray-400" id="dashboardUpdatedAt">데이터 확인 중</span>
-          </div>
-          <h1 class="text-2xl font-bold text-white mt-2 tracking-tight" id="dashboardTitle">전체 재고 종합 분석</h1>
-        </div>
-        <div class="dashboard-overview-actions">
-          <a href="upload.html" class="dashboard-overview-upload">
-            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span>새 파일 업로드</span>
-          </a>
-        </div>
-      </div>
-
-      <div tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-overview-kpi dashboard-kpi-items">
-        <div class="dashboard-overview-kpi-heading">
-          <span>악성 재고</span>
-          <div class="grade-icon-risk flex items-center justify-center border"><i class="fa-solid fa-triangle-exclamation text-sm"></i></div>
-        </div>
-        <div id="deficitCount" class="dashboard-overview-kpi-value grade-risk">0 <span>개 품목</span></div>
-        <div id="deficitItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
-      </div>
-
-      <div tabindex="0" role="group" aria-label="장기 재고 상세" aria-describedby="staleItemsPopover" class="dashboard-overview-kpi dashboard-kpi-items">
-        <div class="dashboard-overview-kpi-heading">
-          <span>장기 재고</span>
-          <div class="grade-icon-aging flex items-center justify-center border"><i class="fa-solid fa-warehouse text-sm"></i></div>
-        </div>
-        <div id="staleCount" class="dashboard-overview-kpi-value grade-aging">0 <span>개 품목</span></div>
-        <div id="staleItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
-      </div>
-    </div>
+  <main class="flex-1 pt-0 pb-8 px-6 max-w-7xl mx-auto space-y-4 w-full">
+    <h1 class="sr-only">재고 대시보드</h1>
 
     <!-- SUMMARY KPI CARDS -->
     <div class="dashboard-metric-grid">
       <div data-dashboard-surface tabindex="0" role="group" aria-label="전체 관리 품목" class="dashboard-kpi-items bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-visible group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">전체 관리 품목</span>
-          <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
+          <div class="dashboard-metric-icon is-blue">
             <i class="fa-solid fa-boxes-stacked text-sm"></i>
           </div>
         </div>
@@ -102,7 +64,7 @@
       <div data-dashboard-surface class="bg-gray-900/40 backdrop-blur-xl p-5 rounded-2xl border border-gray-800/80 shadow-xl relative overflow-hidden group hover:border-gray-700/80 transition-all">
         <div class="flex items-center justify-between text-gray-400 mb-3">
           <span class="text-xs font-bold uppercase tracking-wider text-gray-400">총 재고 자산</span>
-          <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+          <div class="dashboard-metric-icon is-green">
             <i class="fa-solid fa-won-sign text-sm"></i>
           </div>
         </div>
@@ -112,7 +74,7 @@
       <section data-dashboard-surface class="dashboard-sales-kpi" aria-labelledby="todayRevenueLabel">
         <div class="dashboard-sales-kpi-heading">
           <h2 id="todayRevenueLabel">오늘 총매출(원)</h2>
-          <i class="fa-solid fa-won-sign" aria-hidden="true"></i>
+          <div class="dashboard-metric-icon is-blue" aria-hidden="true"><i class="fa-solid fa-won-sign"></i></div>
         </div>
         <strong id="todayRevenue" class="dashboard-sales-kpi-value" aria-live="polite">-</strong>
         <div class="dashboard-sales-comparisons">
@@ -123,7 +85,7 @@
       <section data-dashboard-surface class="dashboard-sales-kpi" aria-labelledby="todayOrdersLabel">
         <div class="dashboard-sales-kpi-heading">
           <h2 id="todayOrdersLabel">오늘 주문건(판매수량 기준)</h2>
-          <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>
+          <div class="dashboard-metric-icon is-blue" aria-hidden="true"><i class="fa-solid fa-bag-shopping"></i></div>
         </div>
         <strong id="todayOrders" class="dashboard-sales-kpi-value" aria-live="polite">-</strong>
         <div class="dashboard-sales-comparisons">
@@ -135,6 +97,30 @@
 
     <!-- VISUAL CHARTS SECTION -->
     <div class="dashboard-analytics-grid">
+        <section data-dashboard-surface class="dashboard-analytics-panel dashboard-revenue-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="salesOverviewTitle">
+          <div class="dashboard-insight-heading dashboard-revenue-heading">
+            <div>
+              <h3 id="salesOverviewTitle" class="font-bold text-white text-lg tracking-tight">매출 현황</h3>
+              <p id="salesOverviewRange" class="text-xs text-gray-400 mt-0.5">최근 30일</p>
+            </div>
+            <div class="dashboard-revenue-actions">
+              <label class="dashboard-product-picker">
+                <span class="sr-only">매출 현황 상품 선택</span>
+                <select id="salesOverviewProductSelect" aria-label="매출 현황 상품 선택">
+                  <option value="">전체 상품</option>
+                </select>
+              </label>
+              <div class="dashboard-sales-mode" role="group" aria-label="매출 현황 표시 기준">
+                <button type="button" class="is-active" data-sales-mode="revenue" aria-pressed="true">매출</button>
+                <button type="button" data-sales-mode="orders" aria-pressed="false">주문</button>
+              </div>
+            </div>
+          </div>
+          <div class="dashboard-revenue-chart">
+            <canvas id="salesOverviewChart" aria-label="최근 30일 일별 매출과 직전 7일 평균 차트"></canvas>
+          </div>
+        </section>
+
         <section data-dashboard-surface class="dashboard-grade-panel dashboard-analytics-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="inventoryGradeTitle">
           <div class="dashboard-insight-heading">
             <div>
@@ -143,72 +129,63 @@
             </div>
             <span class="text-xs px-2.5 py-1 bg-gray-800/80 text-gray-300 rounded-lg border border-gray-700/50">실시간 반영</span>
           </div>
+          <div class="dashboard-grade-kpis">
+            <div tabindex="0" role="group" aria-label="악성 재고 상세" aria-describedby="deficitItemsPopover" class="dashboard-overview-kpi dashboard-kpi-items">
+              <div class="dashboard-overview-kpi-heading">
+                <span>악성 재고</span>
+              </div>
+              <div id="deficitCount" class="dashboard-overview-kpi-value grade-risk">0 <span>개 품목</span></div>
+              <div id="deficitItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
+            </div>
+            <div tabindex="0" role="group" aria-label="장기 재고 상세" aria-describedby="staleItemsPopover" class="dashboard-overview-kpi dashboard-kpi-items">
+              <div class="dashboard-overview-kpi-heading">
+                <span>장기 재고</span>
+              </div>
+              <div id="staleCount" class="dashboard-overview-kpi-value grade-aging">0 <span>개 품목</span></div>
+              <div id="staleItemsPopover" class="dashboard-items-popover" role="tooltip"></div>
+            </div>
+          </div>
           <div class="dashboard-grade-chart">
             <canvas id="trendChart"></canvas>
           </div>
-        </section>
-
-        <section data-dashboard-surface class="dashboard-analytics-panel dashboard-popular-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="popularItemsTitle">
-          <div class="dashboard-insight-heading">
-            <div>
-              <h3 id="popularItemsTitle" class="font-bold text-white text-lg tracking-tight"><i class="fa-solid fa-fire" aria-hidden="true"></i> 인기 판매 상품 TOP 3</h3>
-              <p class="text-xs text-gray-400 mt-0.5">최근 30일 판매량 기준</p>
-            </div>
-            <span class="dashboard-period-label">최근 30일</span>
-          </div>
-          <ol id="popularProductsList" class="dashboard-popular-list" aria-live="polite"></ol>
         </section>
 
         <section data-dashboard-surface class="dashboard-risk-chart dashboard-analytics-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="riskItemsTitle">
           <div class="dashboard-insight-heading">
             <div>
               <h3 id="riskItemsTitle" class="font-bold text-white text-lg tracking-tight">위험 상품 List</h3>
-              <p class="text-xs text-gray-400 mt-0.5">우선 조치 필요 재고</p>
+              <p id="riskItemsDescription" class="text-xs text-gray-400 mt-0.5">우선 조치 필요 재고</p>
             </div>
-            <div class="dashboard-risk-list-control">
-              <button id="riskItemsToggle" class="dashboard-risk-list-toggle" type="button" aria-expanded="false" aria-controls="riskItemsPanel">
-                <i class="fa-solid fa-list" aria-hidden="true"></i><span>더보기</span>
-              </button>
-              <div id="riskItemsPanel" class="dashboard-risk-list-panel" hidden>
-                <div class="dashboard-risk-list-panel__header">
-                  <strong>위험도 높은 상품</strong>
-                  <span id="riskItemsTotal" class="dashboard-risk-list-panel__total"></span>
+            <div class="dashboard-risk-panel-actions">
+              <div class="dashboard-risk-view-toggle" role="group" aria-label="상품 목록 선택">
+                <button type="button" class="is-active" data-risk-view="risk" aria-pressed="true">위험 상품</button>
+                <button type="button" data-risk-view="popular" aria-pressed="false">인기 판매</button>
+              </div>
+              <div id="riskItemsControl" class="dashboard-risk-list-control">
+                <button id="riskItemsToggle" class="dashboard-risk-list-toggle" type="button" aria-expanded="false" aria-controls="riskItemsPanel">
+                  <i class="fa-solid fa-list" aria-hidden="true"></i><span>더보기</span>
+                </button>
+                <div id="riskItemsPanel" class="dashboard-risk-list-panel" hidden>
+                  <div class="dashboard-risk-list-panel__header">
+                    <strong>위험도 높은 상품</strong>
+                    <span id="riskItemsTotal" class="dashboard-risk-list-panel__total"></span>
+                  </div>
+                  <ol id="riskItemsList" class="dashboard-risk-list"></ol>
                 </div>
-                <ol id="riskItemsList" class="dashboard-risk-list"></ol>
               </div>
             </div>
           </div>
-          <div class="dashboard-risk-chart-canvas">
+          <div id="riskItemsChartContent" class="dashboard-risk-chart-canvas">
             <canvas id="categoryChart"></canvas>
           </div>
+          <ol id="popularProductsList" class="dashboard-popular-list" aria-live="polite" hidden></ol>
         </section>
 
-        <section data-dashboard-surface class="dashboard-analytics-panel dashboard-sales-panel bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-gray-800/80 shadow-xl" aria-labelledby="salesTrendTitle">
-          <div class="dashboard-insight-heading dashboard-sales-heading">
-            <div>
-              <h3 id="salesTrendTitle" class="font-bold text-white text-lg tracking-tight">품목별 판매 추이 분석</h3>
-              <p class="text-xs text-gray-400 mt-0.5">선택한 상품의 일별 판매량</p>
-            </div>
-            <label class="dashboard-product-picker">
-              <span class="sr-only">판매 추이를 볼 상품 선택</span>
-              <select id="salesTrendProductSelect" aria-label="판매 추이를 볼 상품 선택"></select>
-            </label>
-          </div>
-          <div class="dashboard-sales-controls" role="group" aria-label="판매 추이 기간">
-            <button type="button" class="is-active" data-sales-days="7" aria-pressed="true">7일</button>
-            <button type="button" data-sales-days="30" aria-pressed="false">30일</button>
-            <span id="salesTrendSummary" class="dashboard-sales-summary"></span>
-          </div>
-          <div id="salesTrendEmpty" class="dashboard-sales-empty" hidden>선택한 기간에 판매 기록이 없습니다.</div>
-          <div class="dashboard-sales-chart">
-            <canvas id="salesTrendChart" aria-label="선택한 상품의 날짜별 판매량 라인차트"></canvas>
-          </div>
-        </section>
     </div>
 
   </main>
 
   <script src="/js/stockclear.js"></script>
-  <script src="/js/dashboard.js?v=20261007-sales-insights"></script>
+  <script src="/js/dashboard.js?v=20261012-risk-toggle-stability"></script>
 </body>
 </html>

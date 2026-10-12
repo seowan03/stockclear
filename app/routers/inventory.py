@@ -142,10 +142,39 @@ def get_dashboard_sales_insights(
             )
         inventory_filters.append(upload_filter)
 
+    sales_filters = list(inventory_filters)
+    if item_id is not None:
+        sales_filters.append(RawInventory.item_id == item_id)
+
     today = date.today()
     top_start = today - timedelta(days=29)
+    overview_start = today - timedelta(days=36)
     last_week_monday = today - timedelta(days=today.weekday() + 7)
     sales_summary_start = min(today - timedelta(days=7), last_week_monday)
+    overview_rows = db.query(
+        InventoryDailyMetric.business_date,
+        func.sum(InventoryDailyMetric.daily_sales_qty).label("sales_qty"),
+        func.sum(
+            InventoryDailyMetric.daily_sales_qty * InventoryDailyMetric.daily_selling_price
+        ).label("sales_amount"),
+    ).join(
+        RawInventory,
+        RawInventory.item_id == InventoryDailyMetric.item_id,
+    ).filter(
+        *sales_filters,
+        InventoryDailyMetric.business_date >= overview_start,
+        InventoryDailyMetric.business_date <= today,
+    ).group_by(
+        InventoryDailyMetric.business_date,
+    ).all()
+    overview_by_date = {
+        row.business_date: {
+            "sales_qty": int(row.sales_qty or 0),
+            "sales_amount": round(float(row.sales_amount or 0)),
+        }
+        for row in overview_rows
+    }
+    overview_dates = [overview_start + timedelta(days=offset) for offset in range(37)]
     sales_summary_rows = db.query(
         InventoryDailyMetric.business_date,
         func.sum(InventoryDailyMetric.daily_sales_qty).label("sales_qty"),
@@ -156,7 +185,7 @@ def get_dashboard_sales_insights(
         RawInventory,
         RawInventory.item_id == InventoryDailyMetric.item_id,
     ).filter(
-        *inventory_filters,
+        *sales_filters,
         InventoryDailyMetric.business_date >= sales_summary_start,
         InventoryDailyMetric.business_date <= today,
     ).group_by(
@@ -223,6 +252,11 @@ def get_dashboard_sales_insights(
     quantities_by_date = {row.business_date: row.daily_sales_qty for row in history_rows}
     dates = [range_start + timedelta(days=offset) for offset in range(days)]
     return {
+        "daily_overview": {
+            "dates": [business_date.isoformat() for business_date in overview_dates],
+            "sales_qty": [overview_by_date.get(day, {}).get("sales_qty", 0) for day in overview_dates],
+            "sales_amount": [overview_by_date.get(day, {}).get("sales_amount", 0) for day in overview_dates],
+        },
         "sales_summary": {
             "today": today_sales,
             "recent_7_day_average": {
