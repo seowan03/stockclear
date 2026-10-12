@@ -143,6 +143,9 @@ async def upload_and_parse_excel(
             "selling_price": "판매가",
             "sales_qty": "판매량",
         }))
+        db.query(User.user_id).filter(
+            User.user_id == current_user.user_id,
+        ).with_for_update().first()
         # 같은 사용자의 동일 내용 성공 업로드는 저장 전에 차단한다.
         raise_if_duplicate_upload(db, current_user.user_id, content_hash)
 

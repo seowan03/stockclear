@@ -3,6 +3,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -57,7 +58,13 @@ def signup(data: SignupRequest, response: Response, db: Session = Depends(get_db
         raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
     user = User(username=data.username, email=data.email, password_hash=generate_password_hash(data.password), created_at=datetime.utcnow())
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if db.query(User).filter(User.email == data.email).first():
+            raise HTTPException(status_code=400, detail="이미 가입된 이메일입니다.")
+        raise
     db.refresh(user)
     set_session_cookie(response, user.user_id)
     return {"status": "success", "user_id": user.user_id, "username": user.username}

@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -32,10 +32,10 @@ class UploadSummaryInputTests(unittest.TestCase):
     def test_summary_uses_active_account_items_and_exposes_quality_context(self):
         timestamp = datetime(2026, 10, 7, 12, 30)
         self.db.add_all([
-            RawInventory(item_id=1, user_id=7, product_name="Widget A", stock_qty=4, is_deleted=False),
-            RawInventory(item_id=2, user_id=7, product_name="Widget B", stock_qty=8, is_deleted=False),
-            RawInventory(item_id=3, user_id=7, product_name="Widget C", stock_qty=2, is_deleted=False),
-            RawInventory(item_id=4, user_id=7, product_name="Deleted", stock_qty=99, is_deleted=True),
+            RawInventory(item_id=1, user_id=7, upload_batch_id="batch-1", product_name="Widget A", stock_qty=4, purchase_price=100, market_price=150, inbound_date=date(2026, 1, 1), is_deleted=False),
+            RawInventory(item_id=2, user_id=7, upload_batch_id="batch-1", product_name="Widget B", stock_qty=8, purchase_price=100, market_price=150, inbound_date=date(2026, 1, 1), is_deleted=False),
+            RawInventory(item_id=3, user_id=7, upload_batch_id="batch-1", product_name="Widget C", stock_qty=2, purchase_price=100, market_price=150, inbound_date=date(2026, 1, 1), is_deleted=False),
+            RawInventory(item_id=4, user_id=7, upload_batch_id="batch-1", product_name="Deleted", stock_qty=99, purchase_price=100, market_price=150, inbound_date=date(2026, 1, 1), is_deleted=True),
             AnalysisResult(
                 item_id=1, risk_grade="악성", final_score=88.8, aging_days=91,
                 days_to_sell=120, inventory_amount=400, fluctuation_rate=12.5,
