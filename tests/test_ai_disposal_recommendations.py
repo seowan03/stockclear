@@ -49,15 +49,6 @@ class AIDisposalRecommendationTests(unittest.TestCase):
         self.assertIn("현재 분석 기준에서 우선 처분을 권할 품목은 아닙니다.", comment)
         self.assertNotIn("정리 판매 후보 등록", comment)
 
-    def test_generic_storage_metric_definition_is_omitted(self):
-        result = self._result("악성")
-        result["diagnosis_detail"]["evidence"][0]["meaning"] = "보관 중인 재고의 기간을 나타냅니다."
-
-        comment = _format_diagnosis_comment(result)
-
-        self.assertNotIn("보관 중인 재고의 기간을 나타냅니다.", comment)
-        self.assertIn("위험점수에는 보관 기간 95일이 반영됐습니다.", comment)
-
     def test_placeholder_meaning_is_not_shown_as_ai_explanation(self):
         result = self._result("악성")
         result["diagnosis_detail"]["evidence"][0]["meaning"] = "보관 기간의 서버 저장 분석값입니다."
@@ -102,12 +93,10 @@ class AIDisposalRecommendationTests(unittest.TestCase):
         payloads = [
             {"evidence": [{
                 "metric": "보관 기간",
-                "evidence_ref": "analysis.risk_score_components.storage_days",
                 "meaning": "Smart Watch의 보관 기간이 위험점수에 반영됐습니다.",
             }]},
             {"evidence": [{
                 "metric": "보관 기간",
-                "evidence_ref": "analysis.risk_score_components.storage_days",
                 "meaning": "보관 기간이 위험점수에 반영된 지표입니다.",
             }]},
         ]
@@ -154,7 +143,6 @@ class AIDisposalRecommendationTests(unittest.TestCase):
         })
         payload = {"evidence": [{
             "metric": "보관 기간",
-            "evidence_ref": "analysis.risk_score_components.storage_days",
             "meaning": "보관 기간이 길어 재고 회전이 늦어질 가능성을 살펴볼 필요가 있습니다.",
         }]}
         response = SimpleNamespace(choices=[SimpleNamespace(
@@ -209,7 +197,6 @@ class AIDisposalRecommendationTests(unittest.TestCase):
             {"evidence": [
                 {
                     "metric": metric,
-                    "evidence_ref": evidence_ref,
                     "meaning": meaning,
                 }
                 for metric, evidence_ref, meaning in meanings
@@ -284,7 +271,6 @@ class AIDisposalRecommendationTests(unittest.TestCase):
             {"evidence": [
                 {
                     "metric": metric,
-                    "evidence_ref": evidence_ref,
                     "meaning": meaning,
                 }
                 for metric, evidence_ref, meaning, _ in entries
@@ -292,7 +278,6 @@ class AIDisposalRecommendationTests(unittest.TestCase):
             {"evidence": [
                 {
                     "metric": metric,
-                    "evidence_ref": evidence_ref,
                     "meaning": corrected_meaning,
                 }
                 for metric, evidence_ref, _meaning, corrected_meaning in entries
@@ -351,7 +336,6 @@ class AIDisposalRecommendationTests(unittest.TestCase):
         payload = {"evidence": [
             {
                 "metric": metric,
-                "evidence_ref": evidence_ref,
                 "meaning": meaning,
             }
             for (metric, evidence_ref), meaning in zip(metrics, generic_meanings)
@@ -398,12 +382,10 @@ class AIDisposalRecommendationTests(unittest.TestCase):
         payload = {"evidence": [
             {
                 "metric": "보관 기간",
-                "evidence_ref": "analysis.risk_score_components.storage_days",
                 "meaning": "보관 기간이 길어 위험점수에 반영되어 위험도가 높아졌습니다.",
             },
             {
                 "metric": "원가 대비 판매가 차이",
-                "evidence_ref": "analysis.risk_score_components.depreciation_rate",
                 "meaning": "판매가가 원가보다 낮아 원가 회수에 불리한 상태입니다.",
             },
         ]}

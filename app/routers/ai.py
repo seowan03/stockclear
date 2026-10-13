@@ -19,7 +19,7 @@ from app.llm import (
     get_ai_strategy,
     run_llm_with_timeout,
 )
-from app.models import AnalysisResult, RawInventory, User
+from app.models import RawInventory, User
 from app.schemas import InventoryItem
 from app.security import get_current_user
 from app.services.inventory_service import query_user_analysis
@@ -28,9 +28,10 @@ router = APIRouter(tags=["ai"])
 logger = logging.getLogger(__name__)
 AI_RATE_LIMIT_WINDOW_SECONDS = 60 * 60
 AI_RATE_LIMIT_MAX_CALLS = 20
+AI_RATE_LIMIT_SWEEP_THRESHOLD = 1_000
 AI_INPUT_MAX_CHARS = 3_000
 AI_REQUEST_TIMEOUT_SECONDS = 12
-DIAGNOSIS_CACHE_VERSION = "v6"
+DIAGNOSIS_CACHE_VERSION = "v7"
 _ai_request_history: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -44,6 +45,9 @@ def _client_ip(request: Request) -> str:
 def _enforce_ai_rate_limit(user_id: int, client_ip: str) -> None:
     now = time.monotonic()
     cutoff = now - AI_RATE_LIMIT_WINDOW_SECONDS
+    if len(_ai_request_history) > AI_RATE_LIMIT_SWEEP_THRESHOLD:
+        for key in [key for key, history in _ai_request_history.items() if not history or history[-1] < cutoff]:
+            del _ai_request_history[key]
     keys = (f"user:{user_id}", f"ip:{client_ip}")
     for key in keys:
         history = _ai_request_history[key]
@@ -155,12 +159,16 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
     return guarded_result
 
 
-async def _diagnose(product_data: dict[str, Any], user_id: int, request: Request) -> dict[str, Any]:
+async def _diagnose(
+    product_data: dict[str, Any],
+    context: dict[str, Any],
+    recommendation: dict[str, Any],
+    user_id: int,
+    request: Request,
+) -> dict[str, Any]:
     if len(json.dumps(product_data, ensure_ascii=False, default=str)) > AI_INPUT_MAX_CHARS:
         raise HTTPException(status_code=413, detail="AI 진단 요청 데이터가 너무 큽니다.")
     _enforce_ai_rate_limit(user_id, _client_ip(request))
-    recommendation = _rule_based_strategy(product_data)
-    context = _make_strategy_context(product_data)
     try:
         ai_result = await run_llm_with_timeout(
             user_id,
@@ -226,9 +234,7 @@ def _make_strategy_context(data: dict[str, Any]) -> dict[str, Any]:
         "pricing": {
             "purchase_price": data.get("purchase_price"),
             "uploaded_selling_price": data.get("selling_price"),
-            "market_price": None,
             "market_price_source": market_source,
-            "market_price_as_of": None,
         },
         "analysis": {
             "risk_grade": data.get("risk_grade"),
@@ -255,11 +261,10 @@ def _make_strategy_context(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _diagnosis_cache_hash(data: dict[str, Any]) -> str:
-    recommendation = _rule_based_strategy(data)
+def _diagnosis_cache_hash(context: dict[str, Any], recommendation: dict[str, Any]) -> str:
     cache_input = {
         "version": DIAGNOSIS_CACHE_VERSION,
-        "context": _make_strategy_context(data),
+        "context": context,
         "recommendation": {
             "status": recommendation["status"],
             "recommended_discount": recommendation["recommended_discount"],
@@ -293,24 +298,13 @@ def _make_diagnosis_detail(
     if score is not None:
         headline += f" · 위험점수 {score:g}점"
 
-    explanations = {}
-    for entry in ai_result.get("evidence", []):
-        if not isinstance(entry, dict):
-            continue
-        metric = entry.get("metric")
-        evidence_ref = entry.get("evidence_ref")
-        if STRATEGY_METRIC_REFS.get(metric) != evidence_ref:
-            continue
-        referenced_value: Any = context
-        for part in evidence_ref.split("."):
-            if not isinstance(referenced_value, dict) or part not in referenced_value:
-                referenced_value = None
-                break
-            referenced_value = referenced_value[part]
-        if referenced_value is None:
-            continue
-        if entry.get("meaning"):
-            explanations[metric] = entry["meaning"]
+    explanations = {
+        entry["metric"]: entry["meaning"]
+        for entry in ai_result.get("evidence", [])
+        if isinstance(entry, dict)
+        and entry.get("metric") in STRATEGY_METRIC_REFS
+        and entry.get("meaning")
+    }
     evidence_specs = [
         ("보관 기간", components["storage_days"], "일", components["storage_score"], 40),
         (
@@ -358,26 +352,7 @@ def _make_diagnosis_detail(
 
 
 def _make_fallback_diagnosis(context: dict[str, Any], risk_grade: str) -> dict[str, Any]:
-    fallback = {
-        "evidence": [
-            {
-                "metric": "보관 기간",
-                "evidence_ref": STRATEGY_METRIC_REFS["보관 기간"],
-                "meaning": "보관 기간이 길어 재고 체류 상태를 확인할 필요가 있습니다.",
-            },
-            {
-                "metric": "예상 소진 기간",
-                "evidence_ref": STRATEGY_METRIC_REFS["예상 소진 기간"],
-                "meaning": "예상 소진 기간은 업로드 판매 속도를 기준으로 계산한 값입니다.",
-            },
-            {
-                "metric": "원가 대비 판매가 차이",
-                "evidence_ref": STRATEGY_METRIC_REFS["원가 대비 판매가 차이"],
-                "meaning": "원가와 업로드 판매가를 비교한 값입니다.",
-            },
-        ],
-    }
-    detail = _make_diagnosis_detail(fallback, context, risk_grade)
+    detail = _make_diagnosis_detail({"evidence": []}, context, risk_grade)
     detail["source"] = "rule_based_fallback"
     return detail
 
@@ -406,10 +381,6 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
         for item in primary
         if item.get("meaning", "").strip()
         and item["meaning"].strip() != _placeholder_meaning(item.get("metric", ""))
-        and not (
-            item.get("metric") == "보관 기간"
-            and item["meaning"].strip().rstrip(".。") == "보관 중인 재고의 기간을 나타냅니다"
-        )
     ))
     if is_ai_explanation and explanations:
         lines.append(" ".join(explanations))
@@ -432,11 +403,10 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
             f"가격 참고값은 할인율 {result['recommended_discount']:g}%, "
             f"판매가 {result['recommended_price']:,.0f}원입니다."
         )
-    else:
-        lines.append(f"규칙 기준 참고 할인율은 {result['recommended_discount']:g}%입니다.")
-    if result.get("recommended_price") is not None:
         if result.get("price_limit_notice"):
             lines.append(result["price_limit_notice"])
+    else:
+        lines.append(f"규칙 기준 참고 할인율은 {result['recommended_discount']:g}%입니다.")
     lines.append(
         "업로드 판매 속도는 입력값 기준이라 최근 판매 흐름을 뜻하지 않습니다. "
         "실제 주문·시장 반응·전체 비용 자료가 없어 판매 증가나 수익 개선은 예상할 수 없습니다."
@@ -446,7 +416,7 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
 
 def _validate_cached_diagnosis(
     cached_result: Any,
-    product_data: dict[str, Any],
+    context: dict[str, Any],
     expected_pricing: dict[str, Any],
 ) -> dict[str, Any] | None:
     required_fields = {
@@ -473,7 +443,6 @@ def _validate_cached_diagnosis(
         if cached_result[field] != expected_pricing.get(field):
             return None
 
-    context = _make_strategy_context(product_data)
     expected_detail = _make_diagnosis_detail({"evidence": []}, context, expected_pricing["status"])
     cached_detail = cached_result.get("diagnosis_detail")
     if not isinstance(cached_detail, dict) or set(cached_detail) != {"source", "headline", "evidence"}:
@@ -508,15 +477,12 @@ def _validate_cached_diagnosis(
 
         ai_evidence.append({
             "metric": cached_item["metric"],
-            "evidence_ref": cached_item["evidence_ref"],
             "meaning": cached_item["meaning"],
         })
 
     try:
         validated_ai_result = AIStrategy.model_validate({"evidence": ai_evidence})
         _validate_strategy_evidence(validated_ai_result, context)
-    except (ValueError, TypeError):
-        return None
     except Exception:
         return None
     # Cached text is shown as-is, so any dropped entry invalidates the cache.
@@ -531,7 +497,14 @@ def _validate_cached_diagnosis(
 
 @router.post("/api/ai-diagnose")
 async def diagnose_inventory(item: InventoryItem, request: Request, current_user: User = Depends(get_current_user)):
-    result = await _diagnose(item.model_dump(), current_user.user_id, request)
+    product_data = item.model_dump()
+    result = await _diagnose(
+        product_data,
+        _make_strategy_context(product_data),
+        _rule_based_strategy(product_data),
+        current_user.user_id,
+        request,
+    )
     return {
         "status": "success",
         "product_name": item.product_name,
@@ -566,10 +539,7 @@ async def diagnose_saved_inventory(
         "product_name": item.product_name,
         "stock_qty": item.stock_qty or 0,
         "purchase_price": int(item.purchase_price or 0),
-        "received_date": item.inbound_date.isoformat() if item.inbound_date else "",
         "selling_price": int(item.market_price or 0),
-        "mock_market_price": float(item.mock_market_price) if item.mock_market_price is not None else None,
-        "current_market_price": float(item.mock_market_price or item.market_price or 0),
         "sales_qty": item.sales_qty or 0,
         "storage_days": analysis.aging_days or 0,
         "inventory_value": int(analysis.inventory_amount or 0),
@@ -582,11 +552,10 @@ async def diagnose_saved_inventory(
         "analysis_as_of": analysis.updated_at.isoformat() if analysis.updated_at else None,
         "market_price_source": "mock" if item.mock_market_price is not None else "not_available",
     }
-    cache_hash = _diagnosis_cache_hash(product_data)
-    expected_pricing = _apply_price_floors(
-        _rule_based_strategy(product_data),
-        product_data,
-    )
+    context = _make_strategy_context(product_data)
+    recommendation = _rule_based_strategy(product_data)
+    cache_hash = _diagnosis_cache_hash(context, recommendation)
+    expected_pricing = _apply_price_floors(recommendation, product_data)
     result = None
     if (
         analysis.diagnosis_input_hash == cache_hash
@@ -598,7 +567,7 @@ async def diagnose_saved_inventory(
             cached_result = json.loads(analysis.diagnosis_cache)
             result = _validate_cached_diagnosis(
                 cached_result,
-                product_data,
+                context,
                 expected_pricing,
             )
             if result is None:
@@ -618,7 +587,7 @@ async def diagnose_saved_inventory(
 
     cache_hit = result is not None
     if result is None:
-        result = await _diagnose(product_data, current_user.user_id, request)
+        result = await _diagnose(product_data, context, recommendation, current_user.user_id, request)
 
     discount = float(result.get("recommended_discount") or 0)
     recommended_price = result.get("recommended_price")
