@@ -12,6 +12,7 @@ from app.models import AnalysisResult, InventoryDailyMetric, RawInventory, Strat
 from app.schemas import InventoryGridBatchUpdate, InventorySellingBatchUpdate, InventorySellingUpdate, SafetyStockCalculation
 from app.security import get_current_user
 from app.services.inventory_service import (
+    lock_user_for_inventory_write,
     make_user_summary_input,
     mark_latest_upload_summary_stale,
     query_user_analysis,
@@ -465,6 +466,7 @@ def refresh_inventory_market_price(
 
 @router.delete("/api/inventory/{item_id}")
 def delete_inventory_item(item_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    lock_user_for_inventory_write(db, current_user.user_id)
     item = db.query(RawInventory).filter(
         RawInventory.item_id == item_id,
         RawInventory.user_id == current_user.user_id,
@@ -713,7 +715,9 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         ai_summary = ai_summary_row.summary_text
     elif ai_summary_row and ai_summary_row.status == "failed":
         ai_summary_status = "failed"
-        ai_summary = "파일 업로드와 재고 분석은 완료됐지만 AI 종합진단을 생성하지 못했습니다. 잠시 후 다시 시도해주세요."
+        ai_summary = ai_summary_row.summary_text or (
+            "파일 업로드와 재고 분석은 완료됐지만 AI 종합진단을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."
+        )
     elif ai_summary_row and ai_summary_row.status == "stale":
         ai_summary_status = "stale"
         ai_summary = (
@@ -733,7 +737,7 @@ def get_export(upload_id: int | None = None, db: Session = Depends(get_db), curr
         )
     else:
         ai_summary_status = "unavailable"
-        ai_summary = "이 업로드에는 저장된 AI 종합진단이 없습니다. 신규 업로드부터 파일별 요약이 생성됩니다."
+        ai_summary = "이 업로드의 AI 종합진단이 아직 생성되지 않았습니다. 아래 버튼에서 생성할 수 있습니다."
     items = [{
         "item_id": item.item_id,
         "product_name": item.product_name,

@@ -228,44 +228,18 @@
     const pendingSafetyStock = new Set();
     let pendingSellItems = [];
 
-    function escapeHtml(str) {
-        if (!str) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
-
-    function formatRecommendationText(value) {
-        return String(value ?? '').replace(/(\d[\d,]*)(?:\.0)?(?=원)/g, (match, digits) => {
-            const price = Number(digits.replace(/,/g, ''));
-            return Number.isFinite(price) ? price.toLocaleString('ko-KR') : match;
-        });
-    }
+    const { escapeHtml, formatRecommendationText } = StockClear;
 
     function formatNumber(num) {
-        if (typeof StockClear !== 'undefined' && StockClear.formatNumber) {
-            return StockClear.formatNumber(num);
-        }
-        return Number(num || 0).toLocaleString('ko-KR');
+        return StockClear.formatNumber(num);
     }
 
     function getStatusClass(status) {
-        if (typeof StockClear !== 'undefined' && StockClear.statusClass) {
-            return StockClear.statusClass(status);
-        }
-        if (status === '악성') return 'grade-risk';
-        if (status === '주의') return 'grade-caution';
-        if (status === '장기') return 'grade-aging';
-        return 'grade-normal';
+        return StockClear.statusClass(status);
     }
 
     function getExportItemStatus(item) {
-        return typeof StockClear.riskCategory === 'function'
-            ? StockClear.riskCategory(item)
-            : item.risk_grade || '정상';
+        return StockClear.riskCategory(item);
     }
 
         async function loadExportData() {
@@ -284,10 +258,15 @@
 
                 const summary = report.summary || {};
                 summaryUploadId = summary.summary_upload_id || null;
+                const canGenerateSummary = ['failed', 'unavailable'].includes(summary.ai_summary_status);
                 document.getElementById('retrySummaryButton').classList.toggle(
                     'hidden',
-                    summary.ai_summary_status !== 'failed' || !summaryUploadId,
+                    !canGenerateSummary || !summaryUploadId,
                 );
+                document.getElementById('retrySummaryLabel').textContent =
+                    summary.ai_summary_status === 'unavailable'
+                        ? 'AI 종합진단 생성'
+                        : 'AI 종합진단 다시 생성';
                 document.getElementById('reportSummary').textContent = summary.ai_summary
                     || '저장된 AI 종합진단이 없습니다.';
                 const riskCount = loadedItems.filter((item) => item.risk_grade === '악성').length;
@@ -357,7 +336,9 @@
                 }
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || 'AI 종합진단 재생성에 실패했습니다.');
-                if (result.status !== 'complete') throw new Error('AI 종합진단을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+                if (result.status !== 'complete') {
+                    throw new Error(result.message || 'AI 종합진단을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+                }
                 await loadExportData();
             } catch (error) {
                 message.textContent = error.message || 'AI 종합진단 재생성에 실패했습니다.';

@@ -440,18 +440,7 @@ function switchTab(tabName) {
       if (pendingEdits.size) event.preventDefault();
     });
 
-    function escapeHtml(value) {
-      return String(value ?? '').replace(/[&<>"']/g, (character) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-      })[character]);
-    }
-
-    function formatRecommendationText(value) {
-      return String(value ?? '').replace(/(\d[\d,]*)(?:\.0)?(?=원)/g, (match, digits) => {
-        const price = Number(digits.replace(/,/g, ''));
-        return Number.isFinite(price) ? price.toLocaleString('ko-KR') : match;
-      });
-    }
+    const { escapeHtml, formatRecommendationText } = StockClear;
 
     function formatRecommendationDiscount(actionPlans) {
       const value = String(actionPlans || '');
