@@ -71,18 +71,19 @@ def generate_daily_inventory_metrics(
 def replace_daily_inventory_metrics(
     db: Session,
     user_id: int,
-    item_id: int,
-    inbound_date: date,
-    base_selling_price: object,
-    base_stock_qty: int = 0,
+    entries: list[tuple[int, date, object, int]],
 ) -> None:
-    db.query(InventoryDailyMetric).filter(
-        InventoryDailyMetric.item_id == item_id,
-    ).delete(synchronize_session=False)
-    db.add_all(generate_daily_inventory_metrics(
-        user_id,
-        item_id,
-        inbound_date,
-        base_selling_price,
-        base_stock_qty,
-    ))
+    """Replace metrics for (item_id, inbound_date, base_selling_price, base_stock_qty) entries."""
+    item_ids = [item_id for item_id, *_ in entries]
+    for offset in range(0, len(item_ids), 500):
+        db.query(InventoryDailyMetric).filter(
+            InventoryDailyMetric.item_id.in_(item_ids[offset:offset + 500]),
+        ).delete(synchronize_session=False)
+    for item_id, inbound_date, base_selling_price, base_stock_qty in entries:
+        db.add_all(generate_daily_inventory_metrics(
+            user_id,
+            item_id,
+            inbound_date,
+            base_selling_price,
+            base_stock_qty,
+        ))

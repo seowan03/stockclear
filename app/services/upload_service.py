@@ -40,23 +40,23 @@ def validate_upload_dataframe(df: pd.DataFrame) -> None:
     오류 발생 시 행 번호와 컬럼명을 명시하여 400 에러를 던짐
     """
     errors = []
+    numeric_cols = {
+        "재고량": int,
+        "원가": float,
+        "판매가": float,
+        "판매량": int,
+    }
+    today = pd.Timestamp.today().date()
 
-    for idx, row in df.iterrows():
-        row_num = idx + 2  # 엑셀 헤더 감안 (1행: 컬럼명, 2행: 첫번째 데이터)
+    for idx, row in zip(df.index, df.to_dict("records")):
+        row_num = idx + 2  # 엑셀 헤더 감안 (1행: 컨럼명, 2행: 첫번째 데이터)
 
         # 1. 필수 문자열 (상품명) 검증
         product_name = str(row.get("상품명", "")).strip()
         if not product_name or product_name.lower() in ["nan", "none", "null"]:
             errors.append(f"{row_num}행 [상품명]: 필수 입력 항목입니다.")
 
-        # 2. 수치형 컬럼 검증 (재고량, 원가, 판매가, 판매량)
-        numeric_cols = {
-            "재고량": int,
-            "원가": float,
-            "판매가": float,
-            "판매량": int,
-        }
-
+        # 2. 수치형 컨럼 검증 (재고량, 원가, 판매가, 판매량)
         for col, dtype in numeric_cols.items():
             val = row.get(col)
 
@@ -81,7 +81,7 @@ def validate_upload_dataframe(df: pd.DataFrame) -> None:
         if pd.notna(stock_date) and str(stock_date).strip() not in ["", "nan", "None"]:
             try:
                 parsed_date = pd.to_datetime(stock_date).date()
-                if parsed_date > pd.Timestamp.today().date():
+                if parsed_date > today:
                     errors.append(f"{row_num}행 [입고일]: 미래 날짜는 입력할 수 없습니다.")
             except Exception:
                 errors.append(f"{row_num}행 [입고일]: 올바른 날짜 형식이 아닙니다 ('{stock_date}').")
