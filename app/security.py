@@ -36,6 +36,11 @@ def verify_session_token(token: str) -> int | None:
     return data.get("user_id")
 
 
+def get_session_user_id(request: Request) -> int | None:
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    return verify_session_token(token) if token else None
+
+
 def set_session_cookie(response: Response, user_id: int) -> None:
     response.set_cookie(
         SESSION_COOKIE_NAME,
@@ -48,8 +53,7 @@ def set_session_cookie(response: Response, user_id: int) -> None:
 
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    user_id = verify_session_token(token) if token else None
+    user_id = get_session_user_id(request)
     if user_id is None:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     user = db.query(User).filter(User.user_id == user_id).first()

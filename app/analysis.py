@@ -5,6 +5,14 @@ import pandas as pd
 
 # 재고량/원가/판매가/판매량은 논리적으로 음수가 될 수 없는 값
 NON_NEGATIVE_COLUMNS = ["재고량", "원가", "판매가", "판매량"]
+RISK_GRADE_THRESHOLDS = ((70, "악성"), (45, "장기"), (25, "주의"))
+
+
+def risk_grade_from_score(score: float) -> str:
+    for threshold, grade in RISK_GRADE_THRESHOLDS:
+        if score >= threshold:
+            return grade
+    return "정상"
 
 
 def calculate_safety_stock(
@@ -192,8 +200,8 @@ def _classify_risk(df: pd.DataFrame):
     final_score = np.clip(aging_score + turnover_score + depreciation_score, 0, 100)
 
     grade = np.select(
-        [final_score >= 70, final_score >= 45, final_score >= 25],
-        ["악성", "장기", "주의"],
+        [final_score >= threshold for threshold, _ in RISK_GRADE_THRESHOLDS],
+        [grade for _, grade in RISK_GRADE_THRESHOLDS],
         default="정상",
     )
 

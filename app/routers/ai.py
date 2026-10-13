@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.analysis import calculate_risk_score_components
+from app.analysis import calculate_risk_score_components, risk_grade_from_score
 from app.database import get_db
 from app.llm import (
     AIStrategy,
@@ -57,19 +57,16 @@ def _enforce_ai_rate_limit(user_id: int, client_ip: str) -> None:
 
 def _rule_based_strategy(data: dict[str, Any]) -> dict[str, Any]:
     storage_days = int(data.get("storage_days") or 0)
-    stock_qty = int(data.get("stock_qty") or 0)
-    sales_speed = float(data.get("sales_speed") or 0)
     days_to_sell = float(data.get("days_to_sell") or 0)
     status = data.get("risk_grade")
     if status not in {"정상", "주의", "장기", "악성"}:
-        if storage_days >= 90 or days_to_sell >= 90 or (stock_qty > 0 and sales_speed <= 0):
-            status = "악성"
-        elif storage_days >= 60 or days_to_sell >= 60:
-            status = "장기"
-        elif storage_days >= 45 or days_to_sell >= 45:
-            status = "주의"
-        else:
-            status = "정상"
+        components = calculate_risk_score_components(
+            storage_days,
+            days_to_sell,
+            data.get("depreciation_rate") or 0,
+        )
+        risk_score = sum(float(component) for component in components.values())
+        status = risk_grade_from_score(risk_score)
 
     discount_by_grade = {"정상": 0, "주의": 10, "장기": 10, "악성": 30}
     return {
@@ -391,11 +388,9 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
     detail = result["diagnosis_detail"]
     grade = result.get("status")
     is_ai_explanation = detail["source"] == "ai_explanation"
-    source_label = "AI 설명" if is_ai_explanation else "규칙 기반 안내"
-    focus_label = "우선 확인 대상" if grade in {"장기", "악성"} else "현재 분석 요약"
-    lines = [f"{source_label} · {focus_label}", f"판정: {detail['headline']}"]
+    lines = [detail["headline"]]
     if not is_ai_explanation:
-        lines.append("AI 설명을 생성하지 못해 시스템 기준 안내를 표시합니다.")
+        lines.append("AI 설명을 만들지 못해 서버 분석 기준으로 안내합니다.")
 
     evidence = detail["evidence"]
     primary = [item for item in evidence if (item.get("score_contribution") or 0) > 0]
@@ -404,9 +399,9 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
             f"{item['metric']} {float(item['value']):g}{item['unit']}"
             for item in primary
         )
-        lines.append(f"주요 근거: {score_factors}")
+        lines.append(f"위험점수에는 {score_factors}이 반영됐습니다.")
     else:
-        lines.append("현재 분석에서 점수에 반영된 주요 근거가 없습니다.")
+        lines.append("현재 분석에서 위험점수에 반영된 주요 항목은 없습니다.")
 
     explanations = list(dict.fromkeys(
         item["meaning"].strip()
@@ -414,30 +409,39 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
         if item.get("meaning", "").strip()
     ))
     if is_ai_explanation and explanations:
-        lines.append(f"해석: {' '.join(explanations)}")
+        lines.append(" ".join(explanations))
 
     next_checks = list(dict.fromkeys(
         item["next_check"].strip()
         for item in primary
         if item.get("next_check", "").strip()
     ))
-    if next_checks:
-        lines.append(f"확인할 점: {' '.join(next_checks)}")
+    if grade in {"장기", "악성"}:
+        lines.extend((
+            "처분 제안",
+            "운영 중인 정리 판매나 기획전이 있다면 이 상품을 후보에 올려보세요. 먼저 실재고와 판매 가능 여부를 확인하세요.",
+            "판매 페이지의 판매 상태, 재고 수량, 상품 정보도 함께 점검해 보세요.",
+        ))
+    elif grade == "주의":
+        lines.extend((
+            "현재는 처분보다 판매 상태와 재고 수량, 상품 정보를 먼저 점검해 보세요.",
+        ))
+    else:
+        lines.append("현재 분석 기준에서 우선 처분을 권할 품목은 아닙니다.")
 
-    lines.append(
-        f"가격 참고: 규칙 기반 할인율 {result['recommended_discount']:g}% · "
-        "참고 판매가 "
-        f"{result['recommended_price']:,.0f}원입니다."
-        if result.get("recommended_price") is not None
-        else f"가격 참고: 규칙 기반 할인율 {result['recommended_discount']:g}%입니다."
-    )
+    if result.get("recommended_price") is not None:
+        lines.append(
+            f"가격 참고값은 할인율 {result['recommended_discount']:g}%, "
+            f"판매가 {result['recommended_price']:,.0f}원입니다."
+        )
+    else:
+        lines.append(f"규칙 기준 참고 할인율은 {result['recommended_discount']:g}%입니다.")
     if result.get("recommended_price") is not None:
         if result.get("price_limit_notice"):
-            lines.append(f"가격 제한: {result['price_limit_notice']}")
+            lines.append(result["price_limit_notice"])
     lines.append(
-        "참고: 업로드 판매 속도는 입력 기준이며 최근 판매 추세를 뜻하지 않습니다. "
-        "실제 주문 이력·시장 가격 반응·전체 비용·리드타임 자료가 없어 "
-        "판매 추세, 할인 효과, 수익성, 발주량은 판단하지 않습니다."
+        "업로드 판매 속도는 입력값 기준이라 최근 판매 흐름을 뜻하지 않습니다. "
+        "실제 주문·시장 반응·전체 비용 자료가 없어 판매 증가나 수익 개선은 예상할 수 없습니다."
     )
     return "\n".join(lines)
 

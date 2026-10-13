@@ -9,7 +9,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.database import get_db
 from app.models import User
-from app.security import SESSION_COOKIE_NAME, set_session_cookie, verify_session_token
+from app.security import SESSION_COOKIE_NAME, get_session_user_id, set_session_cookie
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -97,8 +97,7 @@ def logout(response: Response):
 
 @router.get("/me")
 def me(request: Request, db: Session = Depends(get_db)):
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    user_id = verify_session_token(token) if token else None
+    user_id = get_session_user_id(request)
     if user_id is None:
         return {"logged_in": False}
     user = db.query(User).filter(User.user_id == user_id).first()

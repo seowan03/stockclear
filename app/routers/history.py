@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory, User
 from app.security import get_current_user
-from app.services.inventory_service import mark_latest_upload_summary_stale
+from app.services.inventory_service import lock_user_for_inventory_write, mark_latest_upload_summary_stale
 
 router = APIRouter(prefix="/api/history", tags=["history"])
 
@@ -53,6 +53,7 @@ def list_history(db: Session = Depends(get_db), current_user: User = Depends(get
 
 @router.delete("/{history_id}")
 def delete_history(history_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    lock_user_for_inventory_write(db, current_user.user_id)
     row = db.query(UploadHistory).filter(UploadHistory.id == history_id, UploadHistory.user_id == current_user.user_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="해당 기록을 찾을 수 없습니다.")
@@ -63,6 +64,7 @@ def delete_history(history_id: int, db: Session = Depends(get_db), current_user:
 
 @router.delete("")
 def clear_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    lock_user_for_inventory_write(db, current_user.user_id)
     uploads = db.query(UploadHistory).filter(UploadHistory.user_id == current_user.user_id).all()
     _delete_uploads_with_inventory(db, current_user.user_id, uploads)
     db.commit()

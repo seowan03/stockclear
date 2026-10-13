@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import CustomerInquiry, User
-from app.security import SESSION_COOKIE_NAME, verify_session_token
+from app.security import get_session_user_id
 
 router = APIRouter(prefix="/api/inquiries", tags=["inquiries"])
 
@@ -32,8 +32,7 @@ def create_inquiry(
     if not subject or not content:
         raise HTTPException(status_code=422, detail="문의 제목과 내용을 입력해주세요.")
 
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    user_id = verify_session_token(token) if token else None
+    user_id = get_session_user_id(request)
     if user_id is not None and not db.query(User.user_id).filter(User.user_id == user_id).first():
         user_id = None
 
@@ -62,8 +61,7 @@ def get_inquiry_reply(
     if inquiry is None:
         raise HTTPException(status_code=404, detail="문의를 찾을 수 없습니다.")
 
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
-    session_user_id = verify_session_token(session_token) if session_token else None
+    session_user_id = get_session_user_id(request)
     is_owner = inquiry.user_id is not None and session_user_id == inquiry.user_id
     has_valid_reply_token = False
     if token and inquiry.reply_token_hash:

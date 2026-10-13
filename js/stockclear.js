@@ -1,19 +1,20 @@
 (() => {
-  const STORAGE_KEY = 'stockclearInventory';
-
-  function getInventory() {
-    try {
-      const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-      return Array.isArray(value) ? value : [];
-    } catch (error) {
-      console.error('재고 데이터 읽기 실패:', error);
-      return [];
-    }
-  }
-
   function number(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+  }
+
+  function formatRecommendationText(value) {
+    return String(value ?? '').replace(/(\d[\d,]*)(?:\.0)?(?=원)/g, (match, digits) => {
+      const price = Number(digits.replace(/,/g, ''));
+      return Number.isFinite(price) ? price.toLocaleString('ko-KR') : match;
+    });
   }
 
   // riskCategory와 classify 지원
@@ -63,12 +64,13 @@
 
   // window 객체에 모두 포함
   window.StockClear = { 
-    getInventory, 
     number, 
     classify: riskCategory, 
     riskCategory, 
     statusClass,
     statusBadgeClass,
-    formatNumber 
+    formatNumber,
+    escapeHtml,
+    formatRecommendationText,
   };
 })();
