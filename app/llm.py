@@ -398,10 +398,12 @@ def _replace_invalid_summary_narratives(
 ) -> list[str]:
     fallback_fields = []
     _, source_items = _collect_upload_summary_refs(summary_data)
+    data_quality = summary_data.get("data_quality", {})
 
     def needs_fallback(value: str) -> bool:
         try:
             _validate_ai_narrative(value)
+            _reject_unsupported_claims(value, data_quality)
         except ValueError:
             return True
         return False
