@@ -276,6 +276,10 @@ def _diagnosis_cache_hash(data: dict[str, Any]) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _placeholder_meaning(metric: str) -> str:
+    return f"{metric}의 서버 저장 분석값입니다."
+
+
 def _make_diagnosis_detail(
     ai_result: dict[str, Any],
     context: dict[str, Any],
@@ -290,7 +294,6 @@ def _make_diagnosis_detail(
         headline += f" · 위험점수 {score:g}점"
 
     explanations = {}
-    next_checks = {}
     for entry in ai_result.get("evidence", []):
         if not isinstance(entry, dict):
             continue
@@ -308,8 +311,6 @@ def _make_diagnosis_detail(
             continue
         if entry.get("meaning"):
             explanations[metric] = entry["meaning"]
-        if entry.get("next_check"):
-            next_checks[metric] = entry["next_check"]
     evidence_specs = [
         ("보관 기간", components["storage_days"], "일", components["storage_score"], 40),
         (
@@ -338,7 +339,7 @@ def _make_diagnosis_detail(
     for metric, value, unit, contribution, maximum in evidence_specs:
         if value is None:
             continue
-        meaning = explanations.get(metric) or f"{metric}의 서버 저장 분석값입니다."
+        meaning = explanations.get(metric) or _placeholder_meaning(metric)
         evidence.append({
             "metric": metric,
             "evidence_ref": STRATEGY_METRIC_REFS[metric],
@@ -347,7 +348,6 @@ def _make_diagnosis_detail(
             "score_contribution": contribution,
             "score_maximum": maximum,
             "meaning": meaning,
-            **({"next_check": next_checks[metric]} if metric in next_checks else {}),
         })
 
     return {
@@ -405,15 +405,15 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
         item["meaning"].strip()
         for item in primary
         if item.get("meaning", "").strip()
+        and item["meaning"].strip() != _placeholder_meaning(item.get("metric", ""))
+        and not (
+            item.get("metric") == "보관 기간"
+            and item["meaning"].strip().rstrip(".。") == "보관 중인 재고의 기간을 나타냅니다"
+        )
     ))
     if is_ai_explanation and explanations:
         lines.append(" ".join(explanations))
 
-    next_checks = list(dict.fromkeys(
-        item["next_check"].strip()
-        for item in primary
-        if item.get("next_check", "").strip()
-    ))
     if grade in {"장기", "악성"}:
         lines.extend((
             "처분 제안",
@@ -501,22 +501,15 @@ def _validate_cached_diagnosis(
         if not isinstance(cached_item, dict) or set(cached_item) != {
             *server_fields,
             "meaning",
-            "next_check",
         }:
             return None
         if any(cached_item[field] != expected_item[field] for field in server_fields):
             return None
 
-        next_check = cached_item["next_check"]
-        if next_check is None:
-            if cached_item["meaning"] != expected_item["meaning"]:
-                return None
-            continue
         ai_evidence.append({
             "metric": cached_item["metric"],
             "evidence_ref": cached_item["evidence_ref"],
             "meaning": cached_item["meaning"],
-            "next_check": next_check,
         })
 
     try:
@@ -525,6 +518,9 @@ def _validate_cached_diagnosis(
     except (ValueError, TypeError):
         return None
     except Exception:
+        return None
+    # Cached text is shown as-is, so any dropped entry invalidates the cache.
+    if len(validated_ai_result.evidence) != len(ai_evidence):
         return None
 
     validated_result = dict(cached_result)
