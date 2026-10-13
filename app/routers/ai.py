@@ -170,7 +170,8 @@ async def _diagnose(product_data: dict[str, Any], user_id: int, request: Request
         )
     except LLMFailure as exc:
         logger.warning(
-            "AI diagnosis unavailable",
+            "AI diagnosis unavailable (failure_code=%s)",
+            exc.failure_code,
             extra={"user_id": user_id, "failure_code": exc.failure_code},
         )
         ai_result = {"status": "분석 오류", "failure_code": exc.failure_code}
@@ -275,6 +276,10 @@ def _diagnosis_cache_hash(data: dict[str, Any]) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _placeholder_meaning(metric: str) -> str:
+    return f"{metric}의 서버 저장 분석값입니다."
+
+
 def _make_diagnosis_detail(
     ai_result: dict[str, Any],
     context: dict[str, Any],
@@ -289,7 +294,6 @@ def _make_diagnosis_detail(
         headline += f" · 위험점수 {score:g}점"
 
     explanations = {}
-    next_checks = {}
     for entry in ai_result.get("evidence", []):
         if not isinstance(entry, dict):
             continue
@@ -307,8 +311,6 @@ def _make_diagnosis_detail(
             continue
         if entry.get("meaning"):
             explanations[metric] = entry["meaning"]
-        if entry.get("next_check"):
-            next_checks[metric] = entry["next_check"]
     evidence_specs = [
         ("보관 기간", components["storage_days"], "일", components["storage_score"], 40),
         (
@@ -337,7 +339,7 @@ def _make_diagnosis_detail(
     for metric, value, unit, contribution, maximum in evidence_specs:
         if value is None:
             continue
-        meaning = explanations.get(metric) or f"{metric}의 서버 저장 분석값입니다."
+        meaning = explanations.get(metric) or _placeholder_meaning(metric)
         evidence.append({
             "metric": metric,
             "evidence_ref": STRATEGY_METRIC_REFS[metric],
@@ -346,7 +348,6 @@ def _make_diagnosis_detail(
             "score_contribution": contribution,
             "score_maximum": maximum,
             "meaning": meaning,
-            "next_check": next_checks.get(metric),
         })
 
     return {
@@ -363,19 +364,16 @@ def _make_fallback_diagnosis(context: dict[str, Any], risk_grade: str) -> dict[s
                 "metric": "보관 기간",
                 "evidence_ref": STRATEGY_METRIC_REFS["보관 기간"],
                 "meaning": "보관 기간이 길어 재고 체류 상태를 확인할 필요가 있습니다.",
-                "next_check": "입고일과 현재 재고 수량을 확인하세요.",
             },
             {
                 "metric": "예상 소진 기간",
                 "evidence_ref": STRATEGY_METRIC_REFS["예상 소진 기간"],
                 "meaning": "예상 소진 기간은 업로드 판매 속도를 기준으로 계산한 값입니다.",
-                "next_check": "업로드한 판매량과 보관 기간이 실제 입력과 맞는지 확인하세요.",
             },
             {
                 "metric": "원가 대비 판매가 차이",
                 "evidence_ref": STRATEGY_METRIC_REFS["원가 대비 판매가 차이"],
                 "meaning": "원가와 업로드 판매가를 비교한 값입니다.",
-                "next_check": "원가와 업로드 판매가를 확인하세요.",
             },
         ],
     }
@@ -407,15 +405,15 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
         item["meaning"].strip()
         for item in primary
         if item.get("meaning", "").strip()
+        and item["meaning"].strip() != _placeholder_meaning(item.get("metric", ""))
+        and not (
+            item.get("metric") == "보관 기간"
+            and item["meaning"].strip().rstrip(".。") == "보관 중인 재고의 기간을 나타냅니다"
+        )
     ))
     if is_ai_explanation and explanations:
         lines.append(" ".join(explanations))
 
-    next_checks = list(dict.fromkeys(
-        item["next_check"].strip()
-        for item in primary
-        if item.get("next_check", "").strip()
-    ))
     if grade in {"장기", "악성"}:
         lines.extend((
             "처분 제안",
@@ -503,22 +501,15 @@ def _validate_cached_diagnosis(
         if not isinstance(cached_item, dict) or set(cached_item) != {
             *server_fields,
             "meaning",
-            "next_check",
         }:
             return None
         if any(cached_item[field] != expected_item[field] for field in server_fields):
             return None
 
-        next_check = cached_item["next_check"]
-        if next_check is None:
-            if cached_item["meaning"] != expected_item["meaning"]:
-                return None
-            continue
         ai_evidence.append({
             "metric": cached_item["metric"],
             "evidence_ref": cached_item["evidence_ref"],
             "meaning": cached_item["meaning"],
-            "next_check": next_check,
         })
 
     try:
@@ -527,6 +518,9 @@ def _validate_cached_diagnosis(
     except (ValueError, TypeError):
         return None
     except Exception:
+        return None
+    # Cached text is shown as-is, so any dropped entry invalidates the cache.
+    if len(validated_ai_result.evidence) != len(ai_evidence):
         return None
 
     validated_result = dict(cached_result)

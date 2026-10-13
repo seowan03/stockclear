@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+
+
 <html lang="ko">
 <head>
 
@@ -185,6 +187,12 @@
                                 <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-4 space-y-1"><span class="text-xs text-gray-400">권장 판매가</span><p id="exportDetailRecommendedPrice" class="text-2xl font-bold text-blue-400 whitespace-nowrap tabular-nums">-</p></div>
                             </div>
                             <p id="exportDetailDiagnosis" class="rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3 text-sm leading-relaxed text-gray-300 whitespace-pre-line break-words">-</p>
+                            <div id="exportDiagnosisFallbackActions" class="hidden flex flex-wrap items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-3">
+                                <p id="exportDiagnosisFallbackMessage" class="text-xs leading-relaxed text-gray-700" role="status" aria-live="polite">AI 설명을 생성하지 못했습니다. 서버 분석 결과는 확인할 수 있으며, 잠시 후 다시 요청할 수 있습니다.</p>
+                                <button id="retryItemDiagnosisButton" type="button" onclick="retryCurrentItemDiagnosis()" class="inline-flex items-center gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-green-700 shadow-sm transition-colors hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 disabled:cursor-wait disabled:opacity-60">
+                                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>AI 설명 다시 시도
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div id="exportHistoryTab" class="hidden space-y-4">
@@ -380,6 +388,7 @@
 
     async function openExportItemDetail(itemId, initialTab = 'detail') {
         activeExportItemId = Number(itemId);
+        document.getElementById('exportDiagnosisFallbackActions').classList.add('hidden');
         const modal = document.getElementById('exportDetailModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
@@ -449,7 +458,11 @@
             document.getElementById('exportDetailRiskGrade').className = `text-xl font-extrabold ${statusClass}`;
             document.getElementById('exportDetailDiscount').textContent = discountMatch ? `${discountMatch[1]}%` : '-';
             document.getElementById('exportDetailRecommendedPrice').textContent = item.recommended_price == null ? '-' : `${formatNumber(item.recommended_price)}원`;
-            document.getElementById('exportDetailDiagnosis').textContent = item.ai_diagnosis || item.action_plans || 'AI 진단 결과가 없습니다.';
+            const diagnosisText = item.ai_diagnosis || item.action_plans || 'AI 진단 결과가 없습니다.';
+            document.getElementById('exportDetailDiagnosis').textContent = diagnosisText;
+            const diagnosisFallback = item.diagnosis_source === 'rule_based_fallback'
+                || diagnosisText.includes('AI 설명을 만들지 못해 서버 분석 기준으로 안내합니다.');
+            document.getElementById('exportDiagnosisFallbackActions').classList.toggle('hidden', !diagnosisFallback);
             document.getElementById('exportDetailHistorySales').textContent = formatNumber(item.sales_qty);
         } catch (error) {
             if (activeExportItemId === Number(itemId)) {
@@ -505,6 +518,10 @@
         const id = Number(itemId);
         if (pendingDiagnoses.has(id)) return;
         pendingDiagnoses.add(id);
+        const fallbackActions = document.getElementById('exportDiagnosisFallbackActions');
+        const retryButton = document.getElementById('retryItemDiagnosisButton');
+        fallbackActions.classList.add('hidden');
+        retryButton.disabled = true;
         const originalLabel = button.innerHTML;
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
@@ -531,6 +548,7 @@
                 item.ai_diagnosis = result.judgment;
                 item.action_plans = result.action_plans;
                 item.recommended_price = result.recommended_price;
+                item.diagnosis_source = result.diagnosis_detail?.source;
             }
             button.closest('tr').cells[3].textContent = result.recommended_price == null
                 ? '-'
@@ -538,11 +556,19 @@
             inventoryDetailsPromise = undefined;
             if (activeExportItemId === id) {
                 await openExportItemDetail(id, 'analysis');
+                if (result.diagnosis_detail?.source === 'rule_based_fallback') {
+                    document.getElementById('exportDiagnosisFallbackMessage').textContent =
+                        'AI 설명을 생성하지 못했습니다. 위험등급·점수·가격은 서버 분석 결과입니다. 잠시 후 다시 요청할 수 있습니다.';
+                    fallbackActions.classList.remove('hidden');
+                }
             }
         } catch (error) {
             const message = error.message || 'AI 진단을 생성하지 못했습니다.';
             if (activeExportItemId === id) {
                 document.getElementById('exportDetailDiagnosis').textContent = message;
+                document.getElementById('exportDiagnosisFallbackMessage').textContent =
+                    '진단 요청에 실패했습니다. 표시 중인 재고 분석 결과를 확인하고 잠시 후 다시 요청해 주세요.';
+                fallbackActions.classList.remove('hidden');
             } else {
                 alert(message);
             }
@@ -551,7 +577,19 @@
             button.disabled = false;
             button.removeAttribute('aria-busy');
             button.innerHTML = originalLabel;
+            retryButton.disabled = false;
         }
+    }
+
+    function retryCurrentItemDiagnosis() {
+        if (activeExportItemId == null) return;
+        const itemIndex = loadedItems.findIndex(
+            item => Number(item.item_id) === Number(activeExportItemId),
+        );
+        if (itemIndex < 0) return;
+        const checkbox = document.querySelector(`.item-checkbox[data-index="${itemIndex}"]`);
+        const trigger = checkbox?.closest('tr')?.querySelector('td:last-child button');
+        if (trigger) diagnoseExportItem(activeExportItemId, trigger);
     }
 
     function closeExportItemDetail() {
