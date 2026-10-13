@@ -115,7 +115,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                 "evidence_refs": ["overview.total_count"],
             },
             "priority_items": [],
-            "limitations": [],
         }
         response = SimpleNamespace(choices=[SimpleNamespace(
             message=SimpleNamespace(content=json.dumps(payload, ensure_ascii=False)),
@@ -148,7 +147,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                 "evidence_refs": ["overview.unavailable_metric"],
             },
             "priority_items": [],
-            "limitations": [],
         }
         response = SimpleNamespace(choices=[SimpleNamespace(
             message=SimpleNamespace(content=json.dumps(payload, ensure_ascii=False)),
@@ -196,7 +194,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                 }
                 for item in items
             ],
-            "limitations": [],
         }
         response = SimpleNamespace(choices=[SimpleNamespace(
             message=SimpleNamespace(content=json.dumps(payload, ensure_ascii=False)),
@@ -235,7 +232,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                     "analysis": "위험점수 80점으로 우선 확인이 필요합니다.",
                     "evidence_refs": ["item.1.risk_score"],
                 }],
-                "limitations": [],
             },
             {
                 "overview": {
@@ -247,7 +243,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                     "analysis": "장기 재고 상태라 우선 관리가 필요합니다.",
                     "evidence_refs": ["item.1.risk_score"],
                 }],
-                "limitations": [],
             },
         ]
         responses = [
@@ -294,7 +289,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                 "analysis": "판매량이 증가 추세를 보입니다.",
                 "evidence_refs": ["item.1.risk_score"],
             }],
-            "limitations": [],
         }
         response = SimpleNamespace(choices=[SimpleNamespace(
             message=SimpleNamespace(content=json.dumps(payload, ensure_ascii=False)),
@@ -349,10 +343,6 @@ class UploadSummaryValidationLogTests(unittest.TestCase):
                 }
                 for item in items
             ],
-            "limitations": [{
-                "limitation_ref": "data_quality.actual_order_history_available",
-                "explanation": "Red Chair의 실제 주문 이력이 없습니다.",
-            }],
         }
         response = SimpleNamespace(choices=[SimpleNamespace(
             message=SimpleNamespace(content=json.dumps(payload, ensure_ascii=False)),
