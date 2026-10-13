@@ -13,6 +13,12 @@ from app.services.daily_inventory_service import replace_daily_inventory_metrics
 from app.services.mock_market_price import generate_mock_market_price
 
 
+def lock_user_for_inventory_write(db: Session, user_id: int) -> None:
+    db.query(User.user_id).filter(
+        User.user_id == user_id,
+    ).with_for_update().first()
+
+
 def save_inventory_analysis(
     db: Session,
     user_id: int,
@@ -23,7 +29,7 @@ def save_inventory_analysis(
 ) -> None:
     now = datetime.utcnow()
     price_rng = rng if rng is not None else np.random.default_rng()
-    db.query(User).filter(User.user_id == user_id).with_for_update().first()
+    lock_user_for_inventory_write(db, user_id)
 
     rows_by_key = {}
     for _, row in df.iterrows():
@@ -117,7 +123,7 @@ def save_inventory_analysis(
 
 
 def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatchUpdate) -> list[dict]:
-    db.query(User).filter(User.user_id == user_id).with_for_update().first()
+    lock_user_for_inventory_write(db, user_id)
     edits = payload.items
     item_ids = [edit.item_id for edit in edits]
     if len(set(item_ids)) != len(item_ids):

@@ -239,6 +239,16 @@
           throw new Error(result.detail || '업로드 처리 중 오류가 발생했습니다.');
         }
 
+        if (result.ai_summary_status === 'failed') {
+          showUploadStatus(
+            result.ai_summary_message || '파일 업로드와 재고 분석은 완료됐지만 AI 요약을 만들지 못했습니다. 내보내기 화면에서 다시 생성할 수 있습니다.',
+            true,
+          );
+          submitButton.disabled = false;
+          submitButton.classList.remove('opacity-60', 'cursor-not-allowed');
+          return;
+        }
+
         showUploadStatus('분석이 완료되었습니다. 대시보드로 이동합니다.');
         window.location.href = 'dashboard.html';
       } catch (error) {

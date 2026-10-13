@@ -118,7 +118,14 @@ class AIStrategyEvidence(BaseModel):
 class UploadSummaryOverview(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    analysis: str = Field(min_length=1, max_length=800)
+    analysis: str = Field(
+        min_length=1,
+        max_length=800,
+        description=(
+            "정성적 해석만 작성합니다. 숫자, 한글 수량·배수 표현, 점수, 기간, 비율, 금액은 쓰지 않습니다. "
+            "서버가 원본 값을 별도로 표시합니다."
+        ),
+    )
     evidence_refs: list[str] = Field(min_length=1, max_length=5)
 
     @field_validator("analysis")
@@ -131,7 +138,14 @@ class UploadSummaryPriorityItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     item_id: int = Field(gt=0)
-    analysis: str = Field(min_length=1, max_length=500)
+    analysis: str = Field(
+        min_length=1,
+        max_length=500,
+        description=(
+            "정성적 해석만 작성합니다. 숫자, 한글 수량·배수 표현, 점수, 기간, 비율, 금액은 쓰지 않습니다. "
+            "서버가 품목명과 원본 값을 별도로 표시합니다."
+        ),
+    )
     evidence_refs: list[str] = Field(min_length=1, max_length=4)
     next_check: str = Field(min_length=1, max_length=240)
 
@@ -343,6 +357,17 @@ def _validate_upload_summary(
             for ref in item.evidence_refs
         ):
             raise ValueError("AI 품목 진단 근거가 해당 품목 입력과 일치하지 않습니다.")
+        other_product_names = [
+            str(source.get("product_name") or "").strip()
+            for other_item_id, source in priority_items.items()
+            if other_item_id != item.item_id and source.get("product_name")
+        ]
+        if any(
+            _contains_product_name_variant(name, narrative)
+            for name in other_product_names
+            for narrative in (item.analysis, item.next_check)
+        ):
+            raise ValueError("AI 품목 진단에 다른 품목의 상품명이 포함되었습니다.")
         seen_item_ids.add(item.item_id)
 
     data_quality = summary_data.get("data_quality", {})
@@ -359,18 +384,69 @@ def _validate_upload_summary(
     if len(set(limitation_refs)) != len(limitation_refs):
         raise ValueError("데이터 한계 참조가 중복되었습니다.")
 
-    item_names = [
-        str(item.get("product_name") or "").strip()
-        for item in priority_items.values()
-    ]
     narratives = [result.overview.analysis]
     for item in result.priority_items:
         narratives.extend((item.analysis, item.next_check))
     narratives.extend(limitation.explanation for limitation in result.limitations)
     for narrative in narratives:
-        if any(_contains_product_name_variant(name, narrative) for name in item_names if name):
-            raise ValueError("AI 설명 문장에는 상품명을 직접 포함할 수 없습니다.")
         _reject_unsupported_claims(narrative, data_quality)
+
+
+def _replace_invalid_summary_narratives(
+    result_data: dict[str, Any],
+    summary_data: dict[str, Any],
+) -> list[str]:
+    fallback_fields = []
+    _, source_items = _collect_upload_summary_refs(summary_data)
+
+    def needs_fallback(value: str) -> bool:
+        try:
+            _validate_ai_narrative(value)
+        except ValueError:
+            return True
+        return False
+
+    overview = result_data.get("overview")
+    if isinstance(overview, dict) and isinstance(overview.get("analysis"), str):
+        if needs_fallback(overview["analysis"]):
+            overview["analysis"] = "서버 집계 기준으로 전체 재고 현황을 확인했습니다."
+            fallback_fields.append("overview.analysis")
+
+    priority_items = result_data.get("priority_items")
+    if isinstance(priority_items, list):
+        for index, item in enumerate(priority_items):
+            if not isinstance(item, dict):
+                continue
+            field_fallbacks = {
+                "analysis": "서버 분석 기준으로 해당 품목의 재고 상태를 우선 확인하세요.",
+                "next_check": "재고 수량과 입고일을 확인하세요.",
+            }
+            for field, fallback in field_fallbacks.items():
+                if not isinstance(item.get(field), str):
+                    continue
+                item_id = item.get("item_id")
+                other_product_names = [
+                    str(source.get("product_name") or "").strip()
+                    for source_item_id, source in source_items.items()
+                    if source_item_id != item_id and source.get("product_name")
+                ]
+                references_other_product = any(
+                    _contains_product_name_variant(name, item[field])
+                    for name in other_product_names
+                )
+                if needs_fallback(item[field]) or references_other_product:
+                    item[field] = fallback
+                    fallback_fields.append(f"priority_items.{index}.{field}")
+
+    limitations = result_data.get("limitations")
+    if isinstance(limitations, list):
+        for index, limitation in enumerate(limitations):
+            if not isinstance(limitation, dict) or not isinstance(limitation.get("explanation"), str):
+                continue
+            if needs_fallback(limitation["explanation"]):
+                limitation["explanation"] = "해당 자료의 한계를 확인하세요."
+                fallback_fields.append(f"limitations.{index}.explanation")
+    return fallback_fields
 
 
 def _render_upload_summary(
@@ -378,10 +454,13 @@ def _render_upload_summary(
     summary_data: dict[str, Any],
 ) -> str:
     overview = summary_data.get("overview", {})
-    lines = ["전체 현황", result.overview.analysis, "등급 분포"]
+    lines = ["전체 현황", result.overview.analysis]
     risk_grade_counts = overview.get("risk_grade_counts", {})
     if risk_grade_counts:
-        lines.append(" · ".join(f"{grade} {count}개" for grade, count in risk_grade_counts.items()))
+        grade_distribution = " · ".join(
+            f"{grade} {count}개" for grade, count in risk_grade_counts.items()
+        )
+        lines.append(f"등급 분포: {grade_distribution}")
     total_count = overview.get("total_count")
     inventory_value = overview.get("inventory_value_cost_basis")
     if total_count is not None and inventory_value is not None:
@@ -400,27 +479,26 @@ def _render_upload_summary(
         name = str(source.get("product_name") or "이름 없는 품목")
         grade = str(source.get("risk_grade") or "미분류")
         score = source.get("risk_score")
-        facts = f"{name} ({grade}"
+        facts = f"{name} · {grade}"
         if score is not None:
-            facts += f", 위험점수 {score:g}점"
-        facts += ")"
-        lines.append(f"{facts}: {item.analysis}")
-        lines.append(f"확인 제안: {item.next_check}")
+            facts += f" · 위험점수 {score:g}점"
+        lines.extend((facts, item.analysis, f"확인할 점: {item.next_check}"))
 
     lines.append("데이터 한계")
     quality = summary_data.get("data_quality", {})
+    limitations = []
     if quality.get("daily_sales_is_demo"):
-        lines.append("일별 판매량은 시연 데이터일 수 있어 실제 주문 추세를 나타내지 않습니다.")
+        limitations.append("일별 판매량은 시연 데이터이며 실제 주문 추세를 나타내지 않습니다.")
     if quality.get("actual_order_history_available") is False:
-        lines.append("실제 주문 이력이 없어 기간별 판매 추세나 향후 판매량을 판단할 수 없습니다.")
+        limitations.append("실제 주문 이력이 없어 판매 추세나 향후 판매량을 판단할 수 없습니다.")
     if quality.get("actual_market_price_available") is False:
-        lines.append("실제 시장가격 자료가 없어 외부 시세와의 비교는 할 수 없습니다.")
+        limitations.append("실제 시장가격 자료가 없어 외부 시세와 비교할 수 없습니다.")
     if quality.get("actual_cost_breakdown_available") is False:
-        lines.append("원가 외 비용 자료가 없어 이익이나 손익분기 가격을 판단할 수 없습니다.")
+        limitations.append("원가 외 비용 자료가 없어 수익성을 판단할 수 없습니다.")
     if quality.get("actual_lead_time_available") is False:
-        lines.append("실제 리드타임 자료가 없어 발주 시점이나 발주량을 산출할 수 없습니다.")
-    for limitation in result.limitations:
-        lines.append(limitation.explanation)
+        limitations.append("실제 리드타임 자료가 없어 발주 시점이나 수량을 산출할 수 없습니다.")
+    if limitations:
+        lines.append(" ".join(limitations))
 
     return "\n".join(lines)[:3000]
 
@@ -544,7 +622,9 @@ def get_upload_diagnosis_summary(summary_data: dict[str, Any]) -> str:
                     "evidence_refs,next_check}], limitations[{limitation_ref,explanation}] JSON 구조만 "
                     "사용하세요. evidence_refs는 제공된 allowed_evidence_refs에서만 선택하고, "
                     "우선 품목은 입력 priority_items의 item_id만 사용하세요. 각 해석은 실제로 "
-                    "참조한 근거를 연결하세요. 상품명과 숫자는 자유 문장에 넣지 마세요. "
+                    "참조한 근거를 연결하세요. 상품명은 입력된 이름 그대로 문장에 사용할 수 있습니다. "
+                    "overview에는 입력에 있는 이름만, priority_items 문장에는 해당 item_id의 이름만 사용하세요. "
+                    "다른 품목명이나 입력에 없는 이름을 만들지 마세요. 숫자는 자유 문장에 넣지 마세요. "
                     "서버가 검증된 원본 값과 함께 표시합니다. 점수에 반영된 지표를 사업상 원인으로 "
                     "단정하지 말고, '위험점수에 반영된 항목'처럼 계산 관계만 설명하세요. "
                     "'원인', '때문에', '로 인해' 같은 인과 표현은 쓰지 마세요. "
@@ -554,7 +634,11 @@ def get_upload_diagnosis_summary(summary_data: dict[str, Any]) -> str:
                     "next_check는 입력 데이터 확인 같은 조건부 점검으로 제한하세요. "
                     "daily_sales_is_demo가 true면 시연 데이터임을 고려하고 실거래로 묘사하지 마세요. "
                     "limitations는 실제로 값이 누락되거나 시연 데이터인 data_quality 참조만 포함하세요. "
-                    "모든 자유 문장 필드는 숫자를 포함하지 않아야 합니다."
+                        "overview.analysis와 priority_items.analysis는 정성적 해석만 작성하세요. "
+                        "숫자 문자, 한글 수량·배수 표현, 점수·기간·비율·금액을 절대 넣지 마세요. "
+                        "예를 들어 '보관 상태를 우선 확인할 필요가 있습니다'처럼 작성하고, "
+                        "값이나 기준 수치는 반복하지 마세요. 서버가 검증된 원본 값을 별도로 표시합니다. "
+                        "나머지 자유 문장 필드도 숫자와 한글 수량·배수 표현을 사용하지 마세요."
                 ),
             },
             {
@@ -580,14 +664,37 @@ def get_upload_diagnosis_summary(summary_data: dict[str, Any]) -> str:
         result_data = json.loads(result_content)
     except json.JSONDecodeError as exc:
         raise LLMFailure("json_parse_error") from exc
+    fallback_fields = _replace_invalid_summary_narratives(result_data, summary_data)
     try:
         result = UploadDiagnosisSummary.model_validate(result_data)
     except ValidationError as exc:
+        validation_issues = "; ".join(
+            f"{'.'.join(str(part) for part in issue['loc'])}:{issue['type']} ({issue['msg']})"
+            for issue in exc.errors()[:5]
+        )
+        logger.warning(
+            "Upload AI summary response failed schema validation (issues=%s)",
+            validation_issues or "unknown",
+        )
         raise LLMFailure("schema_validation_error") from exc
     try:
         _validate_upload_summary(result, summary_data)
     except ValueError as exc:
+        logger.warning(
+            "Upload AI summary evidence validation failed (reason=%s)",
+            str(exc),
+        )
         raise LLMFailure("evidence_validation_error") from exc
-    return _render_upload_summary(result, summary_data)
+    summary_text = _render_upload_summary(result, summary_data)
+    if fallback_fields:
+        logger.warning(
+            "Upload AI summary narratives replaced with server guidance (fields=%s)",
+            ", ".join(fallback_fields),
+        )
+        return (
+            "일부 AI 설명 문장은 기준 검증을 통과하지 않아 시스템 안내로 대체했습니다.\n"
+            f"{summary_text}"
+        )
+    return summary_text
 
 
