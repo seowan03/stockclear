@@ -170,7 +170,8 @@ async def _diagnose(product_data: dict[str, Any], user_id: int, request: Request
         )
     except LLMFailure as exc:
         logger.warning(
-            "AI diagnosis unavailable",
+            "AI diagnosis unavailable (failure_code=%s)",
+            exc.failure_code,
             extra={"user_id": user_id, "failure_code": exc.failure_code},
         )
         ai_result = {"status": "분석 오류", "failure_code": exc.failure_code}
@@ -346,7 +347,7 @@ def _make_diagnosis_detail(
             "score_contribution": contribution,
             "score_maximum": maximum,
             "meaning": meaning,
-            "next_check": next_checks.get(metric),
+            **({"next_check": next_checks[metric]} if metric in next_checks else {}),
         })
 
     return {
@@ -363,19 +364,16 @@ def _make_fallback_diagnosis(context: dict[str, Any], risk_grade: str) -> dict[s
                 "metric": "보관 기간",
                 "evidence_ref": STRATEGY_METRIC_REFS["보관 기간"],
                 "meaning": "보관 기간이 길어 재고 체류 상태를 확인할 필요가 있습니다.",
-                "next_check": "입고일과 현재 재고 수량을 확인하세요.",
             },
             {
                 "metric": "예상 소진 기간",
                 "evidence_ref": STRATEGY_METRIC_REFS["예상 소진 기간"],
                 "meaning": "예상 소진 기간은 업로드 판매 속도를 기준으로 계산한 값입니다.",
-                "next_check": "업로드한 판매량과 보관 기간이 실제 입력과 맞는지 확인하세요.",
             },
             {
                 "metric": "원가 대비 판매가 차이",
                 "evidence_ref": STRATEGY_METRIC_REFS["원가 대비 판매가 차이"],
                 "meaning": "원가와 업로드 판매가를 비교한 값입니다.",
-                "next_check": "원가와 업로드 판매가를 확인하세요.",
             },
         ],
     }
