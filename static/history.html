@@ -127,14 +127,6 @@
   async function loadHistory() {
     const tbody = document.getElementById('historyTableBody');
     try {
-      const sessionResponse = await fetch('/api/auth/me', { credentials: 'include' });
-      const session = await sessionResponse.json();
-      if (!sessionResponse.ok || !session.logged_in) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">로그인 후 이용 가능합니다. <a href="signin.html" class="text-blue-400 hover:underline">로그인하기</a></td></tr>`;
-        updateCount();
-        return;
-      }
-
       const res = await fetch('/api/history', { credentials: 'include' });
       if (res.status === 401) {
         tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">로그인 후 이용 가능합니다. <a href="signin.html" class="text-blue-400 hover:underline">로그인하기</a></td></tr>`;

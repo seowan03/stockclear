@@ -31,6 +31,10 @@ class User(Base):
 
 class RawInventory(Base):
   __tablename__ = "raw_inventory"
+  __table_args__ = (
+    Index("ix_raw_inventory_user_deleted", "user_id", "is_deleted"),
+    Index("ix_raw_inventory_user_batch", "user_id", "upload_batch_id"),
+  )
 
   item_id = Column(Integer, primary_key=True, autoincrement=True)
   user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE", name="fk_raw_inventory_user"), nullable=False)
@@ -107,6 +111,9 @@ class AnalysisResult(Base):
 
 class UploadHistory(Base):
   __tablename__ = "upload_files"
+  __table_args__ = (
+    Index("ix_upload_files_user_date", "user_id", "upload_date"),
+  )
 
   id = Column(Integer, primary_key=True, autoincrement=True)
   user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE", name="fk_upload_files_user"), nullable=False)
@@ -119,6 +126,9 @@ class UploadHistory(Base):
 
 class UploadAnalysisSummary(Base):
   __tablename__ = "upload_analysis_summaries"
+  __table_args__ = (
+    Index("ix_upload_summaries_user_generated", "user_id", "generated_at"),
+  )
 
   summary_id = Column(Integer, primary_key=True, autoincrement=True)
   upload_id = Column(Integer, ForeignKey("upload_files.id"), nullable=False, unique=True)
@@ -142,6 +152,9 @@ class StrategyAction(Base):
 
 class CustomerInquiry(Base):
   __tablename__ = "customer_inquiries"
+  __table_args__ = (
+    Index("ix_customer_inquiries_status_created", "status", "created_at"),
+  )
 
   inquiry_id = Column(Integer, primary_key=True, autoincrement=True)
   user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)

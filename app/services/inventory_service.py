@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from fastapi import HTTPException
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.analysis import analyze_inventory
 from app.models import AnalysisResult, RawInventory, UploadAnalysisSummary, UploadHistory, User
@@ -32,7 +32,7 @@ def save_inventory_analysis(
     lock_user_for_inventory_write(db, user_id)
 
     rows_by_key = {}
-    for _, row in df.iterrows():
+    for row in df.to_dict("records"):
         product_name = str(row["product_name"]).strip()
         rows_by_key[product_name] = row
 
@@ -112,14 +112,10 @@ def save_inventory_analysis(
         analysis.diagnosis_input_hash = None
         analysis.diagnosis_cache = None
         analysis.updated_at = now
-        replace_daily_inventory_metrics(
-            db,
-            user_id,
-            raw_row.item_id,
-            raw_row.inbound_date,
-            raw_row.market_price,
-            raw_row.stock_qty,
-        )
+    replace_daily_inventory_metrics(db, user_id, [
+        (raw_row.item_id, raw_row.inbound_date, raw_row.market_price, raw_row.stock_qty)
+        for raw_row, _ in saved_rows
+    ])
 
 
 def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatchUpdate) -> list[dict]:
@@ -162,7 +158,12 @@ def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatch
     } for edit in edits]))
     now = datetime.utcnow()
     results = []
-    for edit, (_, values) in zip(edits, analyzed.iterrows()):
+    analysis_by_item_id = {}
+    for analysis in db.query(AnalysisResult).filter(
+        AnalysisResult.item_id.in_(item_ids),
+    ).order_by(AnalysisResult.result_id).all():
+        analysis_by_item_id.setdefault(analysis.item_id, analysis)
+    for edit, values in zip(edits, analyzed.to_dict("records")):
         current = by_id[edit.item_id]
         price_changed = current.market_price != edit.selling_price
         updated = db.query(RawInventory).filter(
@@ -184,7 +185,7 @@ def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatch
         if updated != 1:
             raise HTTPException(status_code=409, detail="재고가 변경되었습니다. 새로고침 후 다시 수정해 주세요.")
 
-        analysis = db.query(AnalysisResult).filter(AnalysisResult.item_id == edit.item_id).first()
+        analysis = analysis_by_item_id.get(edit.item_id)
         if analysis is None:
             analysis = AnalysisResult(item_id=edit.item_id)
             db.add(analysis)
@@ -201,15 +202,11 @@ def update_inventory_grid(db: Session, user_id: int, payload: InventoryGridBatch
         analysis.diagnosis_input_hash = None
         analysis.diagnosis_cache = None
         analysis.updated_at = now
-        replace_daily_inventory_metrics(
-            db,
-            user_id,
-            edit.item_id,
-            edit.received_date,
-            edit.selling_price,
-            edit.stock_qty,
-        )
         results.append({"item_id": edit.item_id, "version": edit.version + 1})
+    replace_daily_inventory_metrics(db, user_id, [
+        (edit.item_id, edit.received_date, edit.selling_price, edit.stock_qty)
+        for edit in edits
+    ])
 
     db.query(UploadAnalysisSummary).filter(
         UploadAnalysisSummary.user_id == user_id,
@@ -250,6 +247,8 @@ def query_user_analysis(
         db.query(AnalysisResult, RawInventory)
         .join(RawInventory, AnalysisResult.item_id == RawInventory.item_id)
         .filter(RawInventory.user_id == user_id)
+        # The AI cache JSON is only read by the single-item diagnose endpoint.
+        .options(defer(AnalysisResult.diagnosis_cache))
     )
     if not include_deleted:
         query = query.filter(RawInventory.is_deleted.is_(False))
@@ -272,7 +271,7 @@ def make_user_summary_input(db: Session, user_id: int) -> dict:
     rows = db.query(RawInventory, AnalysisResult).outerjoin(
         AnalysisResult,
         AnalysisResult.item_id == RawInventory.item_id,
-    ).filter(
+    ).options(defer(AnalysisResult.diagnosis_cache)).filter(
         RawInventory.user_id == user_id,
         RawInventory.is_deleted.is_(False),
     ).all()
