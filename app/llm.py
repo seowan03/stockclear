@@ -5,7 +5,7 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 from threading import BoundedSemaphore, Lock
-from typing import Any, Callable, Literal
+from typing import Annotated, Any, Callable, Literal
 
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -87,6 +87,7 @@ class AIStrategy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     evidence: list["AIStrategyEvidence"] = Field(min_length=1, max_length=4)
+    checks: list[Annotated[str, Field(min_length=1, max_length=80)]] = Field(max_length=3)
 
 
 class AIStrategyEvidence(BaseModel):
@@ -154,6 +155,16 @@ STRATEGY_METRIC_REFS = {
     "원가 대비 판매가 차이": "analysis.risk_score_components.depreciation_rate",
 }
 STRATEGY_METRIC_REF_GUIDE = ", ".join(f"{metric}={ref}" for metric, ref in STRATEGY_METRIC_REFS.items())
+# Placeholder token -> (input path, display unit); the server substitutes verified values.
+STRATEGY_PLACEHOLDERS = {
+    "storage_days": ("analysis.risk_score_components.storage_days", "일"),
+    "sales_velocity": ("analysis.sales_velocity_uploaded_basis", "개/일"),
+    "days_to_sell": ("analysis.risk_score_components.days_to_sell", "일"),
+    "depreciation_rate": ("analysis.risk_score_components.depreciation_rate", "%"),
+}
+STRATEGY_PLACEHOLDER_GUIDE = ", ".join(f"{{{token}}}" for token in STRATEGY_PLACEHOLDERS)
+PLACEHOLDER_PATTERN = re.compile(r"\{([A-Za-z_]+)\}")
+PLACEHOLDER_UNIT_SUFFIX_PATTERN = re.compile(r"\}\s*(?:일|개|%|퍼센트)")
 # Two attempts must finish within the router's 12-second AI_REQUEST_TIMEOUT_SECONDS.
 STRATEGY_REQUEST_TIMEOUT_SECONDS = 5.5
 STRATEGY_CORRECTION_BY_FAILURE = {
@@ -162,7 +173,7 @@ STRATEGY_CORRECTION_BY_FAILURE = {
     "json_parse_error": "JSON 형식에 맞는 결과만 반환하세요.",
     "schema_validation_error": "필수 필드와 허용된 값만 사용해 지정된 스키마를 정확히 따르세요.",
     "evidence_validation_error": (
-        "입력에 값이 있는 지표만 한 번씩 사용하고, 숫자·상품명·"
+        "입력에 값이 있는 지표만 한 번씩 사용하고, 숫자를 직접 쓰지 말고 허용된 자리표시자만 쓰세요. 상품명과 "
         "확인되지 않은 추세나 인과 주장을 설명 문장에 넣지 마세요. 지표의 사전적 정의를 반복하지 말고, "
         "점수에 반영된다는 일반 문구도 반복하지 말고, 이 품목의 값이 실제 재고 상태에서 "
         "무엇을 의미하는지 설명하세요."
@@ -310,13 +321,62 @@ def _validate_strategy_evidence(result: AIStrategy, product_data: dict[str, Any]
         raise first_narrative_error or ValueError("AI 진단 근거가 없습니다.")
     result.evidence = valid_evidence
 
+    valid_checks: list[str] = []
+    for check in result.checks:
+        try:
+            text = _validate_strategy_check(check, product_name, product_data)
+        except ValueError:
+            continue
+        if text not in valid_checks:
+            valid_checks.append(text)
+    result.checks = valid_checks
+
+
+def _validate_placeholders(value: str, product_data: dict[str, Any]) -> None:
+    for token in PLACEHOLDER_PATTERN.findall(value):
+        if token not in STRATEGY_PLACEHOLDERS:
+            raise ValueError(f"허용되지 않은 자리표시자를 사용했습니다: {token}")
+        if _get_nested_value(product_data, STRATEGY_PLACEHOLDERS[token][0]) is None:
+            raise ValueError(f"입력에 값이 없는 자리표시자를 사용했습니다: {token}")
+    if re.search(r"[{}]", PLACEHOLDER_PATTERN.sub("", value)):
+        raise ValueError("자리표시자 형식이 올바르지 않습니다.")
+    if PLACEHOLDER_UNIT_SUFFIX_PATTERN.search(value):
+        raise ValueError("자리표시자 뒤에 단위를 붙이지 마세요. 서버가 단위를 붙입니다.")
+
+
+def _format_placeholder_value(value: Any, unit: str) -> str:
+    number = float(value)
+    text = f"{int(number):,}" if number.is_integer() else f"{number:,.1f}"
+    return f"{text}{unit}"
+
+
+def render_strategy_text(value: str, product_data: dict[str, Any]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        path, unit = STRATEGY_PLACEHOLDERS[match.group(1)]
+        return _format_placeholder_value(_get_nested_value(product_data, path), unit)
+
+    return PLACEHOLDER_PATTERN.sub(replace, value)
+
+
+def _validate_strategy_check(value: str, product_name: str, product_data: dict[str, Any]) -> str:
+    text = _validate_ai_narrative(value)
+    if re.search(r"[{}]", text):
+        raise ValueError("확인 항목에는 자리표시자를 쓸 수 없습니다.")
+    if product_name and _contains_product_name_variant(product_name, text):
+        raise ValueError("확인 항목에는 상품명을 직접 포함할 수 없습니다.")
+    _reject_unsupported_claims(text, product_data.get("data_quality", {}))
+    return text
+
 
 def _validate_strategy_meaning(
     evidence: AIStrategyEvidence,
     product_name: str,
     product_data: dict[str, Any],
 ) -> None:
-    if product_name and _contains_product_name_variant(product_name, evidence.meaning):
+    _validate_placeholders(evidence.meaning, product_data)
+    if product_name and _contains_product_name_variant(
+        product_name, PLACEHOLDER_PATTERN.sub(" ", evidence.meaning)
+    ):
         raise ValueError("AI 설명 문장에는 상품명을 직접 포함할 수 없습니다.")
     metric_subject = re.match(
         rf"^\s*{re.escape(evidence.metric)}\s*(?:은|는)",
@@ -616,8 +676,16 @@ def get_ai_strategy(product_data: dict[str, Any]) -> dict[str, Any]:
                 "'판매가가 원가보다 낮아 원가 회수에 불리한 상태입니다'. "
                 "예를 들어 '상품이 현재 재고로 보관되어 있던 기간입니다', '현재 재고가 예상 소진되는 기간입니다', "
                 "'원가와 판매가 간의 차이를 나타내는 비율입니다' 같은 정의 문장은 쓰지 마세요. "
-                "설명과 점검 문장에는 숫자와 상품명을 쓰지 마세요. 서버가 별도로 표시합니다. "
-                "각 evidence는 metric, meaning을 반환하세요. 지표별 입력 위치는 "
+                "설명과 확인 항목에는 숫자를 직접 쓰지 마세요. 값을 말해야 하면 설명(meaning)에서만 "
+                f"{STRATEGY_PLACEHOLDER_GUIDE} 자리표시자를 쓰세요. 서버가 검증된 값과 단위로 바꿉니다. "
+                "자리표시자 뒤에 단위를 붙이지 말고, 입력에 값이 없는 지표의 자리표시자는 쓰지 마세요. "
+                "필요하면 다른 지표의 자리표시자를 함께 써서 두 지표를 엮어 해석해도 됩니다. "
+                "예: '재고가 {storage_days} 동안 머물러 있고 예상 소진 기간도 {days_to_sell}로 길어 정리 시점을 앞당겨 검토할 필요가 있습니다'. "
+                "설명과 확인 항목에는 상품명을 쓰지 마세요. 서버가 별도로 표시합니다. "
+                "각 evidence는 metric, meaning을 반환하세요. "
+                "checks에는 사용자가 직접 할 수 있는 확인 행동을 한두 문장으로 하나에서 세 개 쓰세요. "
+                "이 품목의 지표에 맞춰 재고 수량, 입고일, 보관 상태, 업로드한 판매가·원가 확인 범위로 구체적으로 쓰세요. "
+                "지표별 입력 위치는 "
                 f"{STRATEGY_METRIC_REF_GUIDE}입니다. 입력에 값이 없는 지표는 "
                 "반환하지 마세요."
             ),

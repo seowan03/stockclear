@@ -17,6 +17,7 @@ from app.llm import (
     STRATEGY_METRIC_REFS,
     _validate_strategy_evidence,
     get_ai_strategy,
+    render_strategy_text,
     run_llm_with_timeout,
 )
 from app.models import RawInventory, User
@@ -31,7 +32,7 @@ AI_RATE_LIMIT_MAX_CALLS = 20
 AI_RATE_LIMIT_SWEEP_THRESHOLD = 1_000
 AI_INPUT_MAX_CHARS = 3_000
 AI_REQUEST_TIMEOUT_SECONDS = 12
-DIAGNOSIS_CACHE_VERSION = "v7"
+DIAGNOSIS_CACHE_VERSION = "v8"
 _ai_request_history: dict[str, deque[float]] = defaultdict(deque)
 
 
@@ -186,12 +187,15 @@ async def _diagnose(
 
     if ai_result.get("status") == "분석 오류":
         diagnosis_detail = _make_fallback_diagnosis(context, recommendation["status"])
+        ai_strategy = None
     else:
         diagnosis_detail = _make_diagnosis_detail(ai_result, context, recommendation["status"])
+        ai_strategy = ai_result
 
     result = {
         **recommendation,
         "diagnosis_detail": diagnosis_detail,
+        "ai_strategy": ai_strategy,
     }
     result = _apply_price_floors(result, product_data)
     result["comment"] = _format_diagnosis_comment(result)
@@ -333,7 +337,8 @@ def _make_diagnosis_detail(
     for metric, value, unit, contribution, maximum in evidence_specs:
         if value is None:
             continue
-        meaning = explanations.get(metric) or _placeholder_meaning(metric)
+        meaning = explanations.get(metric)
+        meaning = render_strategy_text(meaning, context) if meaning else _placeholder_meaning(metric)
         evidence.append({
             "metric": metric,
             "evidence_ref": STRATEGY_METRIC_REFS[metric],
@@ -348,6 +353,7 @@ def _make_diagnosis_detail(
         "source": "ai_explanation",
         "headline": headline,
         "evidence": evidence,
+        "checks": [check for check in ai_result.get("checks", []) if isinstance(check, str) and check],
     }
 
 
@@ -384,6 +390,9 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
     ))
     if is_ai_explanation and explanations:
         lines.append(" ".join(explanations))
+    if is_ai_explanation and detail.get("checks"):
+        lines.append("AI 확인 항목")
+        lines.extend(f"- {_ensure_sentence_ending(check)}" for check in detail["checks"])
 
     if grade in {"장기", "악성"}:
         lines.extend((
@@ -427,6 +436,7 @@ def _validate_cached_diagnosis(
         "diagnosis_detail",
         "recommendation_source",
         "price_limit_notice",
+        "ai_strategy",
     }
     if not isinstance(cached_result, dict) or set(cached_result) != required_fields:
         return None
@@ -443,54 +453,20 @@ def _validate_cached_diagnosis(
         if cached_result[field] != expected_pricing.get(field):
             return None
 
-    expected_detail = _make_diagnosis_detail({"evidence": []}, context, expected_pricing["status"])
-    cached_detail = cached_result.get("diagnosis_detail")
-    if not isinstance(cached_detail, dict) or set(cached_detail) != {"source", "headline", "evidence"}:
-        return None
-    if cached_detail.get("source") != "ai_explanation":
-        return None
-    if cached_detail.get("headline") != expected_detail["headline"]:
-        return None
-
-    cached_evidence = cached_detail.get("evidence")
-    expected_evidence = expected_detail["evidence"]
-    if not isinstance(cached_evidence, list) or len(cached_evidence) != len(expected_evidence):
-        return None
-
-    ai_evidence = []
-    server_fields = (
-        "metric",
-        "evidence_ref",
-        "value",
-        "unit",
-        "score_contribution",
-        "score_maximum",
-    )
-    for cached_item, expected_item in zip(cached_evidence, expected_evidence):
-        if not isinstance(cached_item, dict) or set(cached_item) != {
-            *server_fields,
-            "meaning",
-        }:
-            return None
-        if any(cached_item[field] != expected_item[field] for field in server_fields):
-            return None
-
-        ai_evidence.append({
-            "metric": cached_item["metric"],
-            "meaning": cached_item["meaning"],
-        })
-
+    ai_strategy = cached_result.get("ai_strategy")
     try:
-        validated_ai_result = AIStrategy.model_validate({"evidence": ai_evidence})
+        validated_ai_result = AIStrategy.model_validate(ai_strategy)
         _validate_strategy_evidence(validated_ai_result, context)
     except Exception:
         return None
     # Cached text is shown as-is, so any dropped entry invalidates the cache.
-    if len(validated_ai_result.evidence) != len(ai_evidence):
+    if validated_ai_result.model_dump() != ai_strategy:
+        return None
+    expected_detail = _make_diagnosis_detail(ai_strategy, context, expected_pricing["status"])
+    if cached_result.get("diagnosis_detail") != expected_detail:
         return None
 
     validated_result = dict(cached_result)
-    validated_result["diagnosis_detail"] = cached_detail
     validated_result["comment"] = _format_diagnosis_comment(validated_result)
     return validated_result
 
