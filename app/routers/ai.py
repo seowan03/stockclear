@@ -148,7 +148,10 @@ def _apply_price_floors(result: dict[str, Any], product_data: dict[str, Any]) ->
             selling_price * (Decimal("1") - applied_discount / Decimal("100")),
             purchase_price,
         )
-        notice = f"원가 이하로 내려가지 않도록 할인율을 {applied_discount:g}%로 제한했습니다."
+        notice = (
+            f"원가 이하로 내려가지 않도록 할인율을 {applied_discount:g}%로 제한했습니다. "
+            "실제 시세 자료가 없어 원가 이하 처분 여부는 담당자가 판단해 주세요."
+        )
     else:
         applied_discount = requested_discount
         recommended_price = proposed_price
@@ -365,7 +368,6 @@ def _make_fallback_diagnosis(context: dict[str, Any], risk_grade: str) -> dict[s
 
 def _format_diagnosis_comment(result: dict[str, Any]) -> str:
     detail = result["diagnosis_detail"]
-    grade = result.get("status")
     is_ai_explanation = detail["source"] == "ai_explanation"
     lines = [detail["headline"]]
     if not is_ai_explanation:
@@ -373,12 +375,12 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
 
     evidence = detail["evidence"]
     primary = [item for item in evidence if (item.get("score_contribution") or 0) > 0]
+    lines.append("위험점수 반영 항목")
     if primary:
-        score_factors = ", ".join(
+        lines.append(" · ".join(
             f"{item['metric']} {float(item['value']):g}{item['unit']}"
             for item in primary
-        )
-        lines.append(f"위험점수에는 {score_factors}이 반영됐습니다.")
+        ))
     else:
         lines.append("현재 분석에서 위험점수에 반영된 주요 항목은 없습니다.")
 
@@ -389,37 +391,22 @@ def _format_diagnosis_comment(result: dict[str, Any]) -> str:
         and item["meaning"].strip() != _placeholder_meaning(item.get("metric", ""))
     ))
     if is_ai_explanation and explanations:
+        lines.append("AI 해석")
         lines.append(" ".join(explanations))
     if is_ai_explanation and detail.get("checks"):
         lines.append("AI 확인 항목")
         lines.extend(f"- {_ensure_sentence_ending(check)}" for check in detail["checks"])
 
-    if grade in {"장기", "악성"}:
-        lines.extend((
-            "처분 제안",
-            "운영 중인 정리 판매나 기획전이 있다면 이 상품을 후보에 올려보세요. 먼저 실재고와 판매 가능 여부를 확인하세요.",
-            "판매 페이지의 판매 상태, 재고 수량, 상품 정보도 함께 점검해 보세요.",
-        ))
-    elif grade == "주의":
-        lines.extend((
-            "현재는 처분보다 판매 상태와 재고 수량, 상품 정보를 먼저 점검해 보세요.",
-        ))
-    else:
-        lines.append("현재 분석 기준에서 우선 처분을 권할 품목은 아닙니다.")
-
+    lines.append("가격 참고값")
     if result.get("recommended_price") is not None:
         lines.append(
-            f"가격 참고값은 할인율 {result['recommended_discount']:g}%, "
-            f"판매가 {result['recommended_price']:,.0f}원입니다."
+            f"할인율 {result['recommended_discount']:g}% · "
+            f"판매가 {result['recommended_price']:,.0f}원"
         )
         if result.get("price_limit_notice"):
             lines.append(result["price_limit_notice"])
     else:
-        lines.append(f"규칙 기준 참고 할인율은 {result['recommended_discount']:g}%입니다.")
-    lines.append(
-        "업로드 판매 속도는 입력값 기준이라 최근 판매 흐름을 뜻하지 않습니다. "
-        "실제 주문·시장 반응·전체 비용 자료가 없어 판매 증가나 수익 개선은 예상할 수 없습니다."
-    )
+        lines.append(f"규칙 기준 할인율 {result['recommended_discount']:g}%")
     return "\n".join(lines)
 
 
