@@ -36,6 +36,4 @@ def read_sell_page():
     return RedirectResponse("/sellpage/Sellpage.html")
 
 
-app.mount("/js", StaticFiles(directory="js"), name="js")
-app.mount("/css", StaticFiles(directory="css"), name="css")
 app.mount("/", StaticFiles(directory="static"), name="static")
